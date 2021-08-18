@@ -31,14 +31,16 @@ weaponry = {':bow_and_arrow:': {'attack': 37, 'speed': 6, 'range': 26, 'defense'
                                             'and heal by the damage dealt'},
             ':broom:': {'attack': 35, 'speed': 7, 'range': 2, 'defense': 41,
                         'passive': ':trident:',
-                        'description': '**Theft**: Steal 30% of enemy defense and attack'},
+                        'description': '**Theft**: Steal 30% of enemy defense and attack. additionally,'
+                                       ' 20% chance to trigger again'},
             ':door:': {'attack': 26, 'speed': 2, 'range': 4, 'defense': 52,
                        'passive': ':shield:',
-                       'description': '**Thicc door**: Increase 85% defense'},
+                       'description': '**Thicc door**: Increase 85% defense. If your hp below enemy,'
+                                      'Increase def by 6%'},
             ':bomb:': {'attack': 50, 'speed': 4, 'range': 17, 'defense': 14,
                        'passive': ':boom:',
-                       'description': '**Eksplosion**: Deal 90% of your attack as True Damage to enemy '
-                                      'and decrease def by 10%'},
+                       'description': '**Eksplosion**: Deal 80% of your attack as True Damage to enemy '
+                                      'and decrease def by 10% every 5 rounds'},
             ':game_die:': {'attack': 30, 'speed': 5, 'range': 1, 'defense': 30,
                            'passive': '<:lucc:796732732113682442>',
                            'description': '**Lucc Dice**: Roll 6 sided dice and increase hp atk and def by '
@@ -51,13 +53,15 @@ weaponry = {':bow_and_arrow:': {'attack': 37, 'speed': 6, 'range': 26, 'defense'
                             'description': '**Radar**: Decrease incoming attack by 45% for every odd round'},
             ':loudspeaker:': {'attack': 46, 'speed': 4, 'range': 1, 'defense': 32,
                               'passive': ':beginner:',
-                              'description': '**Motivesien**: While your hp is lower than enemy, increase atk by 12%'},
+                              'description': '**Motivesien**: While your hp is lower than enemy, increase atk by 18%'},
             ':firecracker:': {'attack': 68, 'speed': 3, 'range': 3, 'defense': 10,
                               'passive': ':fireworks:',
                               'description': '**Fataliti**: Every round, 30% chance to deal fatality '
-                                             '(48% if your hp is below enemy), '
-                                             'dealing 40-55% of your atk as well as '
-                                             'decreasing def by 20-35% of your atk.\n'
+                                             '(45% if your hp is below enemy), Sacrifice your 5% def and '
+                                             'dealing 25-40% (40-55% if your hp below enemy)'
+                                             ' of your atk as well as '
+                                             'decreasing enemy def by 25-40% of your atk '
+                                             '(enemy def can\'t be lower than your def).\n'
                                              'If this fails, decrease your atk by 8% and increase def by 8%'}
             }
 
@@ -125,9 +129,9 @@ def generate_enemy(stat, name, multiplier: float = 1):
     speed = random.randrange(1, 6)
     defense = max_stat - hp - attack - speed
     ranges = weaponry[weapon]['range']
-    hp = round(((hp + stat) * 5) * multiplier)
-    attack = round(attack + (weaponry[weapon]['attack'] + stat) * multiplier)
-    defense = round(defense + (weaponry[weapon]['defense'] + stat) * multiplier)
+    hp = round(((hp + stat) * 8) * multiplier)
+    attack = round((attack + weaponry[weapon]['attack'] + stat) * multiplier)
+    defense = round((defense + weaponry[weapon]['defense'] + stat) * multiplier)
     speed += weaponry[weapon]['speed']
     return Hero(name, char, weapon, hp, attack, speed, defense, ranges, weaponry[weapon]['passive'], None)
 
@@ -174,13 +178,16 @@ class Hero:
 
         # fatality
         if ":firecracker:" in self.weapon:
-            if self.chance(0.3 + (0.18 if self.hp < target.hp else 0)):
-                delimiter = random.randint(0, 15)/100
-                target.hp -= round((0.55-delimiter) * self.attack)
-                target.defense -= (round((0.35 - delimiter) * self.attack) if target.defense > self.attack else
-                                   round((0.35-delimiter) * self.attack - target.defense * (0.35 - delimiter)))
-                log += f"{self.name} deals **fatality** dmg, dealing **{round((0.55-delimiter) * self.attack)}** " \
-                       f"dmg as well as decreasing {target.name} def by {round((0.35-delimiter) * 100)}% of your atk\n"
+            if self.chance(0.3 + (0.15 if self.hp < target.hp else 0)):
+                delimiter = random.randint(0, 15) / 100
+                damage_bound = 0.55 if self.hp <= target.hp else 0.4
+                self.defense -= round(self.defense * 0.05)
+                target.hp -= round((damage_bound - delimiter) * self.attack)
+                target.defense -= round((0.4 - delimiter) * self.attack) if target.defense > self.defense else 0
+                log += f"{self.name} deals **fatality** dmg, " \
+                       f"dealing **{round((damage_bound - delimiter) * self.attack)}** " \
+                       f"dmg as well as decreasing {target.name} def by " \
+                       f"{round((0.4 - delimiter) * 100)}% of your atk\n"
             else:
                 self.attack -= round(0.08 * self.attack)
                 self.defense += round(0.08 * self.defense)
@@ -199,7 +206,7 @@ class Hero:
             if ":axe:" in self.weapon:
                 self.hp += round(self.power * 0.50)
                 log += f" and heal itself {round(self.power * 0.50)} hp"
-        log += " **CRITICAL HIT**" if critical else ""
+            log += " **CRITICAL HIT**" if critical else ""
 
         # wand
         if ":magic_wand:" in self.weapon and target.hp > 0:
@@ -207,7 +214,7 @@ class Hero:
             target.hp -= round(target.hp * 0.09)
             log = f"{log}\n" \
                   f"{self.name} deal damage 9% of {target.name} hp and heal itself"
-        return log
+        return log.strip()
 
     @staticmethod
     def chance(set_chance):
@@ -224,15 +231,49 @@ class User(Hero):
         self.user_id = user_id
         self.char = self.profile['char']
         self.weapon = self.profile['weapon']
-        self.hp = (self.profile['hp'] + round(0.05 * self.battlepoint)) * 5
-        self.attack = self.profile['attack'] + self.profile['attack1'] + round(0.05 * self.battlepoint)
+        self.hp = round(self.profile['hp'] * 8 * (1 + self.battlepoint * 0.05))
+        self.attack = round((self.profile['attack'] + self.profile['attack1']) * (1 + 0.05 * self.battlepoint))
         self.speed = self.profile['speed'] + self.profile['speed1']
-        self.defense = self.profile['defense'] + self.profile['defense1'] + round(0.05 * self.battlepoint)
+        self.defense = round((self.profile['defense'] + self.profile['defense1']) * (1 + 0.05 * self.battlepoint))
         self.ranges = self.profile['range']
         self.passive = self.profile['passive']
         self.description = self.profile['description']
         super().__init__(self.name, self.char, self.weapon, self.hp, self.attack, self.speed, self.defense,
                          self.ranges, self.passive, self.description)
+
+    def show(self):
+        yellow = 0xfff00
+        profile = self.profile
+        char = self.char
+        weapon = self.weapon
+        battlepoint = self.battlepoint
+        hp = profile['hp']
+        attack = profile['attack']
+        speed = profile['speed']
+        defense = profile['defense']
+        attack1 = profile['attack1']
+        speed1 = profile['speed1']
+        ranges = profile['range']
+        defense1 = profile['defense1']
+        passive = profile['passive']
+        description = profile['description']
+        custom_embed = discord.Embed(title='Profile',
+                                     description=f'Your character: {char}\n'
+                                                 f'HP: {hp}\n'
+                                                 f'Attac: {attack}\n'
+                                                 f'Spid: {speed}\n'
+                                                 f'Difens: {defense}\n'
+                                                 f'BettelPoint: {battlepoint}',
+                                     color=yellow)
+        custom_embed.add_field(name='Weapon', value=f'Your weapon: {weapon}\n'
+                                                    f'Weapon Stat:\n'
+                                                    f'Attac: {attack1}\n'
+                                                    f'Spid: {speed1}\n'
+                                                    f'Range: {ranges}\n'
+                                                    f'Difens: {defense1}\n'
+                                                    f'Passife {passive}\n'
+                                                    f'{description}', inline=False)
+        return custom_embed
 
 
 class Team(Hero):
@@ -258,6 +299,148 @@ class Team(Hero):
         self.ranges //= 3
         super(Team, self).__init__(self.name, None, self.weapon, self.hp, self.attack, self.speed, self.defense,
                                    self.ranges, None, self.description)
+
+
+class Battle:
+    def __init__(self, allies, enemy):
+        self.allies = allies
+        self.enemy = enemy
+        self.distance = allies.ranges + enemy.ranges + allies.speed + enemy.speed
+
+    def start(self):
+        log = ""
+        for weapon in ([self.allies.weapon] if isinstance(self.allies.weapon, str) else self.allies.weapon):
+            if weapon == ':door:':
+                self.allies.defense += round(self.allies.defense * 0.85)
+                log += f'\n{self.allies.name} using :shield: buffing defense by 85%'
+            elif weapon == ':broom:':
+                self.allies.attack += round(self.enemy.attack * 0.30)
+                self.allies.defense += round(self.enemy.defense * 0.30)
+                log += f'\n{self.allies.name} using :trident: buffing itself by 30% ' \
+                       f'{self.enemy.name} attack and defense'
+            elif weapon == ':game_die:':
+                rolled_number = random.randint(1, 6)
+                self.allies.attack += round(self.allies.attack * 0.085 * rolled_number)
+                self.allies.hp += round(self.allies.hp * 0.085 * rolled_number)
+                self.allies.defense += round(self.allies.defense * 0.085 * rolled_number)
+                log = log + f'\n{self.allies.name} rolled dice and get **{rolled_number}**. ' \
+                            f'Increase stat by {rolled_number * 8.5}%'
+            elif weapon == ':pick:':
+                self.enemy.defense -= round(self.enemy.defense * 0.7)
+                self.allies.defense -= round(self.allies.defense * 0.1)
+                log += f'\n{self.allies.name} using :tools: decreasing {self.enemy.name} def by 70% and ' \
+                       f'{self.allies.name} defense by 10%'
+
+        for weapon in ([self.enemy.weapon] if isinstance(self.enemy.weapon, str) else self.enemy.weapon):
+            if weapon == ':door:':
+                self.enemy.defense += round(self.enemy.defense * 0.85)
+                log += f'\n{self.enemy.name} using :shield: buffing defense by 85%'
+            elif weapon == ':broom:':
+                self.enemy.attack += round(self.allies.attack * 0.30)
+                self.enemy.defense += round(self.allies.defense * 0.30)
+                log += f'\n{self.enemy.name} using :trident: buffing itself by 30% ' \
+                       f'{self.allies.name} attack and defense'
+            elif weapon == ':game_die:':
+                rolled_number = random.randint(1, 6)
+                self.enemy.attack += round(self.enemy.attack * 0.085 * rolled_number)
+                self.enemy.hp += round(self.enemy.hp * 0.085 * rolled_number)
+                self.enemy.defense += round(self.enemy.defense * 0.085 * rolled_number)
+                log += f'\n{self.enemy.name} rolled dice and get **{rolled_number}**. ' \
+                       f'Increase stat by {rolled_number * 8.5}%'
+            elif weapon == ':pick:':
+                self.allies.defense -= round(self.allies.defense * 0.7)
+                self.enemy.defense -= round(self.enemy.defense * 0.1)
+                log += f'\n{self.enemy.name} using :tools: decreasing {self.allies.name} def by 70% and ' \
+                       f'{self.enemy.name} defense by 10%'
+
+        return log.strip() if log else "No early active weapon"
+
+    def process(self, rounds):
+        log = ""
+
+        # bomb
+        if ":bomb:" in self.allies.weapon and rounds % 5 == 1:
+            self.enemy.hp -= round(self.allies.attack * 0.8)
+            self.enemy.defense -= round(self.enemy.defense * 0.1)
+            log = f'{self.allies.name} explode bomb and deal {round(self.allies.attack * 0.8)} damage to ' \
+                  f'{self.enemy.name} and decrease def by 10%'
+        if ":bomb:" in self.enemy.weapon and rounds % 6 == 1:
+            self.allies.hp -= round(self.enemy.attack * 0.8)
+            self.allies.defense -= round(self.allies.defense * 0.1)
+            log = f'\n{self.allies.name} explode bomb and deal {round(self.allies.attack * 0.8)} damage to ' \
+                  f'{self.enemy.name} and decrease def by 10%'
+
+        # trigger broom
+        if ":broom:" in self.allies.weapon and self.allies.chance(0.2):
+            self.allies.attack += round(self.enemy.attack * 0.30)
+            self.allies.defense += round(self.enemy.defense * 0.30)
+            log += f'\n{self.allies.name} using :trident: buffing itself by 30% ' \
+                   f'{self.enemy.name} attack and defense'
+
+        if ":broom:" in self.enemy.weapon and self.enemy.chance(0.2):
+            self.enemy.attack += round(self.allies.attack * 0.30)
+            self.enemy.defense += round(self.allies.defense * 0.30)
+            log += f'\n{self.enemy.name} using :trident: buffing itself by 30% ' \
+                   f'{self.allies.name} attack and defense'
+
+        # loudspeaker
+        if ':loudspeaker:' in self.allies.weapon and self.allies.hp < self.enemy.hp:
+            self.allies.attack += round(self.allies.attack * 0.18)
+        if ':loudspeaker:' in self.enemy.weapon and self.enemy.hp < self.enemy.hp:
+            self.enemy.attack += round(self.enemy.attack * 0.18)
+
+        # door
+        if ':door:' in self.allies.weapon and self.allies.hp < self.enemy.hp:
+            self.allies.defense += round(self.allies.defense * 0.06)
+        if ':door:' in self.enemy.weapon and self.enemy.hp < self.enemy.hp:
+            self.enemy.defense += round(self.enemy.defense * 0.06)
+
+        # before start, we set the power/damage
+        self.allies.set_power(self.enemy)
+        self.enemy.set_power(self.allies)
+
+        while self.distance > self.allies.ranges and self.distance > self.enemy.ranges:
+            # both out of range so we move position of both side by their speed
+            self.distance -= self.allies.speed + self.enemy.speed
+        if self.allies.ranges >= self.distance and self.enemy.ranges >= self.distance:
+            # in melee mode
+            self.allies.is_ranged, self.enemy.is_ranged = False, False
+            if self.allies.speed >= self.enemy.speed:
+                # allies has faster speed
+                log += f"\n{self.allies.attacks(self.enemy, rounds, self.distance)}"
+                if self.enemy.hp > 0:  # strike back
+                    log += f"\n{self.enemy.attacks(self.allies, rounds, self.distance)}"
+            else:
+                # enemy has faster speed
+                log += f"\n{self.enemy.attacks(self.allies, rounds, self.distance)}"
+                if self.allies.hp > 0:  # strike back
+                    log += f"\n{self.allies.attacks(self.enemy, rounds, self.distance)}"
+
+        elif self.allies.ranges >= self.distance >= self.enemy.ranges:
+            # allies in ranged mode while enemy is chasing
+            self.allies.is_ranged = True
+            self.enemy.is_ranged = False
+            if ':bow_and_arrow:' in self.allies.weapon:
+                self.allies.power += round(self.allies.power * 0.5)
+            log += f"\n{self.allies.attacks(self.enemy, rounds, self.distance)}"
+            self.distance = self.distance - self.enemy.speed
+
+        else:
+            # enemy is ranged mode while allies is chasing
+            self.allies.is_ranged = False
+            self.enemy.is_ranged = True
+            if ':bow_and_arrow:' in self.enemy.weapon:
+                self.enemy.power += round(self.enemy.power * 0.5)
+            log += f"\n{self.enemy.attacks(self.allies, rounds, self.distance)}"
+            self.distance = self.distance - self.allies.speed
+
+        # compensation for ranged
+        if self.distance + self.enemy.speed <= self.enemy.speed:
+            self.distance = self.distance + round(self.enemy.speed / 4)
+        elif self.distance + self.allies.speed <= self.allies.ranges:
+            self.distance = self.distance + round(self.allies.speed / 4)
+
+        return log.strip()
 
 
 class Game(commands.Cog):
@@ -319,7 +502,6 @@ class Game(commands.Cog):
 
     @commands.command(name='profilegame', help='Check your profile', aliases=['gameprofile'])
     async def checkgem(self, ctx, user: discord.User = None):
-        yellow = 0xfff00
         if not user:
             userid = ctx.author.id
         else:
@@ -327,40 +509,8 @@ class Game(commands.Cog):
         if str(ctx.author.id) in owoCooldown:
             return
         if game.count_documents({'_id': str(userid)}) != 0:
-            profile = game.find_one({'_id': str(userid)})
-            char = profile['char']
-            weapon = profile['weapon']
-            hp = profile['hp']
-            attack = profile['attack']
-            speed = profile['speed']
-            defense = profile['defense']
-            attack1 = profile['attack1']
-            speed1 = profile['speed1']
-            ranges = profile['range']
-            defense1 = profile['defense1']
-            passive = profile['passive']
-            description = profile['description']
-            if 'battlepoint' in profile:
-                battlepoint = profile['battlepoint']
-            else:
-                battlepoint = 0
-            custom_embed = discord.Embed(title='Profile',
-                                         description=f'Your character: {char}\n'
-                                                     f'HP: {hp}\n'
-                                                     f'Attac: {attack}\n'
-                                                     f'Spid: {speed}\n'
-                                                     f'Difens: {defense}\n'
-                                                     f'BettelPoint: {battlepoint}',
-                                         color=yellow)
-            custom_embed.add_field(name='Weapon', value=f'Your weapon: {weapon}\n'
-                                                        f'Weapon Stat:\n'
-                                                        f'Attac: {attack1}\n'
-                                                        f'Spid: {speed1}\n'
-                                                        f'Range: {ranges}\n'
-                                                        f'Difens: {defense1}\n'
-                                                        f'Passife {passive}\n'
-                                                        f'{description}', inline=False)
-            await ctx.send(embed=custom_embed)
+            player = User(ctx.author.id, None)
+            await ctx.send(embed=player.show())
         else:
             await ctx.send('You havent started game :c', delete_after=5)
         owoCooldown.update({str(ctx.author.id): True})
@@ -406,7 +556,45 @@ class Game(commands.Cog):
             await target.edit(embed=custom_embed(red))
             return
         update_point(ctx.author.id, point)
-        await target.edit(content="Success", embed=None)
+        if "ascended" in profile:
+            await target.edit(content="Success", embed=None)
+            return
+        game.update_one({"_id": str(ctx.author.id)}, {"$set": {"ascended": True}})
+        await target.edit(content=f"Success. {ctx.author.name} ascended and gained power to change weapon\n"
+                                  f"`s!weaponset [weapon]`", embed=None)
+
+    @commands.command(name="weaponset", help="Change your weapon. Ascended only", aliases=["setweapon"])
+    async def change_weapon(self, ctx, weapon: str):
+        if game.count_documents({"_id": str(ctx.author.id)}) == 0:
+            await ctx.send("You haven't started your game :c", delete_after=3)
+            return
+        profile = game.find_one({'_id': str(ctx.author.id)})
+        if "ascended" not in profile:
+            await ctx.send("Ascended only!", delete_after=3)
+            return
+        if not profile["ascended"]:
+            await ctx.send("Something went wrong, please DM invalid-user#8807", delete_after=5)
+            return
+        weapon = f":{weapon}:"
+        if weapon not in list_weapon:
+            await ctx.send("Input valid weapon name `s!wdesc`", delete_after=3)
+            return
+        attack1 = weaponry[weapon]['attack']
+        speed1 = weaponry[weapon]['speed']
+        ranges = weaponry[weapon]['range']
+        defense1 = weaponry[weapon]['defense']
+        passive = weaponry[weapon]['passive']
+        description = weaponry[weapon]['description']
+        game.update_one({"_id": str(ctx.author.id)}, {"$set": {"weapon": weapon,
+                                                               "attack1": attack1,
+                                                               "speed1": speed1,
+                                                               "range": ranges,
+                                                               "defense1": defense1,
+                                                               "passive": passive,
+                                                               "description": description
+                                                               }})
+        player = User(ctx.author.id, None)
+        await ctx.send(embed=player.show())
 
     @commands.command(name='gamefight', help='Battle your character', aliases=['gf', 'fight', 'bt'])
     async def fighting(self, ctx, userid, balance=None):
@@ -423,24 +611,24 @@ class Game(commands.Cog):
             return
         if userid == 'e' or userid == 'm' or userid == 'h' or userid == 'i':
             if userid == 'e':
-                multiplier = 1 + round(0.05 * battlepoint)
-                addstreak = 1
+                stat = 1
+                add_streak = 1
             elif userid == 'm':
-                multiplier = 5 + round(0.051 * battlepoint)
-                addstreak = 2
+                stat = 5
+                add_streak = 2
             elif userid == 'h':
-                multiplier = 8 + round(0.052 * battlepoint)
-                addstreak = 4
+                stat = 10
+                add_streak = 4
             else:
-                multiplier = 15 + round(0.055 * battlepoint)
-                addstreak = 6
-            enemy = generate_enemy(multiplier, random.choice(random_name))
+                stat = 15
+                add_streak = 5
+            enemy = generate_enemy(stat, random.choice(random_name), 1 + 0.5 * random.random() + 0.05 * battlepoint)
 
         else:
             if game.count_documents({'_id': str(userid)}) != 0:
                 name = await self.bot.fetch_user(int(userid))
                 name = name.name
-                addstreak = 0
+                add_streak = 0
                 if balance:
                     enemy = User(userid, name, player.battlepoint)
                 else:
@@ -448,45 +636,8 @@ class Game(commands.Cog):
             else:
                 await ctx.send('Player havent started any game :c')
                 return
+        system = Battle(player, enemy)
         log = 'Battle Started'
-        if player.weapon == ':door:':
-            player.defense += round(player.defense * 0.85)
-            log = log + f'\n{player.name} using :shield: buffing defense by 85%'
-        elif player.weapon == ':broom:':
-            player.attack += round(enemy.attack * 0.30)
-            player.defense += round(enemy.defense * 0.30)
-            log = log + f'\n{player.name} using :trident: buffing itself by 30% {enemy.name} attack and defense'
-        elif player.weapon == ':pick:':
-            enemy.defense -= round(enemy.defense * 0.7)
-            player.defense -= round(player.defense * 0.1)
-            log = log + f'\n{player.name} using :tools: decreasing {enemy.name} def by 70% and ' \
-                        f'{player.name} defense by 10%'
-        elif player.weapon == ':game_die:':
-            rolled_number = random.randrange(1, 7)
-            player.attack += round(player.attack * 0.085 * rolled_number)
-            player.hp += round(player.hp * 0.085 * rolled_number)
-            player.defense += round(player.defense * 0.085 * rolled_number)
-            log = log + f'\n{player.name} rolled dice and get **{rolled_number}**. ' \
-                        f'Increase stat by {rolled_number * 8.5}%'
-
-        if enemy.weapon == ':door:':
-            enemy.defense = enemy.defense + round(enemy.defense * 0.85)
-            log = log + f'\n{enemy.name} using :shield: buffing defense by 85%'
-        elif enemy.weapon == ':broom:':
-            enemy.attack = enemy.attack + round(player.attack * 0.30)
-            enemy.defense = enemy.defense + round(player.defense * 0.30)
-            log = log + f'\n{enemy.name} using :trident: buffing itself by 30% {player.name} attack and defense'
-        elif enemy.weapon == ':pick:':
-            player.defense = player.defense - round(player.defense * 0.7)
-            enemy.defense = enemy.defense - round(enemy.defense * 0.1)
-            log = log + f'\n{enemy.name} using :tools: decreasing {player.name} def by 70% and ' \
-                        f'{enemy.name} defense by 10%'
-        elif enemy.weapon == ':game_die:':
-            rolled_number = random.randrange(1, 7)
-            enemy.attack += round(enemy.attack * 0.085 * rolled_number)
-            enemy.hp += round(enemy.hp * 0.085 * rolled_number)
-            enemy.defense += round(enemy.defense * 0.085 * rolled_number)
-            log = log + f'\n{enemy.name} rolled dice and get **{rolled_number}**. Increase stat by {rolled_number * 8.5}%'
         custom_embed = discord.Embed(title='Battle',
                                      description=f'Your character: {player.char}\n'
                                                  f'HP: {player.hp}\n'
@@ -504,22 +655,12 @@ class Game(commands.Cog):
                                                    f'Range: {enemy.ranges}\n'
                                                    f'Weapon: {enemy.weapon}\n')
         message = await ctx.send(embed=custom_embed)
-        distance = 50
-        rounds = 0
-        if player.weapon == ':bomb:':
-            enemy.hp -= round(player.attack * 0.95)
-            enemy.defense = enemy.defense - round(enemy.defense * 0.1)
-            log = f'{player.name} explode bomb and deal {round(player.attack * 0.95)} damage to ' \
-                  f'{enemy.name} and decrease def by 10%'
-        if enemy.weapon == ':bomb:':
-            player.hp -= round(enemy.attack * 0.95)
-            player.defense = player.defense - round(player.defense * 0.1)
-            log = f'{enemy.name} explode bomb and deal {round(enemy.attack * 0.95)} damage to ' \
-                  f'{player.name} and decrease def by 10%'
         custom_embed.add_field(name='Log', value=f'{log}', inline=False)
         battleCooldown.update({str(ctx.author.id): True})
+        rounds = 0
+        log = system.start()
         while True:
-            custom_embed = discord.Embed(title='Battle',
+            custom_embed = discord.Embed(title=f'Battle round {rounds}',
                                          description=f'Your character: {player.char}\n'
                                                      f'HP: {player.hp}\n'
                                                      f'Attac: {player.attack}\n'
@@ -539,12 +680,11 @@ class Game(commands.Cog):
             await asyncio.sleep(3)
             await message.edit(embed=custom_embed)
 
-            log = ""
             rounds += 1
 
             if enemy.hp <= 0 or player.hp <= 0 or rounds > 20:
                 if enemy.hp <= 0 or player.hp > enemy.hp:
-                    battlepoint = battlepoint + addstreak
+                    battlepoint += add_streak
                     await ctx.send(f'{player.name} win! Your Battle point: {battlepoint}')
                     if battlepoint >= 2147483647:
                         await ctx.send(f"{ctx.author.mention} Your battle point reached max\n"
@@ -559,61 +699,18 @@ class Game(commands.Cog):
                     await ctx.send(f'{enemy.name} win!')
                 battleCooldown.pop(str(ctx.author.id))
                 break
-
-            # loudspeaker
-            if player.weapon == ':loudspeaker:' and  player.hp < enemy.hp:
-                player.attack += round(player.attack * 0.12)
-            if enemy.weapon == ':loudspeaker:' and enemy.hp < player.hp:
-                enemy.attack += round(enemy.attack * 0.12)
-
-            player.set_power(enemy)
-            enemy.set_power(player)
-
-            while distance >= player.ranges and distance >= enemy.ranges:  # both out range
-                distance -= (player.speed + enemy.speed)
-            if player.ranges >= distance and enemy.ranges >= distance:  # close range
-                player.is_ranged, enemy.is_ranged = False, False
-                if player.speed >= enemy.speed:
-                    log += f"\n{player.attacks(enemy, rounds, distance)}"
-                    if enemy.hp > 0:  # strike back
-                        log += f"\n{enemy.attacks(player, rounds, distance)}"
-                else:
-                    log += f"\n{enemy.attacks(player, rounds, distance)}"
-                    if player.hp > 0:  # strike back
-                        log += f"\n{player.attacks(enemy, rounds, distance)}"
-
-            elif player.ranges >= distance >= enemy.ranges:
-                player.is_ranged = True
-                enemy.is_ranged = False
-                if player.weapon == ':bow_and_arrow:':
-                    player.power += round(player.power * 0.5)
-                log += f"\n{player.attacks(enemy, rounds, distance)}"
-                distance = distance - enemy.speed
-
-            else:
-                player.is_ranged = False
-                enemy.is_ranged = True
-                if enemy.weapon == ':bow_and_arrow:':
-                    enemy.power = enemy.power + round(enemy.power * 0.5)
-                log += f"\n{enemy.attacks(player, rounds, distance)}"
-                distance = distance - player.speed
-
-            # compensation for ranged
-            if distance + player.speed <= player.ranges:
-                distance = distance + round(player.speed / 4)
-            elif distance + enemy.speed <= enemy.ranges:
-                distance = distance + round(enemy.speed / 4)
+            log = system.process(rounds)
 
     @commands.command(name='teamgame', help='Have any idea making team?', aliases=["team"])
-    async def teamgame(self, ctx, anotheroption=None, pos=None):
+    async def teamgame(self, ctx, another_option=None, pos=None):
         team = game.find_one({"_id": f'team{ctx.author.id}'})
         if str(ctx.author.id) in owoCooldown:
             return
-        randnum = random.randint(0, 16777215)
+        rand_number = random.randint(0, 16777215)
         maxstat = 200
         team_hp, team_attack, team_speed, team_defense, team_ranges = [x for x in repeat(0, 5)]
         if game.count_documents({"_id": f'team{ctx.author.id}'}) != 0:
-            if anotheroption == 'reroll' or anotheroption == 'rr':
+            if another_option in ["rr", "reroll"]:
                 if pos.isdigit():
                     if int(pos) in range(1, 4):
                         x = int(pos)
@@ -682,7 +779,7 @@ class Game(commands.Cog):
                                    description=f'Hp: {team_hp}  Attac: {team_attack}  Difens: {team_defense}'
                                                f'  Spid: {team_speed}'
                                                f'  Range: {team_ranges}',
-                                   color=randnum)
+                                   color=rand_number)
         team = game.find_one({"_id": f'team{ctx.author.id}'})
         for x in range(1, 4):
             char = team['team'][x]['char']
@@ -720,56 +817,20 @@ class Game(commands.Cog):
             await ctx.send('You dont have team :c')
             return
         if difficulty == 'e':
-            multiplier = 10
+            stat = 10
         elif difficulty == 'h':
-            multiplier = 30
+            stat = 20
         elif difficulty == 'i':
-            multiplier = 50
+            stat = 30
         else:
             await ctx.send('Select difficulty e,h or i', delete_after=5)
             return
-        randnum = random.randint(0, 16777215)
+        rand_number = random.randint(0, 16777215)
         team = Team(ctx.author.id, f"{ctx.author.name}'s Team")
-        boss = generate_enemy(multiplier, random.choice(random_name), 3 + random.randint(0, 35) / 100)
+        boss = generate_enemy(stat, random.choice(random_name), 3 + random.randint(0, 35) / 100)
+        system = Battle(team, boss)
         log = 'Battle started'
-        for weapon in team.weapon:
-            if weapon == ':door:':
-                team.defense += round(team.defense * 0.85)
-                log = log + f'\n{team.name} using :shield: buffing defense by 85%'
-            elif weapon == ':broom:':
-                team.attack += round(boss.attack * 0.30)
-                team.defense += round(boss.defense * 0.30)
-                log = log + f'\n{team.name} using :trident: buffing itself by 30% {boss.name} attack and defense'
-            elif weapon == ':game_die:':
-                rolled_number = random.randrange(1, 7)
-                team.attack += round(team.attack * 0.085 * rolled_number)
-                team.hp += round(team.hp * 0.085 * rolled_number)
-                team.defense += round(team.defense * 0.085 * rolled_number)
-                log = log + f'\n{team.name} rolled dice and get **{rolled_number}**. ' \
-                            f'Increase stat by {rolled_number * 8.5}%'
-            elif weapon == ':pick:':
-                team.defense -= round(team.defense * 0.7)
-                boss.defense -= round(boss.defense * 0.1)
-                log = log + f'\n{team.name} using :tools: decreasing {boss.name} def by 70% and {team.name} defense by 10%'
-
-        if boss.weapon == ':door:':
-            boss.defense += round(boss.defense * 0.85)
-            log = log + f'\n{boss.name} using :shield: buffing defense by 85%'
-        elif boss.weapon == ':broom:':
-            boss.attack += round(team.attack * 0.30)
-            boss.defense += round(team.defense * 0.30)
-            log = log + f'\n{boss.name} using :trident: buffing itself by 30% {team.name} attack and defense'
-        elif boss.weapon == ':game_die:':
-            rolled_number = random.randrange(1, 7)
-            boss.attack += round(boss.attack * 0.085 * rolled_number)
-            boss.hp += round(boss.hp * 0.085 * rolled_number)
-            boss.defense += round(boss.defense * 0.085 * rolled_number)
-            log = log + f'\n{boss.name} rolled dice and get **{rolled_number}**. Increase stat by {rolled_number * 8.5}%'
-        elif boss.weapon == ':pick:':
-            team.defense -= round(team.defense * 0.7)
-            boss.defense -= round(boss.defense * 0.1)
-            log = log + f'\n{boss.name} using :tools: decreasing {team.name} def by 70% and {boss.name} defense by 10%'
-        raid = discord.Embed(title='Raid Boss', description=f'Round 0', color=randnum)
+        raid = discord.Embed(title='Raid Boss', description=f'Round 0', color=rand_number)
         raid.add_field(name=team.name, value=f'{team.description}\n'
                                              f'Hp: {team.hp}  Attac: {team.attack}\n'
                                              f'Difens: {team.defense}\n'
@@ -783,21 +844,11 @@ class Game(commands.Cog):
                                              f'Range: {boss.ranges}')
         raid.add_field(name='Logs', value=log, inline=False)
         message = await ctx.send(embed=raid)
-        distance = 50
         rounds = 0
-        if ':bomb:' in team.weapon:
-            boss.hp -= round(team.attack * 0.95)
-            boss.defense -= round(boss.defense * 0.1)
-            log += f'\n{team.name} explode bomb and deal {round(team.attack * 0.95)} damage to ' \
-                   f'{boss.name} and decrease def by 10%'
-        if boss.weapon == ':bomb:':
-            team.hp -= round(boss.attack * 0.95)
-            team.defense -= round(team.defense * 0.1)
-            log += f'\n{boss.name} explode bomb and deal {round(boss.attack * 0.95)} damage to ' \
-                   f'{team.name} and decrease def by 10%'
+        log = system.start()
         teamCooldown.update({str(ctx.author.id): True})
         while True:
-            raid = discord.Embed(title='Raid Boss', description=f'Round {rounds} battle', color=randnum)
+            raid = discord.Embed(title='Raid Boss', description=f'Round {rounds} battle', color=rand_number)
             raid.add_field(name=team.name, value=f'{team.description}\n'
                                                  f'Hp: {team.hp}  Attac: {team.attack}\n'
                                                  f'Difens: {team.defense}\n'
@@ -813,60 +864,16 @@ class Game(commands.Cog):
             await asyncio.sleep(3)
             await message.edit(embed=raid)
 
-            log = ""
             rounds += 1
 
-            if boss.hp <= 0 or team.hp <= 0 or rounds == 20:
+            if boss.hp <= 0 or team.hp <= 0 or rounds > 20:
                 if boss.hp <= 0 or team.hp > boss.hp:
                     await ctx.send(f'Your team won! <a:kittyhyper:742702283287953409>')
                 else:
                     await ctx.send('Your team lost <a:crii:799610834769674252>')
                 teamCooldown.pop(str(ctx.author.id))
                 break
-
-            # loudspeaker
-            if ':loudspeaker:' in team.weapon and team.hp < boss.hp:
-                team.attack = team.attack + round(team.attack * 0.12)
-            if boss.weapon == ':loudspeaker:' and boss.hp < team.hp:
-                boss.attack = boss.attack + round(boss.attack * 0.12)
-
-            team.set_power(boss)
-            boss.set_power(team)
-
-            while distance >= team.ranges and distance >= boss.ranges:  # both out range
-                distance = distance - (team.speed + boss.speed)
-            if team.ranges >= distance and boss.ranges >= distance:  # close range
-                team.is_ranged, boss.is_ranged = False, False
-                if team.speed >= boss.speed:
-                    log += f"\n{team.attacks(boss, rounds, distance)}"
-                    if boss.hp > 0:  # strike back
-                        log += f"\n{boss.attacks(team, rounds, distance)}"
-                else:
-                    log += f"\n{boss.attacks(team, rounds, distance)}"
-                    if team.hp > 0:  # strike back
-                        log += f"\n{team.attacks(boss, rounds, distance)}"
-
-            elif team.ranges >= distance >= boss.ranges:
-                team.is_ranged = True
-                boss.is_ranged = False
-                if ':bow_and_arrow:' in team.weapon:
-                    team.power += round(team.power * 0.5)
-                log += f"\n{team.attacks(boss, rounds, distance)}"
-                distance = distance - boss.speed
-
-            else:
-                team.is_ranged = False
-                boss.is_ranged = True
-                if boss.weapon == ':bow_and_arrow:':
-                    boss.power += round(boss.power * 0.5)
-                log += f"\n{boss.attacks(team, rounds, distance)}"
-                distance = distance - team.speed
-
-            # compensation for ranged
-            if distance + boss.speed <= boss.speed:
-                distance = distance + round(boss.speed / 4)
-            elif distance + team.speed <= team.ranges:
-                distance = distance + round(team.speed / 4)
+            log = system.process(rounds)
 
     @commands.command(name='teambattle', help='Wishing to battle with your friend team?')
     async def battlesystem(self, ctx, users: discord.User = None):
@@ -882,50 +889,13 @@ class Game(commands.Cog):
         if game.count_documents({"_id": f'team{users.id}'}) == 0:
             await ctx.send("User doesnt have team :c")
             return
-        randnum = random.randint(0, 16777215)
+        rand_number = random.randint(0, 16777215)
         team = Team(ctx.author.id, f"{ctx.author.name}'s team")
         enemy = Team(users.id, f"{users.name}'s team")
+        system = Battle(team, enemy)
 
         log = 'Battle started'
-
-        for weapon in team.weapon:
-            if ':door:' == weapon:
-                team.defense += round(team.defense * 0.85)
-                log += f'\n{team.name} using :shield: buffing defense by 85%'
-            elif ':broom:' == weapon:
-                team.attack += round(enemy.attack * 0.30)
-                team.defense += round(enemy.defense * 0.30)
-                log += f'\n{team.name} using :trident: buffing itself by 30% {enemy.name} attack and defense'
-            elif ':pick:' == weapon:
-                enemy.defense -= round(enemy.defense * 0.7)
-                team.defense -= round(team.defense * 0.1)
-                log += f'\n{team.name} using :tools: decreasing {enemy.name} def by 70% and {team.name} defense by 10%'
-            elif ':game_die:' == weapon:
-                rolled_number = random.randrange(1, 7)
-                team.attack += round(team.attack * 0.085 * rolled_number)
-                team.hp += round(team.hp * 0.085 * rolled_number)
-                team.defense += round(team.defense * 0.085 * rolled_number)
-                log += f'\n{team.name} rolled dice and get **{rolled_number}**. Increase stat by {rolled_number * 8.5}%'
-
-        for enemy_weapon in enemy.weapon:
-            if ':door:' == enemy_weapon:
-                enemy.defense += round(enemy.defense * 0.85)
-                log += f'\n{enemy.name} using :shield: buffing defense by 85%'
-            elif ':broom:' == enemy_weapon:
-                enemy.attack += round(team.attack * 0.30)
-                enemy.defense += round(team.defense * 0.30)
-                log += f'\n{enemy.name} using :trident: buffing itself by 30% {team.name} attack and defense'
-            elif ':game_die:' == enemy_weapon:
-                rolled_number = random.randrange(1, 7)
-                enemy.attack += round(enemy.attack * 0.085 * rolled_number)
-                enemy.hp += round(enemy.hp * 0.085 * rolled_number)
-                enemy.defense += round(enemy.defense * 0.085 * rolled_number)
-                log += f'\n{enemy.name} rolled dice and get **{rolled_number}**. Increase stat by {rolled_number * 8.5}%'
-            elif ':pick:' == enemy_weapon:
-                team.defense -= round(team.defense * 0.7)
-                enemy.defense -= round(enemy.defense * 0.1)
-                log += f'\n{enemy.name} using :tools: decreasing {team.name} def by 70% and {enemy.name} defense by 10%'
-        raid = discord.Embed(title='Raid enemy', description=f'Round 0', color=randnum)
+        raid = discord.Embed(title='Raid enemy', description=f'Round 0', color=rand_number)
         raid.add_field(name=team.name, value=f'{team.description}\n'
                                              f'Hp: {team.hp}\n'
                                              f'Attac: {team.attack}\n'
@@ -940,23 +910,13 @@ class Game(commands.Cog):
                                               f'Range: {enemy.ranges}')
         raid.add_field(name='Logs', value=log, inline=False)
         message = await ctx.send(embed=raid)
-        distance = 50
         rounds = 0
-        if ':bomb:' in team.weapon:
-            enemy.hp -= round(team.attack * 0.95)
-            enemy.defense -= round(enemy.defense * 0.1)
-            log = f'{team.name} explode bomb and deal {round(team.attack * 0.95)} damage to ' \
-                  f'{enemy.name} and decrease def by 10%'
-        if ':bomb:' in enemy.weapon:
-            team.hp -= round(enemy.attack * 0.95)
-            team.defense -= round(team.defense * 0.1)
-            log = f'{enemy.name} explode bomb and deal {round(enemy.attack * 0.95)} damage to ' \
-                  f'{team.name} and decrease def by 10%'
+        log = system.start()
         teamCooldown.update({str(ctx.author.id): True})
 
         # lets begin our date
         while True:
-            raid = discord.Embed(title='Raid enemy', description=f'Round {rounds} battle', color=randnum)
+            raid = discord.Embed(title='Raid enemy', description=f'Round {rounds} battle', color=rand_number)
             raid.add_field(name=team.name, value=f'{team.description}\n'
                                                  f'Hp: {team.hp}\n'
                                                  f'Attac: {team.attack}\n'
@@ -973,60 +933,16 @@ class Game(commands.Cog):
             await asyncio.sleep(3)
             await message.edit(embed=raid)
 
-            log = ""
             rounds += 1
 
-            if enemy.hp <= 0 or team.hp <= 0 or rounds == 20:
+            if enemy.hp <= 0 or team.hp <= 0 or rounds > 20:
                 if enemy.hp <= 0 or team.hp > enemy.hp:
                     await ctx.send(f'{team.name} won! <a:kittyhyper:742702283287953409>')
                 else:
                     await ctx.send(f'{enemy.name} won <a:crii:799610834769674252>')
                 teamCooldown.pop(str(ctx.author.id))
                 break
-
-            # loudspeaker
-            if ':loudspeaker:' in team.weapon and team.hp < enemy.hp:
-                team.attack = team.attack + round(team.attack * 0.12)
-            if ':loudspeaker:' in enemy.weapon and enemy.hp < team.hp:
-                enemy.attack = enemy.attack + round(enemy.attack * 0.12)
-
-            team.set_power(enemy)
-            enemy.set_power(team)
-
-            while distance >= team.ranges and distance >= enemy.ranges:  # both out range
-                distance = distance - (team.speed + enemy.speed)
-            if team.ranges >= distance and enemy.ranges >= distance:  # close range
-                team.is_ranged, enemy.is_ranged = False, False
-                if team.speed >= enemy.speed:
-                    log += f"\n{team.attacks(enemy, rounds, distance)}"
-                    if enemy.hp >= 0:  # strike back
-                        log += f"\n{enemy.attacks(team, rounds, distance)}"
-                else:
-                    log += f"\n{enemy.attacks(team, rounds, distance)}"
-                    if team.hp >= 0:  # strike back
-                        log += f"\n{team.attacks(enemy, rounds, distance)}"
-
-            elif team.ranges >= distance >= enemy.ranges:
-                team.is_ranged = True
-                enemy.is_ranged = False
-                if ':bow_and_arrow:' in team.weapon:
-                    team.power = team.power + round(team.power * 0.5)
-                log += f"\n{team.attacks(enemy, rounds, distance)}"
-                distance = distance - enemy.speed
-
-            else:
-                team.is_ranged = False
-                enemy.is_ranged = True
-                if 'bow_and_arrow' in enemy.weapon:
-                    enemy.power = enemy.power + round(enemy.power * 0.5)
-                log += f"\n{enemy.attacks(team, rounds, distance)}"
-                distance = distance - team.speed
-
-            # compensation for ranged
-            if distance + team.speed <= team.ranges:
-                distance = distance + round(team.speed / 4)
-            elif distance + enemy.speed <= enemy.speed:
-                distance = distance + round(enemy.speed / 4)
+            log = system.process(rounds)
 
     @commands.command(name='wdesc', help='Description about weapon in game')
     async def desc(self, ctx, name=None):
@@ -1037,7 +953,7 @@ class Game(commands.Cog):
             await ctx.send(embed=custom_embed)
             return
         name = f':{name}:'
-        randnum = random.randint(0, 16777215)
+        rand_number = random.randint(0, 16777215)
         if name not in weaponry:
             await ctx.send('Input weapon name when', delete_after=5)
             return
@@ -1052,7 +968,7 @@ class Game(commands.Cog):
                                                       f'Range: {ranges}\n'
                                                       f'Spid: {speed}\n'
                                                       f'Passife: {passive}\n'
-                                                      f'{description}', color=randnum)
+                                                      f'{description}', color=rand_number)
         await ctx.send(embed=dexed)
 
     @commands.command(name='gameguide', help='Get started', aliases=['guidegame', 'startguide', 'guidestart'])
