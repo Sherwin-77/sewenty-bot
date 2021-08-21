@@ -239,8 +239,8 @@ class Miscellaneous(commands.Cog):
         occupied_channel.remove(ctx.channel.id)
         await ctx.send(f"You failed to guess. Correct: {selected_number}")
 
-    @commands.command(name="osutop", help="Flex your recent osu play")
-    async def get_osu(self, ctx, username):
+    @commands.command(name="osutop", help="Flex your top osu play")
+    async def get_osu_top(self, ctx, username):
         api_url = "https://osu.ppy.sh/api/v2"
         token_url = "https://osu.ppy.sh/oauth/token"
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
@@ -298,6 +298,123 @@ class Miscellaneous(commands.Cog):
                                          f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
                                          f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
                                    inline=False)
+        await ctx.send(embed=custom_embed)
+        await message.delete()
+
+    @commands.command(name="osurecent", help="Show your recent osu play")
+    async def get_osu_recent(self, ctx, username):
+        api_url = "https://osu.ppy.sh/api/v2"
+        token_url = "https://osu.ppy.sh/oauth/token"
+        message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
+
+        async def get_token():
+            data = {
+                "client_id": int(client_id),
+                "client_secret": client_secret,
+                "grant_type": "client_credentials",
+                "scope": "public"
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(token_url, data=data) as response:
+                    r = await response.json()
+            return r
+
+        raw = await get_token()
+        token = raw["access_token"]
+        headers = {
+            "Content_Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        params = {
+            "mode": "osu",
+            "limit": 5,
+        }
+        async with aiohttp.ClientSession() as session1:
+            async with session1.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+                    as response1:
+                find_username = await response1.json()
+                userid = find_username["id"]
+                async with session1.get(f"{api_url}/users/{userid}/scores/recent", params=params, headers=headers) \
+                        as response2:
+                    raw = await response2.json()
+        custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Recent 5 map")
+        custom_embed.set_thumbnail(url=raw[0]["user"]["avatar_url"])
+        for x in range(5):
+            title = raw[x]["beatmapset"]["title"]
+            title_url = raw[x]["beatmap"]["url"]
+            statistic = raw[x]["statistics"]
+            count_50, count_100, count_300 = statistic["count_50"], statistic["count_100"], statistic["count_300"]
+            count_geki, count_katu, count_miss = statistic["count_geki"], statistic["count_katu"], statistic[
+                "count_miss"]
+            pp = raw[x]["pp"]
+            difficulty_ver = raw[x]["beatmap"]["version"]
+            difficulty_rating = raw[x]["beatmap"]["difficulty_rating"]
+            accuracy = raw[x]["accuracy"]
+            max_combo = raw[x]["max_combo"]
+            mods = " ".join(raw[x]["mods"])
+            custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
+                                   value=f"[{difficulty_ver}]({title_url})\n"
+                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x\n"
+                                         f"Mod(s): {mods}\n"
+                                         f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
+                                         f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
+                                   inline=False)
+        await ctx.send(embed=custom_embed)
+        await message.delete()
+
+    @commands.command(name="osuprofile", help="Flex your osu profile")
+    async def get_osu_profile(self, ctx, username):
+        api_url = "https://osu.ppy.sh/api/v2"
+        token_url = "https://osu.ppy.sh/oauth/token"
+        message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
+
+        async def get_token():
+            data = {
+                "client_id": int(client_id),
+                "client_secret": client_secret,
+                "grant_type": "client_credentials",
+                "scope": "public"
+            }
+            async with aiohttp.ClientSession() as session:
+                async with session.post(token_url, data=data) as response:
+                    r = await response.json()
+            return r
+
+        raw = await get_token()
+        token = raw["access_token"]
+        headers = {
+            "Content_Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        params = {
+            "mode": "osu",
+            "limit": 5,
+        }
+        async with aiohttp.ClientSession() as session1:
+            async with session1.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+                    as response1:
+                raw = await response1.json()
+        custom_embed = discord.Embed(title=raw["username"], description="Profile")
+        custom_embed.set_thumbnail(url=raw["avatar_url"])
+        statistic = raw["statistics"]
+        string = ""
+        for i in statistic:
+            if isinstance(statistic[i], dict):
+                for j in statistic[i]:
+                    name = j.replace("_", " ")
+                    name = name.capitalize() if len(name) > 3 else name.upper()
+                    string += f"{name}: {statistic[i][j]}\n"
+                continue
+            name = i.replace("_", " ")
+            name = name.capitalize() if len(name) > 3 else name.upper()
+            string += f"{name}: {statistic[i]}\n"
+        custom_embed.add_field(name="Details", value=string)
+        custom_embed.add_field(name="Other", value=f"Online: {raw['is_online']}\n"
+                                                   f"Active: {raw['is_active']}\n"
+                                                   f"Discord: {raw['discord']}")
+        custom_embed.set_footer(text=f"Joined at {raw['join_date']}")
         await ctx.send(embed=custom_embed)
         await message.delete()
 
