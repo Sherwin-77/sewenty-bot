@@ -15,7 +15,6 @@ intents = discord.Intents.default()
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('s!'), intents=intents)
 slash = SlashCommand(client=bot, sync_commands=True)
 launchTime = int(datetime.now().timestamp())
-fmt = '%H:%M:%S'
 
 # cooldown variable
 cooldownList = {}

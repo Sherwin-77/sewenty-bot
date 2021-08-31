@@ -99,6 +99,26 @@ class General(commands.Cog):
             await asyncio.sleep(3)
             owoCooldown.pop(str(ctx.author.id))
 
+    @commands.command(name="banner", help="beta")
+    async def check_banner(self, ctx, user: discord.User = None):
+        if not user:
+            user = ctx.author
+        member = await ctx.guild.fetch_member(user.id)
+        req = await self.bot.http.request(discord.http.Route("GET", "/users/{uid}", uid=user.id))
+        banner_id = req["banner"]
+        ext = "png"
+        if banner_id and banner_id.startswith("a_"):
+            ext = "gif"
+        # If statement because the user may not have a banner
+        if not banner_id:
+            await ctx.send("User doesn't have banner", delete_after=5)
+            return
+        banner_url = f"https://cdn.discordapp.com/banners/{user.id}/{banner_id}.{ext}?size=1024"
+        custom_embed = discord.Embed(title="Banner", color=member.colour)
+        custom_embed.set_author(name=user.name, icon_url=user.avatar_url)
+        custom_embed.set_image(url=banner_url)
+        await ctx.send(embed=custom_embed)
+
     @commands.command(name='invite', help="Invite this bot to your server")
     async def link(self, ctx):
         await ctx.send(
