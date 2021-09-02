@@ -9,101 +9,134 @@ from datetime import datetime
 import datetime as dt
 import calendar
 
-emails = os.getenv('EMAIL')
-passwords = os.getenv('PASSWORD')
-second_email = os.getenv("NEXT_EMAIL")
-second_password = os.getenv("NEXT_PASSWORD")
+EMAILS = os.getenv('EMAIL')
+PASSWORDS = os.getenv('PASSWORD')
+SECOND_EMAIL = os.getenv("NEXT_EMAIL")
+SECOND_PASSWORD = os.getenv("NEXT_PASSWORD")
 
-tacoset, tacorecommend = {}, {}
+MANGO_URL = f'mongodb+srv://{EMAILS}:{PASSWORDS}@clusterdiscord.8dm0p.mongodb.net/test'
+CLUSTER = MongoClient(MANGO_URL)
+DB = CLUSTER["Data"]
+COLLECTION = DB["userdata"]
 
-mangourl = f'mongodb+srv://{emails}:{passwords}@clusterdiscord.8dm0p.mongodb.net/test'
-cluster = MongoClient(mangourl)
-db = cluster["Data"]
-collection = db["userdata"]
+CP_URL = f'mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@hakiobo.s5buy.mongodb.net/Hakibot'
+CP_CLUSTER = MongoClient(CP_URL)
+CP_DB = CP_CLUSTER["Hakibot"]
+CP_COLLECTION = CP_DB["cp"]
 
-cpurl = f'mongodb+srv://{second_email}:{second_password}@hakiobo.s5buy.mongodb.net/Hakibot'
-cpcluster = MongoClient(cpurl)
-cpdb = cpcluster["Hakibot"]
-cpcollection = cpdb["cp"]
+
+# This may be changed as soon as new location is confirmed
+REGISTERED_LOCATION = {"beach", "city"}
+REGISTERED_ETC = {"Ice Cream Stand Upgrades 🍦": "beach", "Taco Truck Upgrades 🚚": "",
+                  "Hotdog Cart Upgrades 🌭": "city"}
+SHORTCUT_LOCATION = {'s': "", 'b': "beach", "c": "city"}
+taco_set, taco_recommend = set(), set()
 
 
 class Taco(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.command(name='tacoset', aliases=['ts'])
-    async def calculator(self, ctx, trait: str = None, price: int = None):
-        if str(ctx.author.id) in tacoset:
+    @commands.command(name="tacoset", help="Set your taco value based on embed\n"
+                                           "Detect up to 5 message if not multiple else 8\n"
+                                           "To set multiple set: s!tacoset true", aliases=["ts"])
+    async def set_taco(self, ctx, multiple: bool = False):
+        if str(ctx.author.id) in taco_set:
             await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
             return
-        totallist = {'Newspaper': 10, 'Radio': 20, 'Email': 30, 'Internet': 50, 'Tv': 160, 'Blimp': 200, 'Flowers': 5,
-                     'Ornaments': 10, 'Lights': 30, 'Mural': 100,
-                     'Statue': 400, 'Paint': 10, 'Furniture': 20, 'Bathrooms': 25, 'Billboard': 35, 'Apprentice': 10,
-                     'Cook': 20, 'Sous': 40, 'Head': 65,
-                     'Executive': 150, 'Advertiser': 20, 'Greeter': 25, 'Register': 50, 'Assistant': 100, 'Driver': 250,
-                     'Kitchen': 400, 'Engine': 1000, 'Tipjar': -1,
-                     'Appliances': -1}
-        if trait is None and price is None:
-            y = {}
+        history = [x async for x in ctx.channel.history(limit=5 if not multiple else 8)]
+        placeholder = dict()
+        for i in history:
+            if i.author.id != 490707751832649738:
+                continue
+            try:
+                embedded = i.embeds
+                new = embedded[-1].to_dict()["description"].split('\n')
+                raw_title = embedded[-1].to_dict()["title"]
+                title = raw_title.split("| ")[-1]
+                is_shack = False
+                if "Shack" in title:
+                    is_shack = True
+                title = REGISTERED_ETC[title] if title in REGISTERED_ETC else title.split(" ")[0].lower()
+            except KeyError:
+                continue
+            location = title if title in REGISTERED_LOCATION else ""
+            print(location)
+            if is_shack and not location:
+                await ctx.send("New location detected and unregistered. Please DM invalid-user#8807")
+                return
             to_update = {}
-            found = False
-            async for x in ctx.message.channel.history(limit=5):
-                if x.author.id == 490707751832649738:
-                    embedded = x.embeds
-                    for y in embedded:
-                        y = y.to_dict()
-                    new = y['description'].split('\n')
-                    for z in range(len(new) - 1):
-                        if '✅' in new[z]:
-                            to_update.update({new[z + 2].split('`')[1].capitalize(): 0})
-                        if 'Cost' in new[z]:
-                            to_update.update({new[z + 2].split('`')[1].capitalize(): totallist[new[z + 2].split('`')[
-                                1].capitalize()] / int(new[z].split(':')[1].replace('$', '').replace(',', ''))})
-                    if not to_update:
-                        return
-                    form = {"_id": f'{ctx.author.id}taco'}
-                    if collection.count_documents(form) == 0:
-                        collection.insert_one({"_id": f'{ctx.author.id}taco', 'taco': to_update})
-                    else:
-                        old_update = collection.find(form)[0]['taco']
-                        merged = {**old_update, **to_update}
-                        collection.update_one({"_id": f'{ctx.author.id}taco'}, {"$set": {'taco': merged}})
-                    await ctx.message.add_reaction('👍')
-                    found = True
-                    break
-            if not found:
-                await ctx.reply('Taco embed where <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
-        elif trait and price:
-            form = {"_id": f'{ctx.author.id}taco'}
-            trait = trait.capitalize()
-            if trait in totallist:
-                old_update = collection.find(form)[0]['taco']
-                old_update.update({trait: price})
-                collection.update_one({"_id": f'{ctx.author.id}taco'}, {"$set": {'taco': old_update}})
-                await ctx.message.add_reaction('👍')
-            else:
-                await ctx.reply('Valid id when <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
-        tacoset.update({str(ctx.author.id): True})
-        await asyncio.sleep(2)
-        tacoset.pop(str(ctx.author.id))
+            for j in range(len(new) - 1):
+                # cursor selecting the name
+                if '(' not in new[j]:
+                    continue
+                if '✅' in new[j]:
+                    to_update.update({new[j + 2].split('`')[1].capitalize(): 0})
+                    continue
+                if '+$' not in new[j + 2]:
+                    continue
+                boost = int(new[j + 2].split("/hr")[0].split("$")[-1])
+                cost = int(new[j + 1].split("$")[-1].replace(',', ''))
+                id_ = new[j + 3].split("`")[-2].capitalize()
+                to_update.update({id_: boost / cost})
+            data_id = f"{ctx.author.id}taco{location}"
+            if data_id not in placeholder:
+                placeholder.update({data_id: to_update})
+                if multiple:
+                    continue
+                break
+            val = placeholder[data_id]
+            placeholder.update({data_id: {**val, **to_update}})
+            if not multiple:
+                print(True)
+                break
 
-    @commands.command(name='tsrecommend', aliases=['tr'])
-    async def findtaco(self, ctx, limit: int = 3):
+        for k in placeholder:
+            if COLLECTION.count_documents({"_id": k}) == 0:
+                COLLECTION.insert_one({"_id": k, 'taco': placeholder[k]})
+            else:
+                old_update = COLLECTION.find_one({"_id": k})['taco']
+                merged = {**old_update, **placeholder[k]}
+                COLLECTION.update_one({"_id": k}, {"$set": {'taco': merged}})
+        await ctx.message.add_reaction('👍')
+
+        if multiple:
+            def check(reaction, users):
+                return users == ctx.author and str(reaction.emoji) == "❗" and reaction.message == ctx.message
+
+            await ctx.message.add_reaction("❗")
+            try:
+                emoji, user = await self.bot.wait_for("reaction_add", timeout=30, check=check)
+            except asyncio.TimeoutError:
+                return
+            await ctx.send("Multiple check feature look up to **8 messages** before you and it **overrides** "
+                           "older embed if newer one is the same so be careful")
+        taco_set.add(str(ctx.author.id))
+        await asyncio.sleep(2)
+        taco_set.remove(str(ctx.author.id))
+
+    @commands.command(name='tsrecommend', help="Recommend upgrade. For specific location e.g beach:\n"
+                                               "s!tsrecommend 3 beach", aliases=['tr'])
+    async def find_taco(self, ctx, limit: int = 3, location: str = ""):
+        location = location.lower()
+        location = location if location not in SHORTCUT_LOCATION else SHORTCUT_LOCATION[location]
+        if location not in REGISTERED_LOCATION and location:
+            await ctx.send("You input scary location to me <:blobsob:809721186966831105>", delete_after=5)
         if limit > 10:
-            await ctx.send('Why booli me <:blobsob:809721186966831105> (max 10)', delete_after=5)
+            await ctx.send("Why booli me <:blobsob:809721186966831105> (max 10)", delete_after=5)
             return
-        if str(ctx.author.id) in tacorecommend:
-            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=4)
+        if str(ctx.author.id) in taco_recommend:
+            await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=4)
             return
-        form = {"_id": f'{ctx.author.id}taco'}
-        if collection.count_documents(form) == 0:
-            await ctx.reply('Give taco stat when <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
+        form = {"_id": f'{ctx.author.id}taco{location}'}
+        if COLLECTION.count_documents(form) == 0:
+            await ctx.reply("Give taco stat when <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         else:
-            randnum = random.randint(0, 16777215)
-            taco = collection.find(form)[0]['taco']
+            rand_num = random.randint(0, 16777215)
+            taco = COLLECTION.find(form)[0]['taco']
             tcemb = discord.Embed(title='Taco upgrade recommendation',
                                   description=f'Recommendation shows up to {limit}',
-                                  color=randnum)
+                                  color=rand_num)
             for x in range(1, limit + 1):
                 t = max(taco, key=taco.get)
                 v = format(taco[t], '.3e')
@@ -111,119 +144,68 @@ class Taco(commands.Cog):
                 tcemb.add_field(name=f'Recommendation {x}', value=f'{t}\n(Value = {v})')
             tcemb.set_author(name=f'{ctx.author.name}\'s Taco', icon_url=ctx.author.avatar_url)
             await ctx.send(embed=tcemb)
-        tacorecommend.update({str(ctx.author.id): True})
+        taco_recommend.add(str(ctx.author.id))
         await asyncio.sleep(4)
-        tacorecommend.pop(str(ctx.author.id))
+        taco_recommend.remove(str(ctx.author.id))
 
     @commands.command(name='tscleartruck', aliases=['tct'])
     async def delete_truck(self, ctx):
-        dl = ['Register', 'Assistant', 'Driver', 'Kitchen', 'Engine']
-        form = {"_id": f'{ctx.author.id}taco'}
-        if collection.count_documents(form) == 0:
-            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
-        else:
-            taco = collection.find(form)[0]['taco']
-            for x in dl:
-                taco.pop(x)
-            collection.update_one({"_id": f'{ctx.author.id}taco'}, {"$set": {'taco': taco}})
-            await ctx.message.add_reaction('👍')
-
-    @commands.command(name='tsbeachset', aliases=['tbs'])
-    async def beachcalc(self, ctx, trait: str = None, price: int = None):
-        if str(ctx.author.id) in tacoset:
+        if str(ctx.author.id) in taco_set:
             await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
             return
-        totallist = {'Newspaper': 10, 'Radio': 20, 'Email': 30, 'Internet': 50, 'Tv': 160, 'Blimp': 200,
-                     'Shells': 5, 'Umbrella': 10, 'Leis': 30, 'Tanks': 125,
-                     'Fountain': 500, 'Paint': 10, 'Furniture': 20, 'Bathrooms': 25, 'Billboard': 35,
-                     'Apprentice': 10, 'Cook': 20, 'Sous': 40, 'Head': 65,
-                     'Executive': 150, 'Advertiser': 20, 'Greeter': 25,
-                     'Decals': 50, 'Wheels': 100, 'Mixers': 250, 'Server': 400, 'Freezer': 750,
-                     'Tipjar': -1, 'Appliances': -1}
-        if trait is None and price is None:
-            y = {}
-            to_update = {}
-            found = False
-            async for x in ctx.message.channel.history(limit=5):
-                if x.author.id == 490707751832649738:
-                    embedded = x.embeds
-                    for y in embedded:
-                        y = y.to_dict()
-                    new = y['description'].split('\n')
-                    for z in range(len(new) - 1):
-                        if '✅' in new[z]:
-                            to_update.update({new[z + 2].split('`')[1].capitalize(): 0})
-                        if 'Cost' in new[z]:
-                            to_update.update({new[z + 2].split('`')[1].capitalize(): totallist[new[z + 2].split('`')[
-                                1].capitalize()] / int(new[z].split(':')[1].replace('$', '').replace(',', ''))})
-                    if not to_update:
-                        return
-                    form = {"_id": f'{ctx.author.id}tacobeach'}
-                    if collection.count_documents(form) == 0:
-                        collection.insert_one({"_id": f'{ctx.author.id}tacobeach', 'taco': to_update})
-                    else:
-                        old_update = collection.find(form)[0]['taco']
-                        merged = {**old_update, **to_update}
-                        collection.update_one({"_id": f'{ctx.author.id}tacobeach'}, {"$set": {'taco': merged}})
-                    await ctx.message.add_reaction('👍')
-                    found = True
-                    break
-            if not found:
-                await ctx.reply('Taco embed where <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
-        elif trait and price:
-            form = {"_id": f'{ctx.author.id}tacobeach'}
-            trait = trait.capitalize()
-            if trait in totallist:
-                old_update = collection.find(form)[0]['taco']
-                old_update.update({trait: price})
-                collection.update_one({"_id": f'{ctx.author.id}tacobeach'}, {"$set": {'taco': old_update}})
-                await ctx.message.add_reaction('👍')
-            else:
-                await ctx.reply('Valid id when <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
-        tacoset.update({str(ctx.author.id): True})
-        await asyncio.sleep(2)
-        tacoset.pop(str(ctx.author.id))
-
-    @commands.command(name='tsbeachrecommend', aliases=['tbr'])
-    async def findtacobeach(self, ctx, limit: int = 3):
-        if limit > 10:
-            await ctx.send('Why booli me <:blobsob:809721186966831105> (max 10)', delete_after=5)
-            return
-        if str(ctx.author.id) in tacorecommend:
-            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=4)
-            return
-        form = {"_id": f'{ctx.author.id}tacobeach'}
-        if collection.count_documents(form) == 0:
-            await ctx.reply('Give taco stat when <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
+        dl = ['Register', 'Assistant', 'Driver', 'Kitchen', 'Engine']
+        form = {"_id": f'{ctx.author.id}taco'}
+        if COLLECTION.count_documents(form) == 0:
+            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
         else:
-            randnum = random.randint(0, 16777215)
-            taco = collection.find(form)[0]['taco']
-            tcemb = discord.Embed(title='Taco upgrade recommendation',
-                                  description=f'Recommendation shows up to {limit}',
-                                  color=randnum)
-            for x in range(1, limit + 1):
-                t = max(taco, key=taco.get)
-                v = format(taco[t], '.3e')
-                taco.pop(t)
-                tcemb.add_field(name=f'Recommendation {x}', value=f'{t}\n(Value = {v})')
-            tcemb.set_author(name=f'{ctx.author.name}\'s Taco', icon_url=ctx.author.avatar_url)
-            await ctx.send(embed=tcemb)
-        tacorecommend.update({str(ctx.author.id): True})
-        await asyncio.sleep(4)
-        tacorecommend.pop(str(ctx.author.id))
+            taco = COLLECTION.find_one(form)['taco']
+            for x in dl:
+                taco.pop(x)
+            COLLECTION.update_one({"_id": f'{ctx.author.id}taco'}, {"$set": {'taco': taco}})
+            await ctx.message.add_reaction('👍')
+        taco_set.add(str(ctx.author.id))
+        await asyncio.sleep(2)
+        taco_set.remove(str(ctx.author.id))
 
     @commands.command(name='tsclearstand', aliases=['tcs'])
     async def delete_stand(self, ctx):
+        if str(ctx.author.id) in taco_set:
+            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
+            return
         dl = ['Decals', 'Wheels', 'Mixers', 'Server', 'Freezer']
         form = {"_id": f'{ctx.author.id}tacobeach'}
-        if collection.count_documents(form) == 0:
-            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
+        if COLLECTION.count_documents(form) == 0:
+            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False,
+                            delete_after=5)
         else:
-            taco = collection.find(form)[0]['taco']
+            taco = COLLECTION.find_one(form)['taco']
             for x in dl:
                 taco.pop(x)
-            collection.update_one({"_id": f'{ctx.author.id}tacobeach'}, {"$set": {'taco': taco}})
+            COLLECTION.update_one({"_id": f'{ctx.author.id}tacobeach'}, {"$set": {'taco': taco}})
             await ctx.message.add_reaction('👍')
+        taco_set.add(str(ctx.author.id))
+        await asyncio.sleep(2)
+        taco_set.remove(str(ctx.author.id))
+
+    @commands.command(name='tsclearcart', aliases=['tcc'])
+    async def delete_stand(self, ctx):
+        if str(ctx.author.id) in taco_set:
+            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
+            return
+        dl = ["Buns", "Condiments", "Beverages", "Coolers", "Grill"]
+        form = {"_id": f'{ctx.author.id}tacocity'}
+        if COLLECTION.count_documents(form) == 0:
+            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False,
+                            delete_after=5)
+        else:
+            taco = COLLECTION.find_one(form)['taco']
+            for x in dl:
+                taco.pop(x)
+            COLLECTION.update_one({"_id": f'{ctx.author.id}tacocity'}, {"$set": {'taco': taco}})
+            await ctx.message.add_reaction('👍')
+        taco_set.add(str(ctx.author.id))
+        await asyncio.sleep(2)
+        taco_set.remove(str(ctx.author.id))
 
 
 class OwO(commands.Cog):
@@ -238,12 +220,12 @@ class OwO(commands.Cog):
         form = {"_id": userid}
         now = False
         newparam = -1
-        if collection.count_documents(form) == 0:
+        if COLLECTION.count_documents(form) == 0:
             post = {"_id": userid, "param": 3}
-            collection.insert_one(post)
+            COLLECTION.insert_one(post)
             now = True
         else:
-            user = collection.find(form)
+            user = COLLECTION.find(form)
 
             for result in user:
                 user = result["param"]
@@ -259,14 +241,15 @@ class OwO(commands.Cog):
             elif user == 3:
                 newparam = -1
                 now = False
-            collection.update_one({"_id": userid}, {"$set": {"param": newparam}})
+            COLLECTION.update_one({"_id": userid}, {"$set": {"param": newparam}})
         if now:
             custom_embed = discord.Embed(title="Changed your setting",
                                          description=f'Setting changed into: **{str(now)}** :white_check_mark: ',
                                          color=yellow)
         else:
             custom_embed = discord.Embed(title="Changed your setting",
-                                         description=f'Setting changed into: **{str(now)}** :negative_squared_cross_mark:  ',
+                                         description=f'Setting changed into: **{str(now)}** '
+                                                     f':negative_squared_cross_mark:  ',
                                          color=red)
         await ctx.send(embed=custom_embed)
 
@@ -278,12 +261,12 @@ class OwO(commands.Cog):
         form = {"_id": userid}
         now = False
         newparam = -1
-        if collection.count_documents(form) == 0:
+        if COLLECTION.count_documents(form) == 0:
             post = {"_id": userid, "param": 3}
-            collection.insert_one(post)
+            COLLECTION.insert_one(post)
             now = True
         else:
-            user = collection.find(form)
+            user = COLLECTION.find(form)
 
             for result in user:
                 user = result["param"]
@@ -299,7 +282,7 @@ class OwO(commands.Cog):
             if user == 3:
                 newparam = 2
                 now = True
-            collection.update_one({"_id": userid}, {"$set": {"param": newparam}})
+            COLLECTION.update_one({"_id": userid}, {"$set": {"param": newparam}})
         if now:
             custom_embed = discord.Embed(title="Changed your setting",
                                          description=f'Setting changed into: **{str(now)}** :white_check_mark: ',
@@ -316,18 +299,18 @@ class OwO(commands.Cog):
         guildid = ctx.guild.id
         form = {"_id": guildid}
         if prefix:
-            if collection.count_documents(form) == 0:
+            if COLLECTION.count_documents(form) == 0:
                 post = {"_id": guildid, "owoprefix": prefix}
-                collection.insert_one(post)
+                COLLECTION.insert_one(post)
                 await ctx.send("changed into: " + str(prefix))
             else:
-                collection.update_one({"_id": guildid}, {"$set": {"owoprefix": prefix}})
+                COLLECTION.update_one({"_id": guildid}, {"$set": {"owoprefix": prefix}})
                 await ctx.send("changed into: " + str(prefix))
         else:
-            if collection.count_documents(form) == 0:
+            if COLLECTION.count_documents(form) == 0:
                 await ctx.send("No custom owoprefix here")
             else:
-                user = collection.find_one(form)
+                user = COLLECTION.find_one(form)
                 oprefix = user["owoprefix"]
                 await ctx.send("Current owoprefix is: " + str(oprefix))
 
@@ -338,18 +321,18 @@ class OwO(commands.Cog):
         form = {"_id": guildid}
         if userid == 436376194166816770:
             if prefix:
-                if collection.count_documents(form) == 0:
+                if COLLECTION.count_documents(form) == 0:
                     post = {"_id": guildid, "owoprefix": prefix}
-                    collection.insert_one(post)
+                    COLLECTION.insert_one(post)
                     await ctx.send("changed into: " + str(prefix))
                 else:
-                    collection.update_one({"_id": guildid}, {"$set": {"owoprefix": prefix}})
+                    COLLECTION.update_one({"_id": guildid}, {"$set": {"owoprefix": prefix}})
                     await ctx.send("changed into: " + str(prefix))
             else:
-                if collection.count_documents(form) == 0:
+                if COLLECTION.count_documents(form) == 0:
                     await ctx.send("No custom owoprefix here")
                 else:
-                    user = collection.find_one(form)
+                    user = COLLECTION.find_one(form)
                     oprefix = user["owoprefix"]
                     await ctx.send("Current owoprefix is: " + str(oprefix))
         else:
@@ -361,7 +344,7 @@ class OwO(commands.Cog):
         if not users:
             users = ctx.author
         yellow = 0xfff00
-        col = cpdb['owo-count']
+        col = CP_DB['owo-count']
         form = {'user': users.id, 'guild': ctx.guild.id}
         if col.count_documents(form) == 0:
             await ctx.send('User doesnt have any owostat in this guild')
@@ -394,7 +377,7 @@ class OwO(commands.Cog):
     async def listo(self, ctx, *option):
         find_by = None
         limit = 5
-        randnum = random.randint(0, 16777215)
+        rand_num = random.randint(0, 16777215)
         datenow = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=pytz.utc).astimezone(
             pytz.timezone('US/Pacific')).replace(hour=0, minute=0, second=0, microsecond=0)
         matching = {'lastyear': 'lastYearCount',
@@ -435,7 +418,7 @@ class OwO(commands.Cog):
             epoch = datetime.timestamp(datenow) * 1000
         elif find_by == 'weeklyCount':
             epoch = datetime.timestamp(datenow - dt.timedelta(days=(datenow.weekday() + 1) % 7)) * 1000
-        elif find_by == 'montlyCount':
+        elif find_by == 'monthlyCount':
             epoch = datetime.timestamp(datenow.replace(day=1)) * 1000
         elif find_by == 'yearlyCount':
             epoch = datetime.timestamp(datenow.replace(month=1, day=1)) * 1000
@@ -450,48 +433,50 @@ class OwO(commands.Cog):
         else:
             epoch = 0
 
-        leaderboard = cpdb['owo-count'].aggregate(
+        leaderboard = CP_DB['owo-count'].aggregate(
             [{'$match': {'$and': [{'guild': ctx.guild.id}, {'lastOWO': {'$gte': epoch}}]}},
              {'$project': {'_id': 0, 'user': 1, find_by: 1}},
              {'$sort': {find_by: -1}}, {'$limit': limit}])
-        lembed = discord.Embed(title='Leaderboard', color=randnum)
+        leaderboard_embed = discord.Embed(title='Leaderboard', color=rand_num)
         order = 0
         for y in leaderboard:
             order += 1
             user = await self.bot.fetch_user(y['user'])
-            lembed.add_field(name=f'[{order}]: {user.name}', value=f'{y[find_by]} OwOs', inline=False)
-        await ctx.send(embed=lembed)
+            leaderboard_embed.add_field(name=f'[{order}]: {user.name}', value=f'{y[find_by]} OwOs', inline=False)
+        await ctx.send(embed=leaderboard_embed)
 
     @commands.command(name='cp', help='Wanna search for cp?')
     async def cpdex(self, ctx, name):
         form = {"$or": [{"aliases": name}, {"_id": name}]}
-        cp = cpcollection.find_one(form)
+        cp = CP_COLLECTION.find_one(form)
         if cp is None:
             await ctx.reply('No cp found :c', mention_author=False)
             return
         name = cp['_id']
         hp = cp['hp']
-        strstat = cp['str']
-        prstat = cp['pr']
-        wpstat = cp['wp']
-        magstat = cp['mag']
-        mrstat = cp['mr']
+        str_stat = cp['str']
+        pr_stat = cp['pr']
+        wp_stat = cp['wp']
+        mag_stat = cp['mag']
+        mr_stat = cp['mr']
         aliases = cp['aliases']
         month = cp['creationInfo']['month']
         year = cp['creationInfo']['year']
-        imageurl = cp['imageLink']
-        randnum = random.randint(0, 16777215)
-        ehp, eatt, epr, ewp, emag, emr = '<:hp:759752326973227029>', '<:att:759752341678194708>', '<:pr:759752354467414056>', '<:wp:759752292713889833>', '<:mag:759752304080715786>', '<:mr:759752315904196618>'
-        custom_embed = discord.Embed(title=name, color=randnum)
+        image_url = cp['imageLink']
+        rand_num = random.randint(0, 16777215)
+        ehp, eatt, epr, ewp, emag, emr = '<:hp:759752326973227029>', '<:att:759752341678194708>', \
+                                         '<:pr:759752354467414056>', '<:wp:759752292713889833>', \
+                                         '<:mag:759752304080715786>', '<:mr:759752315904196618>'
+        custom_embed = discord.Embed(title=name, color=rand_num)
         month = calendar.month_name[int(month)]
         if aliases:
             aliases = ', '.join(aliases)
         else:
             aliases = 'None'
         custom_embed.add_field(name='Aliases', value=aliases, inline=False)
-        custom_embed.add_field(name='Stats', value=f'{ehp} `{hp}`  {eatt} `{strstat}`  {epr} `{prstat}`\n'
-                                                   f'{ewp} `{wpstat}`  {emag} `{magstat}`  {emr} `{mrstat}`')
-        custom_embed.set_thumbnail(url=imageurl)
+        custom_embed.add_field(name='Stats', value=f'{ehp} `{hp}`  {eatt} `{str_stat}`  {epr} `{pr_stat}`\n'
+                                                   f'{ewp} `{wp_stat}`  {emag} `{mag_stat}`  {emr} `{mr_stat}`')
+        custom_embed.set_thumbnail(url=image_url)
         custom_embed.set_footer(text=f'Created {month} {year}')
         await ctx.send(embed=custom_embed)
 
