@@ -204,10 +204,10 @@ async def main():
         await bot.load_extension("general")
         await bot.load_extension("helper")
         await bot.load_extension("misc")
-        await bot.load_extension("experiment")
         await bot.load_extension("game")
         await bot.load_extension("jishaku")
-        # await bot.load_extension("dbcommand")
+        await bot.load_extension("dbcommand")
+        # await bot.load_extension("experiment")
         bot.help_command = NewHelpName()
         await bot.start(token)
 
