@@ -1,6 +1,9 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
+
 from pymongo import MongoClient
+
 from itertools import repeat
 import math
 import os
@@ -9,7 +12,8 @@ import asyncio
 
 emails = os.getenv('EMAIL')
 passwords = os.getenv('PASSWORD')
-mango_url = f'mongodb+srv://{emails}:{passwords}@clusterdiscord.8dm0p.mongodb.net/test'
+mango_url = f"mongodb+srv://{emails}:{passwords}@clusterdiscord.8dm0p.mongodb.net/test"
+# mango_url = f"mongodb+srv://{emails}:{passwords}@cluster0.kvwdz.mongodb.net/test"
 cluster = MongoClient(mango_url)
 game = cluster["game"]["data"]
 
@@ -136,6 +140,95 @@ def generate_enemy(stat, name, multiplier: float = 1):
     return Hero(name, char, weapon, hp, attack, speed, defense, ranges, weaponry[weapon]['passive'], None)
 
 
+class CustomGame(commands.Cog, app_commands.Group, name="custombattle"):
+    """
+    Set your own battle
+    """
+
+    def __init__(self, bot: commands.Bot):
+        self.bot = bot
+        super().__init__()
+
+    @app_commands.command(name="solo")
+    @app_commands.choices(weapon=[
+        app_commands.Choice(name=x[1:-1].replace('_', ' ').title(), value=x) for x in list_weapon
+    ])
+    async def solo_custom(self, interaction: discord.Interaction, weapon: app_commands.Choice[str]):
+        await interaction.response.send_message(weapon.value, ephemeral=True)
+        max_stat = 200
+        hp = random.randrange(30, 81)
+        attack = random.randrange(30, 51 + (100 - hp))
+        speed = random.randrange(1, 6)
+        defense = max_stat - hp - attack - speed
+        player = Hero(name=interaction.user.name,
+                      char=random.choice(char_list),
+                      weapon=weapon.value,
+                      hp=hp * 8,
+                      attack=attack + weaponry[weapon.value]["attack"],
+                      speed=speed + weaponry[weapon.value]["speed"],
+                      defense=defense + weaponry[weapon.value]["defense"],
+                      ranges=weaponry[weapon.value]["range"],
+                      passive=weaponry[weapon.value]['passive'],
+                      description=weaponry[weapon.value]['description'])
+        enemy = generate_enemy(0, random.choice(random_name), 1)
+        system = Battle(player, enemy)
+        yellow = 0xfff00
+        log = 'Battle Started'
+        custom_embed = discord.Embed(title='Battle',
+                                     description=f'Your character: {player.char}\n'
+                                                 f'HP: {player.hp}\n'
+                                                 f'Attac: {player.attack}\n'
+                                                 f'Spid: {player.speed}\n'
+                                                 f'Difens: {player.defense}\n'
+                                                 f'Range: {player.ranges}\n'
+                                                 f'Weapon: {player.weapon}\n',
+                                     color=yellow)
+        custom_embed.add_field(name='Enemy', value=f'Opponent character: {enemy.char}\n'
+                                                   f'HP: {enemy.hp}\n'
+                                                   f'Attac: {enemy.attack}\n'
+                                                   f'Spid: {enemy.speed}\n'
+                                                   f'Difens: {enemy.defense}\n'
+                                                   f'Range: {enemy.ranges}\n'
+                                                   f'Weapon: {enemy.weapon}\n')
+        message = await interaction.followup.send(embed=custom_embed)
+        custom_embed.add_field(name='Log', value=f'{log}', inline=False)
+        battleCooldown.update({str(interaction.user.id): True})
+        rounds = 0
+        log = system.start()
+        while True:
+            custom_embed = discord.Embed(title=f'Battle round {rounds}',
+                                         description=f'Your character: {player.char}\n'
+                                                     f'HP: {player.hp}\n'
+                                                     f'Attac: {player.attack}\n'
+                                                     f'Spid: {player.speed}\n'
+                                                     f'Difens: {player.defense}\n'
+                                                     f'Range: {player.ranges}\n'
+                                                     f'Weapon: {player.weapon}\n',
+                                         color=yellow)
+            custom_embed.add_field(name='Enemy', value=f'Opponent character: {enemy.char}\n'
+                                                       f'HP: {enemy.hp}\n'
+                                                       f'Attac: {enemy.attack}\n'
+                                                       f'Spid: {enemy.speed}\n'
+                                                       f'Difens: {enemy.defense}\n'
+                                                       f'Range: {enemy.ranges}\n'
+                                                       f'Weapon: {enemy.weapon}\n')
+            custom_embed.add_field(name='Log', value=f'{log}', inline=False)
+            await asyncio.sleep(3)
+            await message.edit(embed=custom_embed)
+
+            rounds += 1
+
+            if enemy.hp <= 0 or player.hp <= 0 or rounds > 20:
+                if enemy.hp <= 0 or player.hp > enemy.hp:
+                    await interaction.followup.send(f'{player.name} win!')
+
+                else:
+                    await interaction.followup.send(f'{enemy.name} win!')
+                battleCooldown.pop(str(interaction.user.id))
+                break
+            log = system.process(rounds)
+
+
 class Hero:
     def __init__(self, name, char, weapon, hp, attack, speed, defense, ranges, passive, description):
         self.name = name
@@ -201,8 +294,7 @@ class Hero:
         else:
             target.hp -= self.power
             log += (f"{self.name} have enough range at **{distance}** hyper meter and"
-                    if self.is_ranged else self.name) \
-                + f" deal **{self.power}** damage to {target.name}"
+                    if self.is_ranged else self.name) + f" deal **{self.power}** damage to {target.name}"
             if ":axe:" in self.weapon:
                 self.hp += round(self.power * 0.50)
                 log += f" and heal itself {round(self.power * 0.50)} hp"
@@ -701,13 +793,13 @@ class Game(commands.Cog):
                 break
             log = system.process(rounds)
 
-    @commands.command(name='teamgame', help='Have any idea making team?', aliases=["team"])
+    @commands.command(name='teamgame', help="Have any idea making team?", aliases=["team"])
     async def teamgame(self, ctx, another_option=None, pos=None):
         team = game.find_one({"_id": f'team{ctx.author.id}'})
         if str(ctx.author.id) in owoCooldown:
             return
         rand_number = random.randint(0, 16777215)
-        maxstat = 200
+        max_stat = 200
         team_hp, team_attack, team_speed, team_defense, team_ranges = [x for x in repeat(0, 5)]
         if game.count_documents({"_id": f'team{ctx.author.id}'}) != 0:
             if another_option in ["rr", "reroll"]:
@@ -719,10 +811,10 @@ class Game(commands.Cog):
                         team['team'][x]['attack'] = random.randrange(30, 51 + (
                                 100 - team['team'][x]['hp']))
                         team['team'][x]['speed'] = random.randrange(1, 6)
-                        team['team'][x]['defense'] = maxstat - \
-                            team['team'][x]['hp'] - \
-                            team['team'][x]['attack'] - \
-                            team['team'][x]['speed']
+                        team['team'][x]['defense'] = (max_stat
+                                                      - team['team'][x]['hp']
+                                                      - team['team'][x]['attack']
+                                                      - team['team'][x]['speed'])
                         team['team'][x]['weapon'] = random.choice(list_weapon)
                         weapon = team['team'][x]['weapon']
                         team['team'][x]['attack1'] = weaponry[weapon]['attack']
@@ -731,20 +823,17 @@ class Game(commands.Cog):
                         team['team'][x]['defense1'] = weaponry[weapon]['defense']
                         team['team'][x]['passive'] = weaponry[weapon]['passive']
                     else:
-                        await ctx.send('Please input valid position to reroll', delete_after=5)
+                        await ctx.send("Please input valid position to reroll", delete_after=5)
                         return
                 else:
-                    await ctx.send('Position must be number 1-3', delete_after=5)
+                    await ctx.send("Position must be number 1-3", delete_after=5)
                     return
-            game.update_one({"_id": f'team{ctx.author.id}'}, {"$set": {"team": team['team']}})
+            game.update_one({"_id": f"team{ctx.author.id}"}, {"$set": {"team": team['team']}})
             for x in range(1, 4):
                 team_hp = team_hp + team['team'][x]['hp']
-                team_attack = team_attack + team['team'][x]['attack'] + \
-                    team['team'][x]['attack1']
-                team_defense = team_defense + team['team'][x]['defense'] + \
-                    team['team'][x]['defense1']
-                team_speed = team_speed + team['team'][x]['speed'] + \
-                    team['team'][x]['speed1']
+                team_attack = team_attack + team['team'][x]['attack'] + team['team'][x]['attack1']
+                team_defense = team_defense + team['team'][x]['defense'] + team['team'][x]['defense1']
+                team_speed = team_speed + team['team'][x]['speed'] + team['team'][x]['speed1']
                 team_ranges = team_ranges + team['team'][x]['ranges']
         else:
             team = [None, {}, {}, {}]
@@ -755,8 +844,7 @@ class Game(commands.Cog):
                 team[x]['attack'] = random.randrange(30, 51 + (
                         100 - team[x]['hp']))
                 team[x]['speed'] = random.randrange(1, 6)
-                team[x]['defense'] = maxstat - team[x]['hp'] - \
-                    team[x]['attack'] - team[x]['speed']
+                team[x]['defense'] = max_stat - team[x]['hp'] - team[x]['attack'] - team[x]['speed']
                 team[x]['weapon'] = random.choice(list_weapon)
                 weapon = team[x]['weapon']
                 team[x]['attack1'] = weaponry[weapon]['attack']
@@ -765,14 +853,11 @@ class Game(commands.Cog):
                 team[x]['defense1'] = weaponry[weapon]['defense']
                 team[x]['passive'] = weaponry[weapon]['passive']
                 team_hp = team_hp + team[x]['hp']
-                team_attack = team_attack + team[x]['attack'] + \
-                    team[x]['attack1']
-                team_defense = team_defense + team[x]['defense'] + \
-                    team[x]['defense1']
-                team_speed = team_speed + team[x]['speed'] + \
-                    team[x]['speed1']
+                team_attack = team_attack + team[x]['attack'] + team[x]['attack1']
+                team_defense = team_defense + team[x]['defense'] + team[x]['defense1']
+                team_speed = team_speed + team[x]['speed'] + team[x]['speed1']
                 team_ranges = team_ranges + team[x]['ranges']
-            game.insert_one({"_id": f'team{ctx.author.id}', "team": team})
+            game.insert_one({"_id": f"team{ctx.author.id}", "team": team})
         team_ranges = round(team_ranges / 3)
         team_speed = round(team_speed / 3)
         team_embed = discord.Embed(title=f'{ctx.author.name}\'s Team',
@@ -780,7 +865,7 @@ class Game(commands.Cog):
                                                f'  Spid: {team_speed}'
                                                f'  Range: {team_ranges}',
                                    color=rand_number)
-        team = game.find_one({"_id": f'team{ctx.author.id}'})
+        team = game.find_one({"_id": f"team{ctx.author.id}"})
         for x in range(1, 4):
             char = team['team'][x]['char']
             hp = team['team'][x]['hp']
@@ -809,12 +894,12 @@ class Game(commands.Cog):
         await asyncio.sleep(3)
         owoCooldown.pop(str(ctx.author.id))
 
-    @commands.command(name='bossraid', help='Raid some boss with your team and show your skill!', aliases=['raidboss'])
+    @commands.command(name="bossraid", help="Raid some boss with your team and show your skill!", aliases=["raidboss"])
     async def raid(self, ctx, difficulty):
         if str(ctx.author.id) in teamCooldown:
             return
-        if game.count_documents({"_id": f'team{ctx.author.id}'}) == 0:
-            await ctx.send('You dont have team :c')
+        if game.count_documents({"_id": f"team{ctx.author.id}"}) == 0:
+            await ctx.send("You dont have team :c")
             return
         if difficulty == 'e':
             stat = 10
@@ -829,8 +914,8 @@ class Game(commands.Cog):
         team = Team(ctx.author.id, f"{ctx.author.name}'s Team")
         boss = generate_enemy(stat, random.choice(random_name), 3 + random.randint(0, 35) / 100)
         system = Battle(team, boss)
-        log = 'Battle started'
-        raid = discord.Embed(title='Raid Boss', description=f'Round 0', color=rand_number)
+        log = "Battle started"
+        raid = discord.Embed(title="Raid Boss", description="Round 0", color=rand_number)
         raid.add_field(name=team.name, value=f'{team.description}\n'
                                              f'Hp: {team.hp}  Attac: {team.attack}\n'
                                              f'Difens: {team.defense}\n'
@@ -848,18 +933,18 @@ class Game(commands.Cog):
         log = system.start()
         teamCooldown.update({str(ctx.author.id): True})
         while True:
-            raid = discord.Embed(title='Raid Boss', description=f'Round {rounds} battle', color=rand_number)
+            raid = discord.Embed(title="Raid Boss", description=f"Round {rounds} battle", color=rand_number)
             raid.add_field(name=team.name, value=f'{team.description}\n'
                                                  f'Hp: {team.hp}  Attac: {team.attack}\n'
                                                  f'Difens: {team.defense}\n'
                                                  f'Spid: {team.speed}\n'
                                                  f'Range: {team.ranges}', inline=True)
             raid.add_field(name=boss.name, value=f'{boss.char}  {boss.weapon}\n'
-                                                   f'Hp: {boss.hp}\n'
-                                                   f'Attac: {boss.attack}\n'
-                                                   f'Difens: {boss.defense}\n'
-                                                   f'Spid: {boss.speed}\n'
-                                                   f'Range: {boss.ranges}')
+                                                 f'Hp: {boss.hp}\n'
+                                                 f'Attac: {boss.attack}\n'
+                                                 f'Difens: {boss.defense}\n'
+                                                 f'Spid: {boss.speed}\n'
+                                                 f'Range: {boss.ranges}')
             raid.add_field(name='Logs', value=log, inline=False)
             await asyncio.sleep(3)
             await message.edit(embed=raid)
@@ -868,26 +953,26 @@ class Game(commands.Cog):
 
             if boss.hp <= 0 or team.hp <= 0 or rounds > 20:
                 if boss.hp <= 0 or team.hp > boss.hp:
-                    await ctx.send(f'Your team won! <a:kittyhyper:742702283287953409>')
+                    await ctx.send("Your team won! <a:kittyhyper:742702283287953409>")
                 else:
-                    await ctx.send('Your team lost <a:crii:799610834769674252>')
+                    await ctx.send("Your team lost <a:crii:799610834769674252>")
                 teamCooldown.pop(str(ctx.author.id))
                 break
             log = system.process(rounds)
 
-    @commands.command(name='teambattle', help='Wishing to battle with your friend team?')
+    @commands.command(name="teambattle", help="Wishing to battle with your friend team?")
     async def battlesystem(self, ctx, users: discord.User = None):
         if not users:
-            await ctx.reply('who you wanna battle with? (userid works instead mention)', mention_author=False,
+            await ctx.reply("who you wanna battle with? (userid works instead mention)", mention_author=False,
                             delete_after=5)
             return
         if str(ctx.author.id) in teamCooldown:
             return
         if game.count_documents({"_id": f'team{ctx.author.id}'}) == 0:
-            await ctx.send("You dont have team :c")
+            await ctx.send("You don't have team :c")
             return
         if game.count_documents({"_id": f'team{users.id}'}) == 0:
-            await ctx.send("User doesnt have team :c")
+            await ctx.send("User doesn't have team :c")
             return
         rand_number = random.randint(0, 16777215)
         team = Team(ctx.author.id, f"{ctx.author.name}'s team")
@@ -944,7 +1029,7 @@ class Game(commands.Cog):
                 break
             log = system.process(rounds)
 
-    @commands.command(name='wdesc', help='Description about weapon in game')
+    @commands.command(name="wdesc", help="Description about weapon in game")
     async def desc(self, ctx, name=None):
         if not name:
             weapons = " | ".join(list_weapon)
@@ -993,5 +1078,6 @@ class Game(commands.Cog):
         await ctx.send(embed=embed)
 
 
-def setup(bot):
-    bot.add_cog(Game(bot))
+async def setup(bot):
+    await bot.add_cog(CustomGame(bot), guild=discord.Object(id=714152739252338749))
+    await bot.add_cog(Game(bot))

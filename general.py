@@ -2,7 +2,16 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 import asyncio
-owoCooldown = {}
+
+# TODO: change cmdCooldown to set type
+cmdCooldown = {}
+
+EMOJI_STATUS = {
+    "online": "🟢",
+    "idle": "🌙",
+    "dnd": "🚫",
+    "offline": "⚫"
+}
 
 
 class General(commands.Cog):
@@ -22,16 +31,6 @@ class General(commands.Cog):
                     member_name.append(str(member.nick))
             member_list = '\n- '.join(member_name)
             await ctx.send(f'```Members: \n- {member_list}```')
-
-    @commands.command(name='clear', help='Clear the message. Ex: clear 20 (max 100)', aliases=['purge', 'delete'])
-    @commands.has_permissions(manage_messages=True)
-    async def clear(self, ctx, number=5):
-        mgs = []
-        number = int(number)
-        async for x in ctx.message.channel.history(limit=number):
-            mgs.append(x)
-        await ctx.channel.delete_messages(mgs)
-        await ctx.send(f'Deleted {number} Messages 🧹')
 
     @commands.command(name='suggest', help='Give a suggestion')
     async def suggest(self, ctx, *suggestion):
@@ -57,67 +56,107 @@ class General(commands.Cog):
         message = await ctx.reply(f':ping_pong: Pong! in: {ping} ms', mention_author=False)
         message_id = message.id
         time_diff1 = round((time1 - time0).microseconds / 1000)
-        time_diff2 = round((discord.utils.snowflake_time(message_id) - time1).microseconds / 1000)
+        time_diff2 = round((discord.utils.snowflake_time(message_id).replace(tzinfo=None) - time1).microseconds / 1000)
         await message.edit(
             content=f':ping_pong: Pong! in: {ping} ms\nMessage received in: {time_diff1} ms\n'
                     f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name='whois')
-    async def find_user(self, ctx, user: discord.User):
+    async def find_user(self, ctx, user: discord.User = None):
+        if not user:
+            user = ctx.author
         yellow = 0xfff00
-        username = user.name
-        user_tag = user.discriminator
-        user_date = user.created_at
-        user_bot = user.bot
         await ctx.trigger_typing()
-        custom_embed = discord.Embed(title='User Data', description=f'Created at: {user_date}\n'
-                                                                    f'Bot: {user_bot}', color=yellow)
-        custom_embed.set_author(name=f"{username}#{user_tag}", icon_url=user.avatar_url)
+        flags = map(dirty_filter, user.public_flags.all()) if user.public_flags.value != 0 else ["None"]
+        custom_embed = discord.Embed(title="User Data", description=f"Created at: "
+                                                                    f"<t:{int(user.created_at.timestamp())}:R>\n"
+                                                                    f"Bot: {user.bot} **|** System: {user.system}\n"
+                                                                    f"Public Flags: "
+                                                                    f"{', '.join(flags)}",
+                                     color=yellow)
+        custom_embed.set_author(name=f"{user.name}#{user.discriminator}", icon_url=user.avatar)
+        member = ctx.guild.get_member(user.id)
+        if member:
+            boost = member.premium_since
+            if not boost:
+                boost = -1e+13
+            else:
+                boost = boost.timestamp()
+            custom_embed.add_field(name="Member info",
+                                   value=f"Mobile:\u1CBC\u1CBC{EMOJI_STATUS[member.mobile_status.value]}\n"
+                                         f"Desktop:\u1CBC{EMOJI_STATUS[member.desktop_status.value]}\n"
+                                         f"Web: \u1CBC\u1CBC\u1CBC\u1CBC{EMOJI_STATUS[member.web_status.value]}\n"
+                                         f"Joined since: <t:{int(member.joined_at.timestamp())}:R>\n"
+                                         f"Boosting since: <t:{int(boost)}:R>\n"
+                                         f"Nick: {member.nick}",
+                                   inline=False)   # no spaces? fine I'll do it myself
         await ctx.send(embed=custom_embed)
 
-    @commands.command(name='avatar', help='yes avatar')
-    async def avaa(self, ctx, userid=None):
-        if ctx.author.id in owoCooldown:
+    @commands.command(name="avatar", help="yes avatar")
+    async def show_avatar(self, ctx, user: discord.User = None):
+        if ctx.author.id in cmdCooldown:
             return
-        if not userid:
-            embed = discord.Embed(title='Avatar')
-            embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar_url)
-            embed.set_image(url=ctx.author.avatar_url)
-            await ctx.send(embed=embed)
-            owoCooldown.update({str(ctx.author.id): True})
-            await asyncio.sleep(3)
-            owoCooldown.pop(str(ctx.author.id))
+        if not user:
+            user = ctx.author
+        embed = discord.Embed(title='Avatar')
+        embed.set_author(name=user.name, icon_url=user.avatar)
+        embed.set_image(url=user.avatar)
+        await ctx.send(embed=embed)
+        cmdCooldown.update({str(ctx.author.id): True})
+        await asyncio.sleep(3)
+        cmdCooldown.pop(str(ctx.author.id))
 
-        else:
-            userid = int((((userid.replace('<', '')).replace('>', '')).replace('@', '')).replace('!', ''))
-            embed = discord.Embed(title='Avatar')
-            username = await self.bot.fetch_user(userid)
-            embed.set_author(name=username.name, icon_url=username.avatar_url)
-            embed.set_image(url=username.avatar_url)
-            await ctx.send(embed=embed)
-            owoCooldown.update({str(ctx.author.id): True})
-            await asyncio.sleep(3)
-            owoCooldown.pop(str(ctx.author.id))
+    @commands.command(name="avatar2")
+    async def show_avatar2(self, ctx, user: discord.Member = None):
+        """
+        Avatar V2!! with ~~useless~~ updated feature
+        """
+        if ctx.author.id in cmdCooldown:
+            return
+        if not user:
+            user = ctx.author
+        embed = discord.Embed(title='Avatar')
+        embed.set_author(name=user.display_name, icon_url=user.display_icon)
+        embed.set_image(url=user.guild_avatar)
+        await ctx.send(embed=embed)
+        cmdCooldown.update({str(ctx.author.id): True})
+        await asyncio.sleep(3)
+        cmdCooldown.pop(str(ctx.author.id))
 
     @commands.command(name="banner", help="beta")
     async def check_banner(self, ctx, user: discord.User = None):
+        """
+        Returns a user's Discord banner
+        """
+        # PENDING: below code only execute in 2.0 which waiting to be released
         if not user:
             user = ctx.author
-        member = await ctx.guild.fetch_member(user.id)
-        req = await self.bot.http.request(discord.http.Route("GET", "/users/{uid}", uid=user.id))
-        banner_id = req["banner"]
-        ext = "png"
-        if banner_id and banner_id.startswith("a_"):
-            ext = "gif"
-        # If statement because the user may not have a banner
-        if not banner_id:
-            await ctx.send("User doesn't have banner", delete_after=5)
-            return
-        banner_url = f"https://cdn.discordapp.com/banners/{user.id}/{banner_id}.{ext}?size=1024"
-        custom_embed = discord.Embed(title="Banner", color=member.colour)
-        custom_embed.set_author(name=user.name, icon_url=user.avatar_url)
+        member = await self.bot.fetch_user(user.id)
+        banner_url = member.banner
+        if not banner_url:
+            banner_url = "https://c4.wallpaperflare.com/wallpaper/" \
+                         "357/645/211/easter-island-chile-starry-night-statue-wallpaper-preview.jpg"
+
+        custom_embed = discord.Embed(description=f"{member.name}'s banner")
         custom_embed.set_image(url=banner_url)
         await ctx.send(embed=custom_embed)
+        # if not user:
+        #     user = ctx.author
+        # member = await ctx.guild.fetch_member(user.id)
+        # req = await self.bot.http.request(discord.http.Route("GET", "/users/{uid}", uid=user.id))
+        # banner_id = req["banner"]
+        # ext = "png"
+        # if banner_id and banner_id.startswith("a_"):
+        #     ext = "gif"
+        # # If statement because the user may not have a banner
+        # if not banner_id:
+        #     await ctx.send("User doesn't have banner", delete_after=5)
+        #     return
+        # banner_url = f"https://cdn.discordapp.com/banners/{user.id}/{banner_id}.{ext}?size=1024"
+        # custom_embed = discord.Embed(title="Banner", color=member.colour)
+        # custom_embed.set_author(name=user.name)
+        # custom_embed.set_image(url=banner_url)
+        # await ctx.send(embed=custom_embed)
 
     @commands.command(name='invite', help="Invite this bot to your server")
     async def link(self, ctx):
@@ -127,5 +166,19 @@ class General(commands.Cog):
             delete_after=30)
 
 
-def setup(bot):
-    bot.add_cog(General(bot))
+def dirty_filter(text):
+    """
+    Function to filter dot underscore in PublicFlag and title them
+
+    Args:
+        text (Any): text to filter
+
+    Returns:
+        str: Filtered text
+
+    """
+    return text.name.split('.')[-1].replace('_', ' ').title()
+
+
+async def setup(bot):
+    await bot.add_cog(General(bot))

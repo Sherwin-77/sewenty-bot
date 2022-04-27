@@ -724,7 +724,7 @@ async def maxweapon(ctx, typeweapon, cost, stat1, stat2, stat3):
     custom_embed.add_field(name='Max Stat', value=f'**{maxstat}%**', inline=False)
     custom_embed.add_field(name='Rarity', value=f'**{quality}** {emojis}', inline=False)
     custom_embed.add_field(name='Additional info',
-                     value=f'Minimum stat: **{minstat}%**\nMax stat ignoring passive: **{maxignore}%**\nMin stat with crit: **{mincrit}%**\nMax stat with crit: **{maxcrit}%**')
+                           value=f'Minimum stat: **{minstat}%**\nMax stat ignoring passive: **{maxignore}%**\nMin stat with crit: **{mincrit}%**\nMax stat with crit: **{maxcrit}%**')
     custom_embed.set_thumbnail(url=link)
     await ctx.send(embed=custom_embed)
 
@@ -887,7 +887,7 @@ class HelperCommand(commands.Cog):
                             delete_after=6, author_reply=False)
 
     @commands.command(name='petstat', help='Visualize pet stat in certain level',
-                 aliases=['statpet', 'petlevel', 'levelpet'])
+                      aliases=['statpet', 'petlevel', 'levelpet'])
     async def petstats(self, ctx, level=None, hp=None, strength=None, pr=None, wp=None, mag=None, mr=None):
         if level.isdigit():
             level = int(level)
@@ -945,7 +945,7 @@ class HelperCommand(commands.Cog):
                 # calculating
                 solution = ''
                 solution_crafter = ''
-                hyper_log, mega_log, super_log, epic_log, wooden_log = [0 for value in range(5)]
+                hyper_log, mega_log, super_log, epic_log, wooden_log = [0 for _ in range(5)]
 
                 if 'hyper log' in log_data:
                     if log_data['hyper log'] >= 10:
@@ -1074,8 +1074,8 @@ class HelperCommand(commands.Cog):
                             if super_log >= (100 - 10 * hyper_log - mega_log) * 10:
                                 dump = 2
                                 amount += 100 - 10 * hyper_log - mega_log
-                                super_log -= (100 - 10 * hyper_log - mega_log) * 10 - \
-                                             floor((100 - 10 * hyper_log - mega_log) * 10 * returned_item)
+                                super_log -= ((100 - 10 * hyper_log - mega_log) * 10
+                                              - floor((100 - 10 * hyper_log - mega_log) * 10 * returned_item))
                                 mega_log = 100 - 10 * hyper_log
 
                             else:
@@ -1089,8 +1089,8 @@ class HelperCommand(commands.Cog):
                             if epic_log >= (100 - 10 * mega_log - super_log) * 10:
                                 dump = 3
                                 amount += 100 - 10 * mega_log - super_log
-                                epic_log -= (100 - 10 * mega_log - super_log) * 10 - \
-                                            floor((100 - 10 * mega_log - super_log) * 10 * returned_item)
+                                epic_log -= ((100 - 10 * mega_log - super_log) * 10
+                                             - floor((100 - 10 * mega_log - super_log) * 10 * returned_item))
                                 super_log = 100 - 10 * mega_log
                             else:
                                 solution_crafter += f"\nrpg craft super log all"
@@ -1135,7 +1135,7 @@ class HelperCommand(commands.Cog):
                         await original.edit(content="Character limit reached")
 
     @commands.command(name='countstreak', help='Count bonus xp depends on streak',
-                 aliases=['streakcount', 'bonusxp', 'countxp'])
+                      aliases=['streakcount', 'bonusxp', 'countxp'])
     async def countstreaks(self, ctx, streak: int = None):
         yellow = 0xfff00
         if streak:
@@ -1157,11 +1157,12 @@ class HelperCommand(commands.Cog):
             decoration = random.randint(1, 20)
             name = ctx.author.name
             custom_embed = discord.Embed(title=f'{name} goes into battle!', description=f'You won in {decoration} '
-                                                                                        f'turns! your team gained **200 + {bonus}** xp! '
+                                                                                        f'turns! your team gained '
+                                                                                        f'**200 + {bonus}** xp! '
                                                                                         f'streak: {streak}',
                                          color=yellow)
             await ctx.send(embed=custom_embed)
 
 
-def setup(bot):
-    bot.add_cog(HelperCommand(bot))
+async def setup(bot):
+    await bot.add_cog(HelperCommand(bot))

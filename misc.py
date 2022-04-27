@@ -119,7 +119,7 @@ class Miscellaneous(commands.Cog):
 
         selected_player = ctx.author
         cursor = ":one:"
-        board = ["🟦" for b in range(9)]
+        board = ["🟦" for _ in range(9)]
         player_pos = {":one:": [],  ":two:": []}
         winner = ""
         done = False
@@ -419,5 +419,5 @@ class Miscellaneous(commands.Cog):
         await message.delete()
 
 
-def setup(bot):
-    bot.add_cog(Miscellaneous(bot))
+async def setup(bot):
+    await bot.add_cog(Miscellaneous(bot))

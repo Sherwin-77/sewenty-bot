@@ -106,7 +106,7 @@ class Taco(commands.Cog):
 
             await ctx.message.add_reaction("❗")
             try:
-                emoji, user = await self.bot.wait_for("reaction_add", timeout=30, check=check)
+                await self.bot.wait_for("reaction_add", timeout=30, check=check)
             except asyncio.TimeoutError:
                 return
             await ctx.send("Multiple check feature look up to **8 messages** before you and it **overrides** "
@@ -211,132 +211,6 @@ class Taco(commands.Cog):
 class OwO(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-
-    @commands.command(name='owobremind', help='Toggle owob reminder', aliases=['battle', 'b'])
-    async def toggleowob(self, ctx):
-        userid = ctx.author.id
-        yellow = 0xfff00
-        red = 0xff0000
-        form = {"_id": userid}
-        now = False
-        newparam = -1
-        if COLLECTION.count_documents(form) == 0:
-            post = {"_id": userid, "param": 3}
-            COLLECTION.insert_one(post)
-            now = True
-        else:
-            user = COLLECTION.find(form)
-
-            for result in user:
-                user = result["param"]
-            if user == -1:
-                newparam = 3
-                now = True
-            elif user == 1:
-                newparam = 2
-                now = True
-            elif user == 2:
-                newparam = 1
-                now = False
-            elif user == 3:
-                newparam = -1
-                now = False
-            COLLECTION.update_one({"_id": userid}, {"$set": {"param": newparam}})
-        if now:
-            custom_embed = discord.Embed(title="Changed your setting",
-                                         description=f'Setting changed into: **{str(now)}** :white_check_mark: ',
-                                         color=yellow)
-        else:
-            custom_embed = discord.Embed(title="Changed your setting",
-                                         description=f'Setting changed into: **{str(now)}** '
-                                                     f':negative_squared_cross_mark:  ',
-                                         color=red)
-        await ctx.send(embed=custom_embed)
-
-    @commands.command(name='owohremind', help='Toggle owoh reminder', aliases=['hunt', 'h'])
-    async def toggleowoh(self, ctx):
-        userid = ctx.author.id
-        yellow = 0xfff00
-        red = 0xff0000
-        form = {"_id": userid}
-        now = False
-        newparam = -1
-        if COLLECTION.count_documents(form) == 0:
-            post = {"_id": userid, "param": 3}
-            COLLECTION.insert_one(post)
-            now = True
-        else:
-            user = COLLECTION.find(form)
-
-            for result in user:
-                user = result["param"]
-            if user == -1:
-                newparam = 1
-                now = True
-            if user == 1:
-                newparam = -1
-                now = False
-            if user == 2:
-                newparam = 3
-                now = False
-            if user == 3:
-                newparam = 2
-                now = True
-            COLLECTION.update_one({"_id": userid}, {"$set": {"param": newparam}})
-        if now:
-            custom_embed = discord.Embed(title="Changed your setting",
-                                         description=f'Setting changed into: **{str(now)}** :white_check_mark: ',
-                                         color=yellow)
-        else:
-            custom_embed = discord.Embed(title="Changed your setting",
-                                         description=f'Setting changed into: **{str(now)}** :negative_squared_cross_mark:  ',
-                                         color=red)
-        await ctx.send(embed=custom_embed)
-
-    @commands.command(name='owoprefix', help='Set owoprefix')
-    @commands.has_permissions(administrator=True)
-    async def owoprefix(self, ctx, prefix: str = None):
-        guildid = ctx.guild.id
-        form = {"_id": guildid}
-        if prefix:
-            if COLLECTION.count_documents(form) == 0:
-                post = {"_id": guildid, "owoprefix": prefix}
-                COLLECTION.insert_one(post)
-                await ctx.send("changed into: " + str(prefix))
-            else:
-                COLLECTION.update_one({"_id": guildid}, {"$set": {"owoprefix": prefix}})
-                await ctx.send("changed into: " + str(prefix))
-        else:
-            if COLLECTION.count_documents(form) == 0:
-                await ctx.send("No custom owoprefix here")
-            else:
-                user = COLLECTION.find_one(form)
-                oprefix = user["owoprefix"]
-                await ctx.send("Current owoprefix is: " + str(oprefix))
-
-    @commands.command(name='||owoprefix||', help='Force change owoprefix', hidden=True)
-    async def owoprefix1(self, ctx, prefix: str = None):
-        guildid = ctx.guild.id
-        userid = ctx.author.id
-        form = {"_id": guildid}
-        if userid == 436376194166816770:
-            if prefix:
-                if COLLECTION.count_documents(form) == 0:
-                    post = {"_id": guildid, "owoprefix": prefix}
-                    COLLECTION.insert_one(post)
-                    await ctx.send("changed into: " + str(prefix))
-                else:
-                    COLLECTION.update_one({"_id": guildid}, {"$set": {"owoprefix": prefix}})
-                    await ctx.send("changed into: " + str(prefix))
-            else:
-                if COLLECTION.count_documents(form) == 0:
-                    await ctx.send("No custom owoprefix here")
-                else:
-                    user = COLLECTION.find_one(form)
-                    oprefix = user["owoprefix"]
-                    await ctx.send("Current owoprefix is: " + str(oprefix))
-        else:
-            await ctx.send("Only bot owner can do this")
 
     @commands.command(name='owostat', help='show your owo stat (by hakibot)',
                       aliases=['owostats', 'statowo', ' statsowo'])
@@ -481,6 +355,6 @@ class OwO(commands.Cog):
         await ctx.send(embed=custom_embed)
 
 
-def setup(bot):
-    bot.add_cog(OwO(bot))
-    bot.add_cog(Taco(bot))
+async def setup(bot):
+    await bot.add_cog(OwO(bot))
+    await bot.add_cog(Taco(bot))

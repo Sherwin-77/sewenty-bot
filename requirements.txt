@@ -1,8 +1,9 @@
-discord.py~=1.7.3
-aiohttp==3.7.4.post0
+aiohttp~=3.7.4.post0
 async-timeout~=3.0.1
-pymongo~=3.12.0
-dnspython~=2.1.0
+discord.py @ git+https://github.com/Rapptz/discord.py@5a06fa5f3e28d2b7191722e1a84c541560008aea
+dnspython=~2.1.0
+pymongo~=3.12.3
+python-dotenv~=0.20.0
+pytz~=2021.3
 wikipedia~=1.4.0
-pytz~=2021.1
-discord-py-slash-command==2.4.1
+jishaku ~= 2.4.0
