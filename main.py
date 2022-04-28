@@ -1,20 +1,30 @@
 # bot.py
 import asyncio
-import random
 from datetime import datetime
-import os
+from glob import glob
+from os import getenv
+from os.path import relpath
+import random
+from traceback import format_exception
+
 import discord
 from discord.ext import commands
 from pymongo import MongoClient
-from dotenv import load_dotenv
 
-load_dotenv()
+# from dotenv import load_dotenv
+#
+# load_dotenv()
 
-token = os.getenv('DISCORD_TOKEN')
-EMAILS = os.getenv('EMAIL')
-PASSWORDS = os.getenv('PASSWORD')
+COMMANDS_FOLDER = r"commands/"
+
+TOKEN = getenv("DISCORD_TOKEN")
+EMAILS = getenv("EMAIL")
+PASSWORDS = getenv("PASSWORD")
+DB_NAME = getenv("DB_NAME")
+
 intents = discord.Intents.all()  # ah yes
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('s!'), intents=intents)
+
 launchTime = int(datetime.now().timestamp())
 
 TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
@@ -30,16 +40,8 @@ TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                               "<a:pandasmackOwO:799955371074519041>"}
 
 allowed_track_channel = {}
-EMOJIS = ['<a:pauldance:745965072349659217>', '<a:kittyhyper:742702283287953409>', '<a:yesyess:757119792044965898>',
-          '<a:WRhyperrun:757120121276858441>', '<a:1_kannanom:757119200530792538>',
-          '<a:discordloading:792012369168957450>',
-          '<a:miwk:757468521553723592>', '<a:yessyes:757506011270479902>',
-          '<a:bunhide:757561252691050576>', '<a:pandaclap:760744517824806913>',
-          '<a:bunStubbornbaby:773332023111974982>',
-          '<a:nyaHyperspin:796349061439291392>', '<a:kittyreversedswish:796748963957047407>',
-          '<a:kittyconfusedswish:796745579581407232>']
 
-MANGO_URL = f'mongodb+srv://{EMAILS}:{PASSWORDS}@clusterdiscord.8dm0p.mongodb.net/test'
+MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
 CLUSTER = MongoClient(MANGO_URL)
 DB = CLUSTER["Data"]
 COLLECTION = DB["userdata"]
@@ -75,16 +77,23 @@ async def on_ready():
 
 
 @bot.command(name='dm', hidden=True)
-async def diem(ctx, userid: int, *, text='Test'):
+async def dm_user(ctx, userid: int, *, text='Test'):
     if ctx.author.id == 436376194166816770:
         user = await bot.fetch_user(userid)
         channel = await user.create_dm()
         await channel.send(text)
     else:
-        await ctx.send('Hoho you are expecting dm works for you. But its only me')
+        await ctx.send("Hoho you are expecting dm works for you. But its only me")
+
+
+@dm_user.error
+async def dm_error(ctx, error):
+    await ctx.reply(f"Failed to dm: {error}\n"
+                    f"`{type(error)}`")
 
 
 @bot.command(name='stat', help="show bot stat")
+@commands.cooldown(rate=1, per=3.0)
 async def stats(ctx):
     count_guild = len(bot.guilds)
     is_owner = await ctx.bot.is_owner(ctx.author)
@@ -138,7 +147,7 @@ async def on_message(message):
     if message.guild is None:
         channel = bot.get_channel(784707657344221215)
         dm_embed = discord.Embed(description=message.content)
-        dm_embed.set_author(name=message.author.name, icon_url=message.author.avatar_url)
+        dm_embed.set_author(name=message.author.name, icon_url=message.author.avatar)
         dm_embed.set_footer(text=message.author.id)
         await channel.send(embed=dm_embed)
         return
@@ -182,34 +191,39 @@ async def on_message_edit(before, after):
 
 @bot.event
 async def on_command_error(ctx, error):
-    if isinstance(error, commands.errors.CheckFailure):
-        await ctx.reply(f"Looks like you don't have the permission: {error}", mention_author=False)
-        return
     if isinstance(error, commands.errors.DisabledCommand):
-        await ctx.reply("Disabled command <:speechlessOwO:793026526911135744>", mention_author=False)
+        await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
+                        mention_author=False)
+        return
+    if isinstance(error, commands.errors.CommandOnCooldown):
+        await ctx.reply(f"{error} <:angeryV2:810860324248616960>", mention_author=False, delete_after=error.retry_after)
         return
     if isinstance(error, commands.errors.UserNotFound):
         await ctx.reply("User not found", mention_author=False)
         return
-    if isinstance(error, commands.errors.CommandNotFound):
+    if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, 'on_error'):
         return
     owner = await bot.fetch_user(436376194166816770)
     channel = await owner.create_dm()
-    await channel.send(f"Uncaught error in channel <#{ctx.channel.id}>: `{error}`\n"
-                       f"Type: `{type(error)}`")
+    output = ''.join(format_exception(type(error), error, error.__traceback__))
+    await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
+                       f"```py\n"
+                       f"{output}```")
+
+
+async def load_all():
+    for file in glob(f"{COMMANDS_FOLDER}*.py"):
+        module_name = relpath(file).replace("\\", '.')[:-3]
+        await bot.load_extension(module_name)
+    await bot.load_extension("jishaku")
+    print("Module loaded")
 
 
 async def main():
     async with bot:
-        await bot.load_extension("general")
-        await bot.load_extension("helper")
-        await bot.load_extension("misc")
-        await bot.load_extension("game")
-        await bot.load_extension("jishaku")
-        await bot.load_extension("dbcommand")
-        # await bot.load_extension("experiment")
+        await load_all()
         bot.help_command = NewHelpName()
-        await bot.start(token)
+        await bot.start(TOKEN)
 
 
 if __name__ == '__main__':

@@ -1,10 +1,6 @@
 import discord
 from discord.ext import commands
 from datetime import datetime
-import asyncio
-
-# TODO: change cmdCooldown to set type
-cmdCooldown = {}
 
 EMOJI_STATUS = {
     "online": "🟢",
@@ -17,36 +13,32 @@ EMOJI_STATUS = {
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
 
-    @commands.command(name='member', help='List all members nickname (doesnt work > 50)')
-    async def member_name(self, ctx):
-        member_count = ctx.guild.member_count
-        await ctx.send(f'Total members: {member_count}')
-        if member_count <= 50:
-            member_name = []
-            for member in ctx.guild.members:
-                if member.nick is None:
-                    member_name.append(str(member.name))
-                else:
-                    member_name.append(str(member.nick))
-            member_list = '\n- '.join(member_name)
-            await ctx.send(f'```Members: \n- {member_list}```')
+    async def cog_check(self, ctx):
+        bucket = self._cd.get_bucket(ctx.message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after:
+            raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
+        return True
 
     @commands.command(name='suggest', help='Give a suggestion')
-    async def suggest(self, ctx, *suggestion):
-        if suggestion:
-            blue = 0x00ffff
-            msg = []
-            for x in suggestion:
-                msg.append(x)
-            channel = self.bot.get_channel(759728217069191209)
-            messages = ' '.join(msg)
-            username = await self.bot.fetch_user(ctx.author.id)
-            custom_embed = discord.Embed(title=f'{username}\'s Suggestion', description=messages, color=blue)
-            await channel.send(embed=custom_embed)
-            await ctx.message.add_reaction('👍')
-        else:
-            await ctx.reply('Please input your suggestion')
+    async def suggest(self, ctx, *, suggestion):
+        blue = 0x00ffff
+        msg = []
+        for x in suggestion:
+            msg.append(x)
+        channel = self.bot.get_channel(759728217069191209)
+        messages = ' '.join(msg)
+        username = await self.bot.fetch_user(ctx.author.id)
+        custom_embed = discord.Embed(title=f'{username}\'s Suggestion', description=messages, color=blue)
+        await channel.send(embed=custom_embed)
+        await ctx.message.add_reaction('👍')
+
+    @suggest.error
+    async def suggest_error(self, ctx, error):
+        if isinstance(error, commands.errors.MissingRequiredArgument):
+            await ctx.reply("Please input your suggestion :c", mention_author=False, delete_after=5)
 
     @commands.command(name='ping')
     async def pinging(self, ctx):
@@ -69,7 +61,7 @@ class General(commands.Cog):
         await ctx.trigger_typing()
         flags = map(dirty_filter, user.public_flags.all()) if user.public_flags.value != 0 else ["None"]
         custom_embed = discord.Embed(title="User Data", description=f"Created at: "
-                                                                    f"<t:{int(user.created_at.timestamp())}:R>\n"
+                                                                    f"<t:{int(user.created_at.timestamp())}:D>\n"
                                                                     f"Bot: {user.bot} **|** System: {user.system}\n"
                                                                     f"Public Flags: "
                                                                     f"{', '.join(flags)}",
@@ -94,34 +86,24 @@ class General(commands.Cog):
 
     @commands.command(name="avatar", help="yes avatar")
     async def show_avatar(self, ctx, user: discord.User = None):
-        if ctx.author.id in cmdCooldown:
-            return
         if not user:
             user = ctx.author
         embed = discord.Embed(title='Avatar')
         embed.set_author(name=user.name, icon_url=user.avatar)
         embed.set_image(url=user.avatar)
         await ctx.send(embed=embed)
-        cmdCooldown.update({str(ctx.author.id): True})
-        await asyncio.sleep(3)
-        cmdCooldown.pop(str(ctx.author.id))
 
     @commands.command(name="avatar2")
     async def show_avatar2(self, ctx, user: discord.Member = None):
         """
         Avatar V2!! with ~~useless~~ updated feature
         """
-        if ctx.author.id in cmdCooldown:
-            return
         if not user:
             user = ctx.author
         embed = discord.Embed(title='Avatar')
         embed.set_author(name=user.display_name, icon_url=user.display_icon)
         embed.set_image(url=user.guild_avatar)
         await ctx.send(embed=embed)
-        cmdCooldown.update({str(ctx.author.id): True})
-        await asyncio.sleep(3)
-        cmdCooldown.pop(str(ctx.author.id))
 
     @commands.command(name="banner", help="beta")
     async def check_banner(self, ctx, user: discord.User = None):

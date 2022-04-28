@@ -9,17 +9,19 @@ from datetime import datetime
 import datetime as dt
 import calendar
 
-EMAILS = os.getenv('EMAIL')
-PASSWORDS = os.getenv('PASSWORD')
+EMAILS = os.getenv("EMAIL")
+PASSWORDS = os.getenv("PASSWORD")
 SECOND_EMAIL = os.getenv("NEXT_EMAIL")
 SECOND_PASSWORD = os.getenv("NEXT_PASSWORD")
+CPDB_NAME = os.getenv("CPDB_NAME")
+DB_NAME = os.getenv("DB_NAME")
 
-MANGO_URL = f'mongodb+srv://{EMAILS}:{PASSWORDS}@clusterdiscord.8dm0p.mongodb.net/test'
+MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
 CLUSTER = MongoClient(MANGO_URL)
 DB = CLUSTER["Data"]
 COLLECTION = DB["userdata"]
 
-CP_URL = f'mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@hakiobo.s5buy.mongodb.net/Hakibot'
+CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
 CP_CLUSTER = MongoClient(CP_URL)
 CP_DB = CP_CLUSTER["Hakibot"]
 CP_COLLECTION = CP_DB["cp"]
@@ -142,7 +144,7 @@ class Taco(commands.Cog):
                 v = format(taco[t], '.3e')
                 taco.pop(t)
                 tcemb.add_field(name=f'Recommendation {x}', value=f'{t}\n(Value = {v})')
-            tcemb.set_author(name=f'{ctx.author.name}\'s Taco', icon_url=ctx.author.avatar_url)
+            tcemb.set_author(name=f'{ctx.author.name}\'s Taco', icon_url=ctx.author.avatar)
             await ctx.send(embed=tcemb)
         taco_recommend.add(str(ctx.author.id))
         await asyncio.sleep(4)
@@ -244,7 +246,7 @@ class OwO(commands.Cog):
                                f'Last week: {lastweekcount}\n'
                                f'Last month: {lastmonthcount}\n'
                                f'Last year: {lastyearcount}')
-        cembed.set_author(name=users.name, icon_url=users.avatar_url)
+        cembed.set_author(name=users.name, icon_url=users.avatar)
         await ctx.send(embed=cembed)
 
     @commands.command(name='leaderboard', aliases=['ldb', 'top', 'owotop'], help='leaderboard (by hakibot)')

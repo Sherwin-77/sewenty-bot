@@ -1,15 +1,24 @@
-import discord
-from discord.ext import commands
-import wikipedia
+import datetime
 import random
 import asyncio
 import os
 from math import ceil, log
+
 import aiohttp
+import discord
+from discord.ext import commands
+import wikipedia
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
 occupied_channel = set()
 
-client_id = os.getenv("CLIENT_ID")
-client_secret = os.getenv("CLIENT_SECRET")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+OSU_API_URL = "https://osu.ppy.sh/api/v2"
+OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token"
 
 
 def is_win(player_pos, current_player):
@@ -31,6 +40,7 @@ class Miscellaneous(commands.Cog):
         self.bot = bot
 
     @commands.command(name='wikipedia', help='Ah yes wikipedia')
+    @commands.cooldown(rate=1, per=10.0)
     async def checkwiki(self, ctx, key, option, number: int = None, lang=None):
         if key and option and number:
             if lang:
@@ -111,6 +121,7 @@ class Miscellaneous(commands.Cog):
             elif m.content.lower() in ["no", "n"] and m.author.id == opponent.id:
                 raise asyncio.TimeoutError
             return False
+
         try:
             await self.bot.wait_for("message", check=accepted_battle, timeout=15.0)
         except asyncio.TimeoutError:
@@ -120,7 +131,7 @@ class Miscellaneous(commands.Cog):
         selected_player = ctx.author
         cursor = ":one:"
         board = ["🟦" for _ in range(9)]
-        player_pos = {":one:": [],  ":two:": []}
+        player_pos = {":one:": [], ":two:": []}
         winner = ""
         done = False
         occupied_channel.add(ctx.channel.id)
@@ -157,7 +168,7 @@ class Miscellaneous(commands.Cog):
                 await ctx.send(f"{selected_player} did not answer in 1 minute")
                 done = True
                 continue
-            board[int(choice.content)-1] = cursor
+            board[int(choice.content) - 1] = cursor
             player_pos[cursor].append(int(choice.content))
 
             if is_win(player_pos, cursor):
@@ -203,7 +214,7 @@ class Miscellaneous(commands.Cog):
         multiplier = random.choice(multiplier_list)
         max_number = min_number * multiplier
         if not max_attempt:
-            max_attempt = ceil(log(max_number-min_number+2, 2)) + 1
+            max_attempt = ceil(log(max_number - min_number + 2, 2)) + 1
         selected_number = random.randrange(min_number, max_number + 1)
         await ctx.send(f"Guess number from {min_number} - {max_number}")
         attempt = 0
@@ -239,26 +250,27 @@ class Miscellaneous(commands.Cog):
         occupied_channel.remove(ctx.channel.id)
         await ctx.send(f"You failed to guess. Correct: {selected_number}")
 
+    @staticmethod
+    async def get_token(token_url):
+        data = {
+            "client_id": int(CLIENT_ID),
+            "client_secret": CLIENT_SECRET,
+            "grant_type": "client_credentials",
+            "scope": "public"
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.post(token_url, data=data) as response:
+                res = await response.json()
+        return res["access_token"]
+
     @commands.command(name="osutop", help="Flex your top osu play")
+    @commands.cooldown(rate=1, per=15.0)
     async def get_osu_top(self, ctx, username):
         api_url = "https://osu.ppy.sh/api/v2"
         token_url = "https://osu.ppy.sh/oauth/token"
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
-        async def get_token():
-            data = {
-                "client_id": int(client_id),
-                "client_secret": client_secret,
-                "grant_type": "client_credentials",
-                "scope": "public"
-            }
-            async with aiohttp.ClientSession() as session:
-                async with session.post(token_url, data=data) as response:
-                    r = await response.json()
-            return r
-
-        raw = await get_token()
-        token = raw["access_token"]
+        token = await self.get_token(token_url)
         headers = {
             "Content_Type": "application/json",
             "Accept": "application/json",
@@ -301,26 +313,26 @@ class Miscellaneous(commands.Cog):
         await ctx.send(embed=custom_embed)
         await message.delete()
 
+    @get_osu_top.error
+    async def osu_top_error(self, ctx, error):
+        if isinstance(error, commands.errors.CommandInvokeError):
+            # Known IndexError issue caused by iterating empty/not enough length list
+            if isinstance(error.original, IndexError):
+                await ctx.send("User doesn't have any top play or not enough top play to show")
+                return
+            # known KeyError issue caused by invalid username
+            if isinstance(error.original, KeyError):
+                await ctx.send("User not found")
+                return
+
     @commands.command(name="osurecent", help="Show your recent osu play")
+    @commands.cooldown(rate=1, per=15.0)
     async def get_osu_recent(self, ctx, username):
         api_url = "https://osu.ppy.sh/api/v2"
         token_url = "https://osu.ppy.sh/oauth/token"
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
-        async def get_token():
-            data = {
-                "client_id": int(client_id),
-                "client_secret": client_secret,
-                "grant_type": "client_credentials",
-                "scope": "public"
-            }
-            async with aiohttp.ClientSession() as session:
-                async with session.post(token_url, data=data) as response:
-                    r = await response.json()
-            return r
-
-        raw = await get_token()
-        token = raw["access_token"]
+        token = await self.get_token(token_url)
         headers = {
             "Content_Type": "application/json",
             "Accept": "application/json",
@@ -363,26 +375,26 @@ class Miscellaneous(commands.Cog):
         await ctx.send(embed=custom_embed)
         await message.delete()
 
+    @get_osu_recent.error
+    async def osu_recent_error(self, ctx, error):
+        if isinstance(error, commands.errors.CommandInvokeError):
+            if isinstance(error.original, IndexError):
+                # Known IndexError issue caused by iterating empty/not enough length list
+                await ctx.send("User doesn't have any recent play in 24 hours or not enough recent plays to show")
+                return
+            if isinstance(error.original, KeyError):
+                # known KeyError issue caused by invalid username
+                await ctx.send("User not found")
+                return
+
     @commands.command(name="osuprofile", help="Flex your osu profile")
+    @commands.cooldown(rate=1, per=15.0)
     async def get_osu_profile(self, ctx, username):
         api_url = "https://osu.ppy.sh/api/v2"
         token_url = "https://osu.ppy.sh/oauth/token"
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
-        async def get_token():
-            data = {
-                "client_id": int(client_id),
-                "client_secret": client_secret,
-                "grant_type": "client_credentials",
-                "scope": "public"
-            }
-            async with aiohttp.ClientSession() as session:
-                async with session.post(token_url, data=data) as response:
-                    r = await response.json()
-            return r
-
-        raw = await get_token()
-        token = raw["access_token"]
+        token = await self.get_token(token_url)
         headers = {
             "Content_Type": "application/json",
             "Accept": "application/json",
@@ -417,6 +429,40 @@ class Miscellaneous(commands.Cog):
         custom_embed.set_footer(text=f"Joined at {raw['join_date']}")
         await ctx.send(embed=custom_embed)
         await message.delete()
+
+    @get_osu_profile.error
+    async def osu_profile_error(self, ctx, error):
+        if isinstance(error, commands.errors.CommandInvokeError) and isinstance(error.original, KeyError):
+            # known KeyError issue caused by invalid username
+            await ctx.send("Unable to find user")
+            return
+
+    @commands.command(name="spotify", aliases=["spot", "spt"])
+    @commands.cooldown(rate=1, per=5.0)
+    async def activity_spotify(self, ctx, user: discord.Member = None):
+        if not user:
+            user = ctx.author
+        # In most cases the filtered list consist only 1 element unless there are breaking changes
+        spotify = list(filter(lambda a: isinstance(a, discord.Spotify), user.activities))
+        if not spotify:
+            await ctx.send("Not listening ):<", delete_after=5)
+        else:
+            spotify = spotify[-1]
+            # if there are more than 1 artists, put them all
+            duration = int(spotify.end.timestamp() - spotify.start.timestamp())
+            ongoing = int(datetime.datetime.now(datetime.timezone.utc).timestamp() - spotify.start.timestamp())
+            percentage = round(ongoing / duration * 100)
+            emoji = f"{'<:start0:969180226208813066>' if percentage >= 10 else '<:start1:969180368852910120>'}" \
+                    f"{'<:middle0:969180275525443636>' * (0 if percentage <= 10 else min(ceil(percentage/10)-1, 8))}" \
+                    f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage/10), 0))}" \
+                    f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
+            artist = spotify.artist if len(spotify.artists) > 1 else ', '.join(spotify.artists)
+            custom_embed = discord.Embed(title=f"{user.name} is listening to a song",
+                                         description=f"Title: [{spotify.title}]({spotify.track_url})\n"
+                                                     f"Artist: {artist}\n"
+                                                     f"Album: {spotify.album}\n"
+                                                     f"{emoji}", color=spotify.color)
+            await ctx.send(embed=custom_embed)
 
 
 async def setup(bot):

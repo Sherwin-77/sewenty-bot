@@ -10,10 +10,11 @@ import os
 import random
 import asyncio
 
-emails = os.getenv('EMAIL')
-passwords = os.getenv('PASSWORD')
-mango_url = f"mongodb+srv://{emails}:{passwords}@clusterdiscord.8dm0p.mongodb.net/test"
-# mango_url = f"mongodb+srv://{emails}:{passwords}@cluster0.kvwdz.mongodb.net/test"
+EMAILS = os.getenv("EMAIL")
+PASSWORDS = os.getenv("PASSWORD")
+DB_NAME = os.getenv("DB_NAME")
+mango_url = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
+# mango_url = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
 cluster = MongoClient(mango_url)
 game = cluster["game"]["data"]
 
@@ -888,7 +889,7 @@ class Game(commands.Cog):
                                                       f'Difens: {defense1}\n'
                                                       f'Spid: {speed1}\n'
                                                       f'Range: {ranges}', inline=True)
-        team_embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar_url)
+        team_embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar)
         await ctx.send(embed=team_embed)
         owoCooldown.update({str(ctx.author.id): True})
         await asyncio.sleep(3)
@@ -1074,7 +1075,7 @@ class Game(commands.Cog):
                                              'which will boost your stat\n'
                                              'For team battle you can do `teambattle [player]` or you can raid '
                                              '`bossraid [difficulty]`. Difficulties for raid are e, h, i')
-        embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar_url)
+        embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar)
         await ctx.send(embed=embed)
 
 
