@@ -213,7 +213,7 @@ async def on_command_error(ctx, error):
 
 async def load_all():
     for file in glob(f"{COMMANDS_FOLDER}*.py"):
-        module_name = relpath(file).replace("\\", '.')[:-3]
+        module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
         await bot.load_extension(module_name)
     await bot.load_extension("jishaku")
     print("Module loaded")
