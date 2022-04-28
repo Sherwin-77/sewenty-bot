@@ -41,7 +41,7 @@ TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
 
 allowed_track_channel = {}
 
-MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
+MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
 CLUSTER = MongoClient(MANGO_URL)
 DB = CLUSTER["Data"]
 COLLECTION = DB["userdata"]
