@@ -66,14 +66,14 @@ async def on_ready():
     print(f'{bot.user.name} has connected to discord!')
     await bot.change_presence(status=discord.Status.idle,
                               activity=discord.Activity(type=discord.ActivityType.listening, name='s!help'))
-    form = {"_id": "allowed_channel"}
-    result = COLLECTION.find_one(form)
-    if not result:
-        print("No channel to be refreshed")
-    else:
-        new = result["channel_list"]
-        allowed_track_channel = new
-        print("Refresh channel done!")
+    # form = {"_id": "allowed_channel"}
+    # result = COLLECTION.find_one(form)
+    # if not result:
+    #     print("No channel to be refreshed")
+    # else:
+    #     new = result["channel_list"]
+    #     allowed_track_channel = new
+    #     print("Refresh channel done!")
 
 
 @bot.command(name='dm', hidden=True)

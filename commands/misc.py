@@ -462,6 +462,7 @@ class Miscellaneous(commands.Cog):
                                                      f"Artist: {artist}\n"
                                                      f"Album: {spotify.album}\n"
                                                      f"{emoji}", color=spotify.color)
+            custom_embed.set_thumbnail(url=spotify.album_cover_url)
             await ctx.send(embed=custom_embed)
 
 

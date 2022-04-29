@@ -73,18 +73,19 @@ class General(commands.Cog):
             if not boost:
                 boost = -1e+13
             else:
+                print(boost)
                 boost = boost.timestamp()
             custom_embed.add_field(name="Member info",
-                                   value=f"Mobile:\u1CBC\u1CBC{EMOJI_STATUS[member.mobile_status.value]}\n"
-                                         f"Desktop:\u1CBC{EMOJI_STATUS[member.desktop_status.value]}\n"
-                                         f"Web: \u1CBC\u1CBC\u1CBC\u1CBC{EMOJI_STATUS[member.web_status.value]}\n"
+                                   value=f"Mobile:\u2800\u2800 {EMOJI_STATUS[member.mobile_status.value]}\n"
+                                         f"Desktop:\u2800 {EMOJI_STATUS[member.desktop_status.value]}\n"
+                                         f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[member.web_status.value]}\n"
                                          f"Joined since: <t:{int(member.joined_at.timestamp())}:R>\n"
                                          f"Boosting since: <t:{int(boost)}:R>\n"
                                          f"Nick: {member.nick}",
                                    inline=False)   # no spaces? fine I'll do it myself
         await ctx.send(embed=custom_embed)
 
-    @commands.command(name="avatar", help="yes avatar")
+    @commands.command(name="avatar", help="yes avatar", aliases=["av"])
     async def show_avatar(self, ctx, user: discord.User = None):
         if not user:
             user = ctx.author
@@ -93,7 +94,7 @@ class General(commands.Cog):
         embed.set_image(url=user.avatar)
         await ctx.send(embed=embed)
 
-    @commands.command(name="avatar2")
+    @commands.command(name="avatar2", aliases=["av2"])
     async def show_avatar2(self, ctx, user: discord.Member = None):
         """
         Avatar V2!! with ~~useless~~ updated feature
