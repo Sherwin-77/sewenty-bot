@@ -10,6 +10,9 @@ import os
 import random
 import asyncio
 
+
+# TODO: Replace mongo with motor
+
 EMAILS = os.getenv("EMAIL")
 PASSWORDS = os.getenv("PASSWORD")
 DB_NAME = os.getenv("DB_NAME")

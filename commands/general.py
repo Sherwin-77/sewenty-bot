@@ -13,14 +13,14 @@ EMOJI_STATUS = {
 class General(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
-        self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
-
-    async def cog_check(self, ctx):
-        bucket = self._cd.get_bucket(ctx.message)
-        retry_after = bucket.update_rate_limit()
-        if retry_after:
-            raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
-        return True
+    #     self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
+    #
+    # async def cog_check(self, ctx):
+    #     bucket = self._cd.get_bucket(ctx.message)
+    #     retry_after = bucket.update_rate_limit()
+    #     if retry_after:
+    #         raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
+    #     return True
 
     @commands.command(name='suggest', help='Give a suggestion')
     async def suggest(self, ctx, *, suggestion):

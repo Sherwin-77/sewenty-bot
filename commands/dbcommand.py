@@ -2,29 +2,10 @@ import discord
 from discord.ext import commands
 import asyncio
 import random
-import os
 import pytz
-from pymongo import MongoClient
 from datetime import datetime
 import datetime as dt
 import calendar
-
-EMAILS = os.getenv("EMAIL")
-PASSWORDS = os.getenv("PASSWORD")
-SECOND_EMAIL = os.getenv("NEXT_EMAIL")
-SECOND_PASSWORD = os.getenv("NEXT_PASSWORD")
-CPDB_NAME = os.getenv("CPDB_NAME")
-DB_NAME = os.getenv("DB_NAME")
-
-MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
-CLUSTER = MongoClient(MANGO_URL)
-DB = CLUSTER["Data"]
-COLLECTION = DB["userdata"]
-
-CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
-CP_CLUSTER = MongoClient(CP_URL)
-CP_DB = CP_CLUSTER["Hakibot"]
-CP_COLLECTION = CP_DB["cp"]
 
 
 # This may be changed as soon as new location is confirmed
@@ -38,11 +19,15 @@ taco_set, taco_recommend = set(), set()
 class Taco(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
+        self.COLLECTION = self.bot.DB["userdata"]
 
-    @commands.command(name="tacoset", help="Set your taco value based on embed\n"
-                                           "Detect up to 5 message if not multiple else 8\n"
-                                           "To set multiple set: s!tacoset true", aliases=["ts"])
+    @commands.command(name="tacoset", aliases=["ts"])
     async def set_taco(self, ctx, multiple: bool = False):
+        """
+        Set your taco value based on embed
+        Detect up to 5 message if not multiple else 8
+        To set multiple: s!tacoset true
+        """
         if str(ctx.author.id) in taco_set:
             await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
             return
@@ -75,11 +60,11 @@ class Taco(commands.Cog):
                 if '✅' in new[j]:
                     to_update.update({new[j + 2].split('`')[1].capitalize(): 0})
                     continue
-                if '+$' not in new[j + 2]:
+                if "+$" not in new[j + 2]:
                     continue
-                boost = int(new[j + 2].split("/hr")[0].split("$")[-1])
-                cost = int(new[j + 1].split("$")[-1].replace(',', ''))
-                id_ = new[j + 3].split("`")[-2].capitalize()
+                boost = int(new[j + 2].split("/hr")[0].split('$')[-1])
+                cost = int(new[j + 1].split('$')[-1].replace(',', ''))
+                id_ = new[j + 3].split('`')[-2].capitalize()
                 to_update.update({id_: boost / cost})
             data_id = f"{ctx.author.id}taco{location}"
             if data_id not in placeholder:
@@ -94,12 +79,15 @@ class Taco(commands.Cog):
                 break
 
         for k in placeholder:
-            if COLLECTION.count_documents({"_id": k}) == 0:
-                COLLECTION.insert_one({"_id": k, 'taco': placeholder[k]})
+            query = {"_id": k}
+            counts = await self.COLLECTION.count_documents(query)
+            if counts == 0:
+                await self.COLLECTION.insert_one({"_id": k, "taco": placeholder[k]})
             else:
-                old_update = COLLECTION.find_one({"_id": k})['taco']
+                old_update = await self.COLLECTION.find_one(query)
+                old_update = old_update["taco"]
                 merged = {**old_update, **placeholder[k]}
-                COLLECTION.update_one({"_id": k}, {"$set": {'taco': merged}})
+                await self.COLLECTION.update_one(query, {"$set": {'taco': merged}})
         await ctx.message.add_reaction('👍')
 
         if multiple:
@@ -117,9 +105,12 @@ class Taco(commands.Cog):
         await asyncio.sleep(2)
         taco_set.remove(str(ctx.author.id))
 
-    @commands.command(name='tsrecommend', help="Recommend upgrade. For specific location e.g beach:\n"
-                                               "s!tsrecommend 3 beach", aliases=['tr'])
+    @commands.command(name='tsrecommend', aliases=['tr'])
     async def find_taco(self, ctx, limit: int = 3, location: str = ""):
+        """
+        Recommend upgrade. For specific location e.g. beach:
+        s!tsrecommend 3 beach
+        """
         location = location.lower()
         location = location if location not in SHORTCUT_LOCATION else SHORTCUT_LOCATION[location]
         if location not in REGISTERED_LOCATION and location:
@@ -130,80 +121,87 @@ class Taco(commands.Cog):
         if str(ctx.author.id) in taco_recommend:
             await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=4)
             return
-        form = {"_id": f'{ctx.author.id}taco{location}'}
-        if COLLECTION.count_documents(form) == 0:
+        query = {"_id": f'{ctx.author.id}taco{location}'}
+        counts = await self.COLLECTION.count_documents(query)
+        if counts == 0:
             await ctx.reply("Give taco stat when <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         else:
-            rand_num = random.randint(0, 16777215)
-            taco = COLLECTION.find(form)[0]['taco']
-            tcemb = discord.Embed(title='Taco upgrade recommendation',
-                                  description=f'Recommendation shows up to {limit}',
-                                  color=rand_num)
-            for x in range(1, limit + 1):
+            taco = await self.COLLECTION.find_one(query)
+            taco = taco["taco"]
+            custom_embed = discord.Embed(title="Taco upgrade recommendation",
+                                         description=f"Recommendation shows up to {limit}",
+                                         color=discord.Colour.random())
+            for n in range(1, limit + 1):
                 t = max(taco, key=taco.get)
                 v = format(taco[t], '.3e')
                 taco.pop(t)
-                tcemb.add_field(name=f'Recommendation {x}', value=f'{t}\n(Value = {v})')
-            tcemb.set_author(name=f'{ctx.author.name}\'s Taco', icon_url=ctx.author.avatar)
-            await ctx.send(embed=tcemb)
+                custom_embed.add_field(name=f"Recommendation {n}", value=f"{t}\n(Value = {v})")
+            custom_embed.set_author(name=f"{ctx.author.name}\'s Taco", icon_url=ctx.author.avatar)
+            await ctx.send(embed=custom_embed)
         taco_recommend.add(str(ctx.author.id))
         await asyncio.sleep(4)
         taco_recommend.remove(str(ctx.author.id))
 
-    @commands.command(name='tscleartruck', aliases=['tct'])
+    @commands.command(name="tscleartruck", aliases=['tct'])
     async def delete_truck(self, ctx):
         if str(ctx.author.id) in taco_set:
-            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
+            await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
-        dl = ['Register', 'Assistant', 'Driver', 'Kitchen', 'Engine']
-        form = {"_id": f'{ctx.author.id}taco'}
-        if COLLECTION.count_documents(form) == 0:
-            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False, delete_after=5)
+        dl = ["Register", "Assistant", "Driver", "Kitchen", "Engine"]
+        query = {"_id": f"{ctx.author.id}taco"}
+        counts = await self.COLLECTION.count_documents(query)
+        if counts == 0:
+            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         else:
-            taco = COLLECTION.find_one(form)['taco']
+            taco = await self.COLLECTION.find_one(query)
+            taco = taco["taco"]
             for x in dl:
                 taco.pop(x)
-            COLLECTION.update_one({"_id": f'{ctx.author.id}taco'}, {"$set": {'taco': taco}})
+            await self.COLLECTION.update_one(query, {"$set": {'taco': taco}})
             await ctx.message.add_reaction('👍')
         taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
         taco_set.remove(str(ctx.author.id))
 
-    @commands.command(name='tsclearstand', aliases=['tcs'])
+    @commands.command(name="tsclearstand", aliases=['tcs'])
     async def delete_stand(self, ctx):
         if str(ctx.author.id) in taco_set:
-            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
+            await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
-        dl = ['Decals', 'Wheels', 'Mixers', 'Server', 'Freezer']
-        form = {"_id": f'{ctx.author.id}tacobeach'}
-        if COLLECTION.count_documents(form) == 0:
-            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False,
+        dl = ["Decals", "Wheels", "Mixers", "Server", "Freezer"]
+        query = {"_id": f"{ctx.author.id}tacobeach"}
+        counts = await self.COLLECTION.count_documents(query)
+        if counts == 0:
+            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False,
                             delete_after=5)
         else:
-            taco = COLLECTION.find_one(form)['taco']
+            taco = await self.COLLECTION.find_one(query)
+            taco = taco["taco"]
             for x in dl:
                 taco.pop(x)
-            COLLECTION.update_one({"_id": f'{ctx.author.id}tacobeach'}, {"$set": {'taco': taco}})
+            await self.COLLECTION.update_one({"_id": f"{ctx.author.id}tacobeach"}, {"$set": {"taco": taco}})
             await ctx.message.add_reaction('👍')
         taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
         taco_set.remove(str(ctx.author.id))
 
-    @commands.command(name='tsclearcart', aliases=['tcc'])
+    @commands.command(name="tsclearcart", aliases=['tcc'])
     async def delete_stand(self, ctx):
         if str(ctx.author.id) in taco_set:
-            await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
+            await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
         dl = ["Buns", "Condiments", "Beverages", "Coolers", "Grill"]
-        form = {"_id": f'{ctx.author.id}tacocity'}
-        if COLLECTION.count_documents(form) == 0:
-            await ctx.reply('Your data not exist <:PaulOwO:721154434297757727>', mention_author=False,
+        query = {"_id": f"{ctx.author.id}tacocity"}
+        counts = await self.COLLECTION.count_documents(query)
+        if counts == 0:
+            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False,
                             delete_after=5)
         else:
-            taco = COLLECTION.find_one(form)['taco']
+            taco = await self.COLLECTION.find_one(query)
+            taco = taco["taco"]
             for x in dl:
                 taco.pop(x)
-            COLLECTION.update_one({"_id": f'{ctx.author.id}tacocity'}, {"$set": {'taco': taco}})
+            await self.COLLECTION.update_one(query, {"$set": {"taco": taco}})
             await ctx.message.add_reaction('👍')
         taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
@@ -220,41 +218,43 @@ class OwO(commands.Cog):
         if not users:
             users = ctx.author
         yellow = 0xfff00
-        col = CP_DB['owo-count']
-        form = {'user': users.id, 'guild': ctx.guild.id}
-        if col.count_documents(form) == 0:
+        col = self.bot.CP_DB["owo-count"]
+        query = {'user': users.id, 'guild': ctx.guild.id}
+        if col.count_documents(query) == 0:
             await ctx.send('User doesnt have any owostat in this guild')
-        result = col.find_one(form)
-        owocount = result['owoCount']
-        dailycount = result['dailyCount']
-        yesterdaycount = result['yesterdayCount']
-        weeklycount = result['weeklyCount']
-        lastweekcount = result['lastWeekCount']
-        monthlycount = result['monthlyCount']
-        lastmonthcount = result['lastMonthCount']
-        yearlycount = result['yearlyCount']
-        lastyearcount = result['lastYearCount']
-        cembed = discord.Embed(title=f'{users.name}\'s owostat',
-                               description=f'Total: {owocount}', color=yellow)
-        cembed.add_field(name='Current stat',
-                         value=f'Today: {dailycount}\n'
-                               f'This week: {weeklycount}\n'
-                               f'This month: {monthlycount}\n'
-                               f'This year: {yearlycount}', inline=False)
-        cembed.add_field(name='Past stat',
-                         value=f'Yesterday: {yesterdaycount}\n'
-                               f'Last week: {lastweekcount}\n'
-                               f'Last month: {lastmonthcount}\n'
-                               f'Last year: {lastyearcount}')
-        cembed.set_author(name=users.name, icon_url=users.avatar)
-        await ctx.send(embed=cembed)
+        result = await col.find_one(query)
+        owo_count = result['owoCount']
+        daily_count = result['dailyCount']
+        yesterday_count = result['yesterdayCount']
+        weekly_count = result['weeklyCount']
+        last_week_count = result['lastWeekCount']
+        monthly_count = result['monthlyCount']
+        last_month_count = result['lastMonthCount']
+        yearly_count = result['yearlyCount']
+        last_year_count = result['lastYearCount']
+        custom_embed = discord.Embed(title=f'{users.name}\'s owostat',
+                                     description=f'Total: {owo_count}', color=yellow)
+        custom_embed.add_field(name='Current stat',
+                               value=f'Today: {daily_count}\n'
+                               f'This week: {weekly_count}\n'
+                               f'This month: {monthly_count}\n'
+                               f'This year: {yearly_count}', inline=False)
+        custom_embed.add_field(name='Past stat',
+                               value=f'Yesterday: {yesterday_count}\n'
+                               f'Last week: {last_week_count}\n'
+                               f'Last month: {last_month_count}\n'
+                               f'Last year: {last_year_count}')
+        custom_embed.set_author(name=users.name, icon_url=users.avatar)
+        await ctx.send(embed=custom_embed)
 
-    @commands.command(name='leaderboard', aliases=['ldb', 'top', 'owotop'], help='leaderboard (by hakibot)')
-    async def listo(self, ctx, *option):
+    @commands.command(aliases=["ldb", "top", "owotop"])
+    async def leaderboard(self, ctx, *option):
+        """
+        OwO leaderboard using haki db
+        """
         find_by = None
         limit = 5
-        rand_num = random.randint(0, 16777215)
-        datenow = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=pytz.utc).astimezone(
+        date_now = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=pytz.utc).astimezone(
             pytz.timezone('US/Pacific')).replace(hour=0, minute=0, second=0, microsecond=0)
         matching = {'lastyear': 'lastYearCount',
                     'ly': 'lastYearCount',
@@ -291,40 +291,41 @@ class OwO(commands.Cog):
             limit = 5
 
         if find_by == 'dailyCount':
-            epoch = datetime.timestamp(datenow) * 1000
+            epoch = datetime.timestamp(date_now) * 1000
         elif find_by == 'weeklyCount':
-            epoch = datetime.timestamp(datenow - dt.timedelta(days=(datenow.weekday() + 1) % 7)) * 1000
+            epoch = datetime.timestamp(date_now - dt.timedelta(days=(date_now.weekday() + 1) % 7)) * 1000
         elif find_by == 'monthlyCount':
-            epoch = datetime.timestamp(datenow.replace(day=1)) * 1000
+            epoch = datetime.timestamp(date_now.replace(day=1)) * 1000
         elif find_by == 'yearlyCount':
-            epoch = datetime.timestamp(datenow.replace(month=1, day=1)) * 1000
+            epoch = datetime.timestamp(date_now.replace(month=1, day=1)) * 1000
         elif find_by == 'yesterdayCount':
-            epoch = datetime.timestamp(datenow - dt.timedelta(days=1)) * 1000
+            epoch = datetime.timestamp(date_now - dt.timedelta(days=1)) * 1000
         elif find_by == 'lastWeekCount':
-            epoch = datetime.timestamp(datenow - dt.timedelta(days=((datenow.weekday() + 1) % 7) + 7)) * 1000
+            epoch = datetime.timestamp(date_now - dt.timedelta(days=((date_now.weekday() + 1) % 7) + 7)) * 1000
         elif find_by == 'lastMonthCount':
-            epoch = datetime.timestamp((datenow.replace(day=1) - dt.timedelta(days=1)).replace(day=1)) * 1000
+            epoch = datetime.timestamp((date_now.replace(day=1) - dt.timedelta(days=1)).replace(day=1)) * 1000
         elif find_by == 'lastYearCount':
-            epoch = datetime.timestamp((datenow.replace(month=1, day=1) - dt.timedelta(days=1)).replace(day=1)) * 1000
+            epoch = datetime.timestamp((date_now.replace(month=1, day=1) - dt.timedelta(days=1)).replace(day=1)) * 1000
         else:
             epoch = 0
 
-        leaderboard = CP_DB['owo-count'].aggregate(
+        leaderboard = self.bot.CP_DB['owo-count'].aggregate(
             [{'$match': {'$and': [{'guild': ctx.guild.id}, {'lastOWO': {'$gte': epoch}}]}},
              {'$project': {'_id': 0, 'user': 1, find_by: 1}},
              {'$sort': {find_by: -1}}, {'$limit': limit}])
-        leaderboard_embed = discord.Embed(title='Leaderboard', color=rand_num)
+        leaderboard_embed = discord.Embed(title='Leaderboard', color=discord.Colour.random())
         order = 0
-        for y in leaderboard:
+        async for line in leaderboard:
             order += 1
-            user = await self.bot.fetch_user(y['user'])
-            leaderboard_embed.add_field(name=f'[{order}]: {user.name}', value=f'{y[find_by]} OwOs', inline=False)
+            user = await self.bot.fetch_user(line['user'])
+            leaderboard_embed.add_field(name=f'[{order}]: {user.name}', value=f'{line[find_by]} OwOs', inline=False)
         await ctx.send(embed=leaderboard_embed)
 
     @commands.command(name='cp', help='Wanna search for cp?')
-    async def cpdex(self, ctx, name):
-        form = {"$or": [{"aliases": name}, {"_id": name}]}
-        cp = CP_COLLECTION.find_one(form)
+    async def cp_dex(self, ctx, name):
+        query = {"$or": [{"aliases": name}, {"_id": name}]}
+        cp_collection = self.bot.CP_DB["cp"]
+        cp = await cp_collection.find_one(query)
         if cp is None:
             await ctx.reply('No cp found :c', mention_author=False)
             return
@@ -340,20 +341,28 @@ class OwO(commands.Cog):
         year = cp['creationInfo']['year']
         image_url = cp['imageLink']
         rand_num = random.randint(0, 16777215)
-        ehp, eatt, epr, ewp, emag, emr = '<:hp:759752326973227029>', '<:att:759752341678194708>', \
-                                         '<:pr:759752354467414056>', '<:wp:759752292713889833>', \
-                                         '<:mag:759752304080715786>', '<:mr:759752315904196618>'
+        emoji_hp, emoji_att, emoji_pr, emoji_wp, emoji_mag, emoji_mr = \
+            "<:hp:759752326973227029>", \
+            "<:att:759752341678194708>", \
+            "<:pr:759752354467414056>", \
+            "<:wp:759752292713889833>", \
+            "<:mag:759752304080715786>", \
+            "<:mr:759752315904196618>"
         custom_embed = discord.Embed(title=name, color=rand_num)
         month = calendar.month_name[int(month)]
         if aliases:
             aliases = ', '.join(aliases)
         else:
-            aliases = 'None'
-        custom_embed.add_field(name='Aliases', value=aliases, inline=False)
-        custom_embed.add_field(name='Stats', value=f'{ehp} `{hp}`  {eatt} `{str_stat}`  {epr} `{pr_stat}`\n'
-                                                   f'{ewp} `{wp_stat}`  {emag} `{mag_stat}`  {emr} `{mr_stat}`')
+            aliases = "None"
+        custom_embed.add_field(name="Aliases", value=aliases, inline=False)
+        custom_embed.add_field(name="Stats", value=f"{emoji_hp} `{hp}`  "
+                                                   f"{emoji_att} `{str_stat}`  "
+                                                   f"{emoji_pr} `{pr_stat}`\n"
+                                                   f"{emoji_wp} `{wp_stat}`  "
+                                                   f"{emoji_mag} `{mag_stat}`  "
+                                                   f"'{emoji_mr} `{mr_stat}`')")
         custom_embed.set_thumbnail(url=image_url)
-        custom_embed.set_footer(text=f'Created {month} {year}')
+        custom_embed.set_footer(text=f"Created {month} {year}")
         await ctx.send(embed=custom_embed)
 
 

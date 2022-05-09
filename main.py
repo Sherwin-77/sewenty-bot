@@ -7,9 +7,10 @@ from os.path import relpath
 import random
 from traceback import format_exception
 
+import aiohttp
 import discord
 from discord.ext import commands
-from pymongo import MongoClient
+import motor.motor_asyncio
 
 # from dotenv import load_dotenv
 #
@@ -20,7 +21,19 @@ COMMANDS_FOLDER = r"commands/"
 TOKEN = getenv("DISCORD_TOKEN")
 EMAILS = getenv("EMAIL")
 PASSWORDS = getenv("PASSWORD")
+SECOND_EMAIL = getenv("NEXT_EMAIL")
+SECOND_PASSWORD = getenv("NEXT_PASSWORD")
+CPDB_NAME = getenv("CPDB_NAME")
 DB_NAME = getenv("DB_NAME")
+
+MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
+CLUSTER = motor.motor_asyncio.AsyncIOMotorClient(MANGO_URL)
+DB = CLUSTER["Data"]
+COLLECTION = DB["userdata"]
+
+CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
+CP_CLUSTER = motor.motor_asyncio.AsyncIOMotorClient(CP_URL)
+CP_DB = CP_CLUSTER["Hakibot"]
 
 intents = discord.Intents.all()  # ah yes
 bot = commands.Bot(command_prefix=commands.when_mentioned_or('s!'), intents=intents)
@@ -40,11 +53,6 @@ TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                               "<a:pandasmackOwO:799955371074519041>"}
 
 allowed_track_channel = {}
-
-MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
-CLUSTER = MongoClient(MANGO_URL)
-DB = CLUSTER["Data"]
-COLLECTION = DB["userdata"]
 
 
 class NewHelpName(commands.MinimalHelpCommand):
@@ -66,14 +74,14 @@ async def on_ready():
     print(f'{bot.user.name} has connected to discord!')
     await bot.change_presence(status=discord.Status.idle,
                               activity=discord.Activity(type=discord.ActivityType.listening, name='s!help'))
-    # form = {"_id": "allowed_channel"}
-    # result = COLLECTION.find_one(form)
-    # if not result:
-    #     print("No channel to be refreshed")
-    # else:
-    #     new = result["channel_list"]
-    #     allowed_track_channel = new
-    #     print("Refresh channel done!")
+    form = {"_id": "allowed_channel"}
+    result = await COLLECTION.find_one(form)
+    if not result:
+        print("No channel to be refreshed")
+    else:
+        new = result["channel_list"]
+        allowed_track_channel = new
+        print("Refresh channel done!")
 
 
 @bot.command(name='dm', hidden=True)
@@ -206,6 +214,8 @@ async def on_command_error(ctx, error):
     owner = await bot.fetch_user(436376194166816770)
     channel = await owner.create_dm()
     output = ''.join(format_exception(type(error), error, error.__traceback__))
+    if len(output) > 4000:
+        return print(output)
     await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
                        f"```py\n"
                        f"{output}```")
@@ -220,9 +230,12 @@ async def load_all():
 
 
 async def main():
-    async with bot:
+    bot.help_command = NewHelpName()
+    async with aiohttp.ClientSession() as session:
+        bot.session = session
+        bot.DB = DB
+        bot.CP_DB = CP_DB
         await load_all()
-        bot.help_command = NewHelpName()
         await bot.start(TOKEN)
 
 

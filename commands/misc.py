@@ -4,7 +4,6 @@ import asyncio
 import os
 from math import ceil, log
 
-import aiohttp
 import discord
 from discord.ext import commands
 import wikipedia
@@ -250,17 +249,15 @@ class Miscellaneous(commands.Cog):
         occupied_channel.remove(ctx.channel.id)
         await ctx.send(f"You failed to guess. Correct: {selected_number}")
 
-    @staticmethod
-    async def get_token(token_url):
+    async def get_token(self, token_url):
         data = {
             "client_id": int(CLIENT_ID),
             "client_secret": CLIENT_SECRET,
             "grant_type": "client_credentials",
             "scope": "public"
         }
-        async with aiohttp.ClientSession() as session:
-            async with session.post(token_url, data=data) as response:
-                res = await response.json()
+        async with self.bot.session.post(token_url, data=data) as response:
+            res = await response.json()
         return res["access_token"]
 
     @commands.command(name="osutop", help="Flex your top osu play")
@@ -280,12 +277,12 @@ class Miscellaneous(commands.Cog):
             "mode": "osu",
             "limit": 5
         }
-        async with aiohttp.ClientSession() as session1:
-            async with session1.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+        async with self.bot.session as session:
+            async with session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
                     as response1:
                 find_username = await response1.json()
                 userid = find_username["id"]
-                async with session1.get(f"{api_url}/users/{userid}/scores/best", params=params, headers=headers) \
+                async with session.get(f"{api_url}/users/{userid}/scores/best", params=params, headers=headers) \
                         as response2:
                     raw = await response2.json()
         custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Top 5 map")
@@ -342,12 +339,12 @@ class Miscellaneous(commands.Cog):
             "mode": "osu",
             "limit": 5,
         }
-        async with aiohttp.ClientSession() as session1:
-            async with session1.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+        async with self.bot.session as session:
+            async with session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
                     as response1:
                 find_username = await response1.json()
                 userid = find_username["id"]
-                async with session1.get(f"{api_url}/users/{userid}/scores/recent", params=params, headers=headers) \
+                async with session.get(f"{api_url}/users/{userid}/scores/recent", params=params, headers=headers) \
                         as response2:
                     raw = await response2.json()
         custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Recent 5 map")
@@ -404,8 +401,8 @@ class Miscellaneous(commands.Cog):
             "mode": "osu",
             "limit": 5,
         }
-        async with aiohttp.ClientSession() as session1:
-            async with session1.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+        async with self.bot.session as session:
+            async with session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
                     as response1:
                 raw = await response1.json()
         custom_embed = discord.Embed(title=raw["username"], description="Profile")
@@ -454,7 +451,7 @@ class Miscellaneous(commands.Cog):
             percentage = round(ongoing / duration * 100)
             emoji = f"{'<:start0:969180226208813066>' if percentage >= 10 else '<:start1:969180368852910120>'}" \
                     f"{'<:middle0:969180275525443636>' * (0 if percentage <= 10 else min(ceil(percentage/10)-1, 8))}" \
-                    f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage/10), 0))}" \
+                    f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage/10), 0))}"\
                     f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
             artist = spotify.artist if len(spotify.artists) > 1 else ', '.join(spotify.artists)
             custom_embed = discord.Embed(title=f"{user.name} is listening to a song",
