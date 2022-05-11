@@ -111,16 +111,15 @@ class General(commands.Cog):
         """
         Returns a user's Discord banner
         """
-        # PENDING: below code only execute in 2.0 which waiting to be released
         if not user:
             user = ctx.author
-        member = await self.bot.fetch_user(user.id)
-        banner_url = member.banner
+        user = await self.bot.fetch_user(user.id)
+        banner_url = user.banner
         if not banner_url:
             banner_url = "https://c4.wallpaperflare.com/wallpaper/" \
                          "357/645/211/easter-island-chile-starry-night-statue-wallpaper-preview.jpg"
 
-        custom_embed = discord.Embed(description=f"{member.name}'s banner")
+        custom_embed = discord.Embed(description=f"{user.name}'s banner")
         custom_embed.set_image(url=banner_url)
         await ctx.send(embed=custom_embed)
         # if not user:
@@ -140,13 +139,6 @@ class General(commands.Cog):
         # custom_embed.set_author(name=user.name)
         # custom_embed.set_image(url=banner_url)
         # await ctx.send(embed=custom_embed)
-
-    @commands.command(name='invite', help="Invite this bot to your server")
-    async def link(self, ctx):
-        await ctx.send(
-            'https://discord.com/api/oauth2/'
-            'authorize?client_id=719051490257272842&permissions=388160&scope=bot%20applications.commands',
-            delete_after=30)
 
 
 def dirty_filter(text):

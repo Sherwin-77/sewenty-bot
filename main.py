@@ -10,11 +10,10 @@ from traceback import format_exception
 import aiohttp
 import discord
 from discord.ext import commands
+from dotenv import load_dotenv
 import motor.motor_asyncio
 
-# from dotenv import load_dotenv
-#
-# load_dotenv()
+load_dotenv()  # in case we use .env in future
 
 COMMANDS_FOLDER = r"commands/"
 
@@ -26,6 +25,9 @@ SECOND_PASSWORD = getenv("NEXT_PASSWORD")
 CPDB_NAME = getenv("CPDB_NAME")
 DB_NAME = getenv("DB_NAME")
 
+# Test db
+# MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
+
 MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
 CLUSTER = motor.motor_asyncio.AsyncIOMotorClient(MANGO_URL)
 DB = CLUSTER["Data"]
@@ -36,7 +38,12 @@ CP_CLUSTER = motor.motor_asyncio.AsyncIOMotorClient(CP_URL)
 CP_DB = CP_CLUSTER["Hakibot"]
 
 intents = discord.Intents.all()  # ah yes
-bot = commands.Bot(command_prefix=commands.when_mentioned_or('s!'), intents=intents)
+bot = commands.Bot(command_prefix=commands.when_mentioned_or("s!"),
+                   case_insensitive=True,
+                   intents=intents,
+                   status=discord.Status.idle,
+                   activity=discord.Game(name="s!help")
+                   )
 
 launchTime = int(datetime.now().timestamp())
 
@@ -48,14 +55,14 @@ TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                     "radishh": ["<a:blossomradish:812889706249453618>",
                                 "<a:blossomradish:812889706249453618>"],
                     "naed": "<a:emoji3:776775391154798593>",
-                    "testt ajg": "<:wurk:858721776770744320>",
+                    "test ajg": "<:wurk:858721776770744320>",
                     "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
                               "<a:pandasmackOwO:799955371074519041>"}
 
 allowed_track_channel = {}
 
 
-class NewHelpName(commands.MinimalHelpCommand):
+class NewHelpCommand(commands.MinimalHelpCommand):
     def __init__(self, **options):
         super().__init__(**options)
         self.no_category = 'Other Command'
@@ -64,16 +71,14 @@ class NewHelpName(commands.MinimalHelpCommand):
         rand_num = random.randint(0, 16777215)
         destination = self.get_destination()
         for page in self.paginator.pages:
-            help_embed = discord.Embed(title='Help', description=page, color=rand_num)
+            help_embed = discord.Embed(title="Help", description=page, color=rand_num)
             await destination.send(embed=help_embed)
 
 
 @bot.event
 async def on_ready():
     global allowed_track_channel
-    print(f'{bot.user.name} has connected to discord!')
-    await bot.change_presence(status=discord.Status.idle,
-                              activity=discord.Activity(type=discord.ActivityType.listening, name='s!help'))
+    print(f"{bot.user.name} has connected to discord!")
     form = {"_id": "allowed_channel"}
     result = await COLLECTION.find_one(form)
     if not result:
@@ -84,8 +89,26 @@ async def on_ready():
         print("Refresh channel done!")
 
 
-@bot.command(name='dm', hidden=True)
-async def dm_user(ctx, userid: int, *, text='Test'):
+@bot.tree.context_menu(name="Banner")
+async def search_banner(interaction: discord.Interaction, member: discord.Member):
+    embed = discord.Embed(title="Banner")
+    embed.set_author(name=member.display_name, icon_url=member.display_avatar)
+    member = await bot.fetch_user(member.id)
+    banner_url = member.banner
+    if not banner_url:
+        banner_url = "https://c4.wallpaperflare.com/wallpaper/" \
+                     "357/645/211/easter-island-chile-starry-night-statue-wallpaper-preview.jpg"
+    embed.set_image(url=banner_url)
+    await interaction.response.send_message(embed=embed)
+
+
+@bot.tree.context_menu(name="Ajg", guild=discord.Object(id=714152739252338749))
+async def ajg(interaction: discord.Interaction, user: discord.User):
+    await interaction.response.send_message(f"Ajg 👉 {user.mention}")
+
+
+@bot.command(name="dm", hidden=True)
+async def dm_user(ctx, userid: int, *, text="Test"):
     if ctx.author.id == 436376194166816770:
         user = await bot.fetch_user(userid)
         channel = await user.create_dm()
@@ -100,26 +123,30 @@ async def dm_error(ctx, error):
                     f"`{type(error)}`")
 
 
-@bot.command(name='stat', help="show bot stat")
+@bot.command()
 @commands.cooldown(rate=1, per=3.0)
-async def stats(ctx):
+async def stat(ctx):
+    """
+    Show bot stats
+    """
     count_guild = len(bot.guilds)
     is_owner = await ctx.bot.is_owner(ctx.author)
     if is_owner:
-        await ctx.send(f'Hello {ctx.author.mention}', delete_after=5)
+        await ctx.send(f"Hello {ctx.author.mention}", delete_after=5)
     custom_embed = discord.Embed(title='Bot Stats',
-                                 description=f'Uptime: <t:{launchTime}:R>\n'
-                                             f'Total Servers: {count_guild}\n'
-                                             f'Bot Ver: 1.3 Beta\n'
-                                             f'Ping: '
-                                             f'{round(bot.latency * 1000)} ms')
+                                 description=f"Uptime: <t:{launchTime}:R>\n"
+                                             f"Total Servers: {count_guild}\n"
+                                             f"Bot Ver: 1.3 Beta\n"
+                                             f"Ping: "
+                                             f"{round(bot.latency * 1000)} ms",
+                                 color=discord.Colour.random())
     await ctx.send(embed=custom_embed)
 
 
 # Note that channel id in dict always str
 
 @bot.command(name="allowchannel", hidden=True)
-async def allow(ctx, to_grant: discord.TextChannel, boss_mode=False):
+async def allow_channel(ctx, to_grant: discord.TextChannel, boss_mode=False):
     """
     Allow tracking anigame rng
     Work for owner only
@@ -214,7 +241,7 @@ async def on_command_error(ctx, error):
     owner = await bot.fetch_user(436376194166816770)
     channel = await owner.create_dm()
     output = ''.join(format_exception(type(error), error, error.__traceback__))
-    if len(output) > 4000:
+    if len(output) > 2000:
         return print(output)
     await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
                        f"```py\n"
@@ -225,17 +252,22 @@ async def load_all():
     for file in glob(f"{COMMANDS_FOLDER}*.py"):
         module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
         await bot.load_extension(module_name)
+    # await bot.load_extension("experiment")  # for experimenting
     await bot.load_extension("jishaku")
     print("Module loaded")
 
 
 async def main():
-    bot.help_command = NewHelpName()
+    # in case I forget later, guild only app commands are ajg and custom battle
+    bot.help_command = NewHelpCommand()
+    bot._BotBase__cogs = commands.core._CaseInsensitiveDict()   # protected member warning be like
     async with aiohttp.ClientSession() as session:
         bot.session = session
         bot.DB = DB
         bot.CP_DB = CP_DB
+        bot.GAME_COLLECTION = CLUSTER["game"]["data"]
         await load_all()
+
         await bot.start(TOKEN)
 
 

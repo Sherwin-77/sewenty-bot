@@ -3,6 +3,7 @@ import random
 import asyncio
 import os
 from math import ceil, log
+from traceback import format_exception
 
 import discord
 from discord.ext import commands
@@ -277,14 +278,13 @@ class Miscellaneous(commands.Cog):
             "mode": "osu",
             "limit": 5
         }
-        async with self.bot.session as session:
-            async with session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
-                    as response1:
-                find_username = await response1.json()
-                userid = find_username["id"]
-                async with session.get(f"{api_url}/users/{userid}/scores/best", params=params, headers=headers) \
-                        as response2:
-                    raw = await response2.json()
+        async with self.bot.session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+                as response1:
+            find_username = await response1.json()
+            userid = find_username["id"]
+            async with self.bot.session.get(f"{api_url}/users/{userid}/scores/best", params=params, headers=headers) \
+                    as response2:
+                raw = await response2.json()
         custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Top 5 map")
         custom_embed.set_thumbnail(url=raw[0]["user"]["avatar_url"])
         for x in range(5):
@@ -315,12 +315,18 @@ class Miscellaneous(commands.Cog):
         if isinstance(error, commands.errors.CommandInvokeError):
             # Known IndexError issue caused by iterating empty/not enough length list
             if isinstance(error.original, IndexError):
-                await ctx.send("User doesn't have any top play or not enough top play to show")
-                return
+                return await ctx.send("User doesn't have any top play or not enough top play to show")
             # known KeyError issue caused by invalid username
             if isinstance(error.original, KeyError):
-                await ctx.send("User not found")
-                return
+                return await ctx.send("User not found")
+        owner = await self.bot.fetch_user(436376194166816770)
+        channel = await owner.create_dm()
+        output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(output) > 2000:
+            return print(output)
+        await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
+                           f"```py\n"
+                           f"{output}```")
 
     @commands.command(name="osurecent", help="Show your recent osu play")
     @commands.cooldown(rate=1, per=15.0)
@@ -339,14 +345,13 @@ class Miscellaneous(commands.Cog):
             "mode": "osu",
             "limit": 5,
         }
-        async with self.bot.session as session:
-            async with session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
-                    as response1:
-                find_username = await response1.json()
-                userid = find_username["id"]
-                async with session.get(f"{api_url}/users/{userid}/scores/recent", params=params, headers=headers) \
-                        as response2:
-                    raw = await response2.json()
+        async with self.bot.session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
+                as response1:
+            find_username = await response1.json()
+            userid = find_username["id"]
+            async with self.bot.session.get(f"{api_url}/users/{userid}/scores/recent", params=params, headers=headers) \
+                    as response2:
+                raw = await response2.json()
         custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Recent 5 map")
         custom_embed.set_thumbnail(url=raw[0]["user"]["avatar_url"])
         for x in range(5):
@@ -377,12 +382,10 @@ class Miscellaneous(commands.Cog):
         if isinstance(error, commands.errors.CommandInvokeError):
             if isinstance(error.original, IndexError):
                 # Known IndexError issue caused by iterating empty/not enough length list
-                await ctx.send("User doesn't have any recent play in 24 hours or not enough recent plays to show")
-                return
+                return await ctx.send("User doesn't have any recent play in 24 hours or not enough recent plays to show")
             if isinstance(error.original, KeyError):
                 # known KeyError issue caused by invalid username
-                await ctx.send("User not found")
-                return
+                return await ctx.send("User not found")
 
     @commands.command(name="osuprofile", help="Flex your osu profile")
     @commands.cooldown(rate=1, per=15.0)
@@ -401,10 +404,8 @@ class Miscellaneous(commands.Cog):
             "mode": "osu",
             "limit": 5,
         }
-        async with self.bot.session as session:
-            async with session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
-                    as response1:
-                raw = await response1.json()
+        async with self.bot.session.get(f"{api_url}/users/{username}", params=params, headers=headers) as response:
+            raw = await response.json()
         custom_embed = discord.Embed(title=raw["username"], description="Profile")
         custom_embed.set_thumbnail(url=raw["avatar_url"])
         statistic = raw["statistics"]
@@ -433,6 +434,14 @@ class Miscellaneous(commands.Cog):
             # known KeyError issue caused by invalid username
             await ctx.send("Unable to find user")
             return
+        owner = await self.bot.fetch_user(436376194166816770)
+        channel = await owner.create_dm()
+        output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(output) > 2000:
+            return print(output)
+        await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
+                           f"```py\n"
+                           f"{output}```")
 
     @commands.command(name="spotify", aliases=["spot", "spt"])
     @commands.cooldown(rate=1, per=5.0)
