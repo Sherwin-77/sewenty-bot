@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -6,12 +8,14 @@ import asyncio
 from itertools import repeat
 import random
 from traceback import format_exception
-from typing import Optional, Union
+from typing import Optional, Union, TYPE_CHECKING
 
+from extensions.games.gelud import Hero, Battle
+from extensions.games.gelud.game_system import weaponry
+from extensions.games import minesweeper
 
-from commands.games.gelud import Hero, Battle
-from commands.games.gelud.game_system import weaponry
-from commands.games import minesweeper
+if TYPE_CHECKING:
+    from main import SewentyBot
 
 # mango_url = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
 
@@ -287,6 +291,7 @@ class MineBoard(discord.ui.View):
                 button.label = str(self.game.data[col][row] or '\u200b')
             button.disabled = True
         running_game.remove(str(self.player.id))
+        self.stop()
 
     async def on_timeout(self) -> None:
         for button in self.children:
@@ -414,8 +419,8 @@ class SlashCommandGame(app_commands.Group, name="game"):
 
 
 class Game(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: SewentyBot):
+        self.bot: SewentyBot = bot
 
     @commands.command(name='startgame', help='interested in bot game?', aliases=["gamestart"])
     async def start_game(self, ctx, re_roll=None):
@@ -1020,7 +1025,7 @@ class Game(commands.Cog):
         await ctx.send(embed=embed)
 
 
-async def setup(bot):
+async def setup(bot: SewentyBot):
     bot.tree.add_command(CustomGame(), guild=discord.Object(id=714152739252338749))
     bot.tree.add_command(SlashCommandGame())
     await bot.add_cog(Game(bot))

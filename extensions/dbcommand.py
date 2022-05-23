@@ -1,12 +1,21 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
-import asyncio
-import random
 import pytz
+
+import asyncio
+import calendar
 from datetime import datetime
 import datetime as dt
-import calendar
+import random
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from main import SewentyBot
+
+
+# If this is working, don't touch it
 
 # This may be changed as soon as new location is confirmed
 REGISTERED_LOCATION = {"beach", "city"}
@@ -17,8 +26,8 @@ taco_set, taco_recommend = set(), set()
 
 
 class Taco(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: SewentyBot):
+        self.bot: SewentyBot = bot
         self.COLLECTION = self.bot.DB["userdata"]
 
     @commands.command(name="tacoset", aliases=["ts"])
@@ -48,7 +57,6 @@ class Taco(commands.Cog):
             except KeyError:
                 continue
             location = title if title in REGISTERED_LOCATION else ""
-            print(location)
             if is_shack and not location:
                 await ctx.send("New location detected and unregistered. Please DM invalid-user#8807")
                 return
@@ -75,7 +83,6 @@ class Taco(commands.Cog):
             val = placeholder[data_id]
             placeholder.update({data_id: {**val, **to_update}})
             if not multiple:
-                print(True)
                 break
 
         for k in placeholder:
@@ -209,8 +216,8 @@ class Taco(commands.Cog):
 
 
 class OwO(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: SewentyBot):
+        self.bot: SewentyBot = bot
 
     @commands.command(name='owostat', help='show your owo stat (by hakibot)',
                       aliases=['owostats', 'statowo', ' statsowo'])
@@ -366,6 +373,6 @@ class OwO(commands.Cog):
         await ctx.send(embed=custom_embed)
 
 
-async def setup(bot):
+async def setup(bot: SewentyBot):
     await bot.add_cog(OwO(bot))
     await bot.add_cog(Taco(bot))

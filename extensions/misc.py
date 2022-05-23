@@ -1,17 +1,19 @@
+from __future__ import annotations
+
+import discord
+from discord.ext import commands
+import wikipedia
+
 import datetime
 import random
 import asyncio
 import os
 from math import ceil, log
 from traceback import format_exception
+from typing import TYPE_CHECKING
 
-import discord
-from discord.ext import commands
-import wikipedia
-
-from dotenv import load_dotenv
-
-load_dotenv()
+if TYPE_CHECKING:
+    from main import SewentyBot
 
 occupied_channel = set()
 
@@ -36,8 +38,8 @@ def is_draw(player_pos):
 
 
 class Miscellaneous(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: SewentyBot):
+        self.bot: SewentyBot = bot
 
     @commands.command(name='wikipedia', help='Ah yes wikipedia')
     @commands.cooldown(rate=1, per=10.0)
@@ -63,39 +65,46 @@ class Miscellaneous(commands.Cog):
         wikipedia.set_lang('en')
         await ctx.send(embed=custom_embed)
 
-    @commands.command(name='flipcoin', help='Flip coin', aliases=['coinflip', 'cf'])
+    @commands.command(name="flipcoin", aliases=['coinflip', 'cf'])
     async def flip_coin(self, ctx):
+        """
+        Flips a coin
+        """
+
         coinface = random.choice(["Head", "Tail"])
         await ctx.send(f'**{coinface}** of the coin')
 
-    @commands.command(name='rps', help='Rock paper scissor')
-    async def ropasci(self, ctx, rpschoice: str = None):
-        rpclist = ['ROCK', 'PAPER', 'SCISSOR']
-        rpsgame = random.choice(rpclist)
-        if rpschoice:
-            rpschoice = rpschoice.upper()
-        if not rpschoice:
+    @commands.command(help='Rock paper scissor')
+    async def rps(self, ctx, choice: str = None):
+        """
+        Rock paper scissor
+        """
+        rps_list = ['ROCK', 'PAPER', 'SCISSOR']
+        rpsgame = random.choice(rps_list)
+        if choice:
+            choice = choice.upper()
+        if not choice:
             await ctx.send(f'||{rpsgame}||')
-        elif rpschoice in rpclist:
+        elif choice in rps_list:
             result = ''
-            if rpschoice == rpsgame:
+            if choice == rpsgame:
                 result = 'Draw'
-            elif rpschoice == 'ROCK':
+            elif choice == 'ROCK':
                 if rpsgame == 'SCISSOR':
                     result = 'Win'
                 else:
                     result = 'Lose'
-            elif rpschoice == 'PAPER':
+            elif choice == 'PAPER':
                 if rpsgame == 'ROCK':
                     result = 'Win'
                 else:
                     result = 'Lose'
-            elif rpschoice == 'SCISSOR':
+            elif choice == 'SCISSOR':
                 if rpsgame == 'PAPER':
                     result = 'Win'
                 else:
                     result = 'Lose'
-            await ctx.send(f'You {result}! you choose {rpschoice}, I choose {rpsgame}')
+            await ctx.send(f'You {result}! you choose {choice}, I choose {rpsgame}')
         else:
             await ctx.send(f"Please input correct argument. You should choose rock, paper or scissor")
 
@@ -382,7 +391,8 @@ class Miscellaneous(commands.Cog):
         if isinstance(error, commands.errors.CommandInvokeError):
             if isinstance(error.original, IndexError):
                 # Known IndexError issue caused by iterating empty/not enough length list
-                return await ctx.send("User doesn't have any recent play in 24 hours or not enough recent plays to show")
+                return await ctx.send("User doesn't have any recent play in 24 hours "
+                                      "or not enough recent plays to show")
             if isinstance(error.original, KeyError):
                 # known KeyError issue caused by invalid username
                 return await ctx.send("User not found")
@@ -472,5 +482,5 @@ class Miscellaneous(commands.Cog):
             await ctx.send(embed=custom_embed)
 
 
-async def setup(bot):
+async def setup(bot: SewentyBot):
     await bot.add_cog(Miscellaneous(bot))

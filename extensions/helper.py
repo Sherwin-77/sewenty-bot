@@ -1,10 +1,19 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
-import random
+
 import asyncio
 from math import floor
+import random
 import time
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from main import SewentyBot
+
+
+# TODO: Fix this unreadable code
 
 async def maxweapon(ctx, typeweapon, cost, stat1, stat2, stat3):
     yellow = 0xffd700
@@ -821,8 +830,8 @@ async def visualstat(ctx, level, hp, strength, pr, wp, mag, mr):
 
 
 class HelperCommand(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: SewentyBot):
+        self.bot: SewentyBot = bot
 
     @commands.command(name='maxwstat', help='Show max stat on your weapon', aliases=['wstat', 'statw', 'wcheck'])
     async def countmax(self, ctx, typeweapon: str = None, cost: int = None, stat1: float = None, stat2: float = None,
@@ -1164,5 +1173,5 @@ class HelperCommand(commands.Cog):
             await ctx.send(embed=custom_embed)
 
 
-async def setup(bot):
+async def setup(bot: SewentyBot):
     await bot.add_cog(HelperCommand(bot))

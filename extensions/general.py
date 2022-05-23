@@ -1,6 +1,13 @@
+from __future__ import annotations
+
 import discord
 from discord.ext import commands
 from datetime import datetime
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from main import SewentyBot
 
 EMOJI_STATUS = {
     "online": "🟢",
@@ -11,8 +18,8 @@ EMOJI_STATUS = {
 
 
 class General(commands.Cog):
-    def __init__(self, bot):
-        self.bot = bot
+    def __init__(self, bot: SewentyBot):
+        self.bot: SewentyBot = bot
     #     self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
     #
     # async def cog_check(self, ctx):
@@ -155,5 +162,5 @@ def dirty_filter(text):
     return text.name.split('.')[-1].replace('_', ' ').title()
 
 
-async def setup(bot):
+async def setup(bot: SewentyBot):
     await bot.add_cog(General(bot))
