@@ -10,17 +10,12 @@ import asyncio
 import os
 from math import ceil, log
 from traceback import format_exception
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Union, List
+
+from utils.view_util import Dropdown
 
 if TYPE_CHECKING:
     from main import SewentyBot
-
-occupied_channel = set()
-
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-OSU_API_URL = "https://osu.ppy.sh/api/v2"
-OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token"
 
 
 def is_win(player_pos, current_player):
@@ -37,13 +32,94 @@ def is_draw(player_pos):
     return False
 
 
+def render_spotify_embed(user: discord.Member, spotify: Optional[discord.Spotify] = None) -> Union[str, discord.Embed]:
+    # In most cases the filtered list consist only 1 element unless there are breaking changes
+    spotify = spotify or list(filter(lambda a: isinstance(a, discord.Spotify), user.activities))
+    if not spotify:
+        return "Not listening ):<"
+    if isinstance(spotify, list):
+        spotify = spotify[-1]
+    # if there are more than 1 artists, put them all
+    duration = int(spotify.end.timestamp() - spotify.start.timestamp())
+    ongoing = int(datetime.datetime.now(datetime.timezone.utc).timestamp() - spotify.start.timestamp())
+    percentage = round(ongoing / duration * 100)
+    emoji = f"{'<:start0:969180226208813066>' if percentage >= 10 else '<:start1:969180368852910120>'}" \
+            f"{'<:middle0:969180275525443636>' * (0 if percentage <= 10 else min(ceil(percentage / 10) - 1, 8))}" \
+            f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage / 10), 0))}" \
+            f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
+    artist = spotify.artist if len(spotify.artists) > 1 else ', '.join(spotify.artists)
+    custom_embed = discord.Embed(title=f"{user.name} is listening to a song",
+                                 description=f"Title: [{spotify.title}]({spotify.track_url})\n"
+                                             f"Artist: {artist}\n"
+                                             f"Album: {spotify.album}\n"
+                                             f"{emoji}", color=spotify.color)
+    custom_embed.set_thumbnail(url=spotify.album_cover_url)
+    return custom_embed
+
+
+class ActivityView(discord.ui.View):
+    def __init__(self, user: discord.User, target: discord.Member):
+        super().__init__()
+        self.user = user
+        self.target = target
+
+
+class ActivityDropdown(Dropdown):
+    def __init__(self, text: str, select_list: List[discord.SelectOption]):
+
+        super().__init__(text, select_list)
+        self.activities = {}
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        view: ActivityView = self.view
+        if interaction.user.id != view.user.id:
+            return await interaction.response.send_message("You are not allowed to do this :c", ephemeral=True)
+
+        if self.values[0] == "Spotify":
+            try_embed = render_spotify_embed(view.target, self.activities["Spotify"])
+            if isinstance(try_embed, str):
+                return await interaction.response.send_message("User ended listening session", ephemeral=True)
+            return await interaction.response.edit_message(embed=try_embed, view=None)
+
+        activity: discord.Activity = self.activities[self.values[0]]
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.set_author(name=str(view.target), icon_url=view.target.display_avatar)
+
+        start = activity.start
+        if start is None:
+            start = -1e+13
+        else:
+            start = start.timestamp()
+
+        if activity.large_image_url:
+            custom_embed.set_thumbnail(url=activity.large_image_url)
+        custom_embed.add_field(name="Details",
+                               value=f"{activity.details or 'No details :c'}\n"
+                                     f"Name: {activity.name}\n"
+                                     f"State: {activity.state}\n"
+                                     f"Type: {activity.type.name}\n"
+                                     f"Started at: <t:{int(start)}:D>\n"
+                                     f"Large image text: {activity.large_image_text}\n"
+                                     f"Small image text: {activity.small_image_text}")
+        if activity.application_id:
+            custom_embed.set_footer(text=f"Application id: {activity.application_id}")
+        await interaction.response.edit_message(embed=custom_embed, view=None)
+
+
 class Miscellaneous(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
+        self.occupied_channel = set()
+
+        self.CLIENT_ID = os.getenv("CLIENT_ID")
+        self.CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+        self.OSU_API_URL = "https://osu.ppy.sh/api/v2"
+        self.OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token"
 
     @commands.command(name='wikipedia', help='Ah yes wikipedia')
     @commands.cooldown(rate=1, per=10.0)
-    async def checkwiki(self, ctx, key, option, number: int = None, lang=None):
+    async def checkwiki(self, ctx, key, option, number: Optional[int] = None, lang=None):
         if key and option and number:
             if lang:
                 wikipedia.set_lang(lang)
@@ -75,7 +151,7 @@ class Miscellaneous(commands.Cog):
         await ctx.send(f'**{coinface}** of the coin')
 
     @commands.command(help='Rock paper scissor')
-    async def rps(self, ctx, choice: str = None):
+    async def rps(self, ctx, choice: Optional[str] = None):
         """
         Rock paper scissor
         """
@@ -109,15 +185,16 @@ class Miscellaneous(commands.Cog):
             await ctx.send(f"Please input correct argument. You should choose rock, paper or scissor")
 
     @commands.command(name="type", help="You wonder why this command exist")
-    async def typing(self, ctx):
-        await ctx.trigger_typing()
+    async def typing(self, ctx: commands.Context):
+        async with ctx.typing():
+            pass
 
-    @commands.command(name='tictactoe', help="Yes it is")
+    @commands.command(name="tictactoe", help="Yes it is")
     async def tic_game(self, ctx, opponent: discord.User):
         if opponent == ctx.author:
             await ctx.send("Do you need friend?", delete_after=5)
             return
-        if ctx.channel.id in occupied_channel:
+        if ctx.channel.id in self.occupied_channel:
             return
 
         await ctx.send(f'{opponent.mention} Do you want to accept?')
@@ -143,7 +220,7 @@ class Miscellaneous(commands.Cog):
         player_pos = {":one:": [], ":two:": []}
         winner = ""
         done = False
-        occupied_channel.add(ctx.channel.id)
+        self.occupied_channel.add(ctx.channel.id)
 
         def valid_position(m):
             if m.channel.id != ctx.channel.id:
@@ -196,7 +273,7 @@ class Miscellaneous(commands.Cog):
                 selected_player = ctx.author
                 cursor = ":one:"
 
-        occupied_channel.remove(ctx.author.channel)
+        self.occupied_channel.remove(ctx.author.channel)
         if winner == "DRAW":
             await ctx.send("Game drawn")
             return
@@ -209,8 +286,8 @@ class Miscellaneous(commands.Cog):
         await ctx.send(embed=custom_embed)
 
     @commands.command(name="guessnumber", help="Guess when")
-    async def guessing(self, ctx, difficulty: int = 1, max_attempt: int = None):
-        if ctx.channel.id in occupied_channel:
+    async def guessing(self, ctx, difficulty: int = 1, max_attempt: Optional[int] = None):
+        if ctx.channel.id in self.occupied_channel:
             return
         multiplier_list = [2, 5, 10]
         if difficulty >= 69:
@@ -237,13 +314,13 @@ class Miscellaneous(commands.Cog):
                 return False
             return True
 
-        occupied_channel.add(ctx.channel.id)
+        self.occupied_channel.add(ctx.channel.id)
         while attempt <= max_attempt:
             try:
                 guess = await self.bot.wait_for("message", check=valid_number, timeout=60)
             except asyncio.TimeoutError:
                 await ctx.send("You don't guess in 1 minute. aborting")
-                occupied_channel.remove(ctx.channel.id)
+                self.occupied_channel.remove(ctx.channel.id)
                 return
             if int(guess.content) < selected_number:
                 await ctx.send(f"**Low**, {max_attempt - attempt} left\n"
@@ -253,16 +330,16 @@ class Miscellaneous(commands.Cog):
                                f"Range: {min_number} - {max_number}")
             else:
                 await ctx.send(f"Correct. Guessed in {attempt} attempt")
-                occupied_channel.remove(ctx.channel.id)
+                self.occupied_channel.remove(ctx.channel.id)
                 return
             attempt += 1
-        occupied_channel.remove(ctx.channel.id)
+        self.occupied_channel.remove(ctx.channel.id)
         await ctx.send(f"You failed to guess. Correct: {selected_number}")
 
     async def get_token(self, token_url):
         data = {
-            "client_id": int(CLIENT_ID),
-            "client_secret": CLIENT_SECRET,
+            "client_id": int(self.CLIENT_ID),
+            "client_secret": self.CLIENT_SECRET,
             "grant_type": "client_credentials",
             "scope": "public"
         }
@@ -455,31 +532,30 @@ class Miscellaneous(commands.Cog):
 
     @commands.command(name="spotify", aliases=["spot", "spt"])
     @commands.cooldown(rate=1, per=5.0)
-    async def activity_spotify(self, ctx, user: discord.Member = None):
+    async def activity_spotify(self, ctx, member: Optional[discord.Member] = None):
+        if not member:
+            member = ctx.author
+
+        try_embed = render_spotify_embed(member)
+        if isinstance(try_embed, str):
+            return await ctx.send(try_embed)
+        await ctx.send(embed=try_embed)
+
+    @commands.command(aliases=["a", "act"])
+    async def activity(self, ctx, user: Optional[discord.Member] = None):
         if not user:
             user = ctx.author
-        # In most cases the filtered list consist only 1 element unless there are breaking changes
-        spotify = list(filter(lambda a: isinstance(a, discord.Spotify), user.activities))
-        if not spotify:
-            await ctx.send("Not listening ):<", delete_after=5)
-        else:
-            spotify = spotify[-1]
-            # if there are more than 1 artists, put them all
-            duration = int(spotify.end.timestamp() - spotify.start.timestamp())
-            ongoing = int(datetime.datetime.now(datetime.timezone.utc).timestamp() - spotify.start.timestamp())
-            percentage = round(ongoing / duration * 100)
-            emoji = f"{'<:start0:969180226208813066>' if percentage >= 10 else '<:start1:969180368852910120>'}" \
-                    f"{'<:middle0:969180275525443636>' * (0 if percentage <= 10 else min(ceil(percentage/10)-1, 8))}" \
-                    f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage/10), 0))}"\
-                    f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
-            artist = spotify.artist if len(spotify.artists) > 1 else ', '.join(spotify.artists)
-            custom_embed = discord.Embed(title=f"{user.name} is listening to a song",
-                                         description=f"Title: [{spotify.title}]({spotify.track_url})\n"
-                                                     f"Artist: {artist}\n"
-                                                     f"Album: {spotify.album}\n"
-                                                     f"{emoji}", color=spotify.color)
-            custom_embed.set_thumbnail(url=spotify.album_cover_url)
-            await ctx.send(embed=custom_embed)
+        filtered_activities = list(filter(lambda x: not isinstance(x, discord.CustomActivity), user.activities))
+        if len(filtered_activities) < 1:
+            return await ctx.send("No activities")
+        dropdown = ActivityDropdown(text="Select activities",
+                                    select_list=[
+                                        discord.SelectOption(label=a.name) for a in filtered_activities
+                                    ])
+        dropdown.activities = {a.name: a for a in filtered_activities}
+        view = ActivityView(ctx.author, user)
+        view.add_item(dropdown)
+        await ctx.send(view=view)
 
 
 async def setup(bot: SewentyBot):

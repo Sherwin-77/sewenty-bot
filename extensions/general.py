@@ -4,22 +4,24 @@ import discord
 from discord.ext import commands
 from datetime import datetime
 
-from typing import TYPE_CHECKING
+from os import getenv
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from main import SewentyBot
-
-EMOJI_STATUS = {
-    "online": "🟢",
-    "idle": "🌙",
-    "dnd": "🚫",
-    "offline": "⚫"
-}
 
 
 class General(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
+        self.EMOJI_STATUS = {
+            "online": "🟢",
+            "idle": "🌙",
+            "dnd": "🚫",
+            "offline": "⚫"
+        }
+
+        self.DEFAULT_BANNER_URL = getenv("DEFAULT_BANNER_URL")
     #     self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
     #
     # async def cog_check(self, ctx):
@@ -61,39 +63,45 @@ class General(commands.Cog):
                     f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command(name='whois')
-    async def find_user(self, ctx, user: discord.User = None):
+    async def find_user(self, ctx: commands.Context, user: Optional[discord.User] = None):
         if not user:
             user = ctx.author
-        yellow = 0xfff00
-        await ctx.trigger_typing()
-        flags = map(dirty_filter, user.public_flags.all()) if user.public_flags.value != 0 else ["None"]
-        custom_embed = discord.Embed(title="User Data", description=f"Created at: "
-                                                                    f"<t:{int(user.created_at.timestamp())}:D>\n"
-                                                                    f"Bot: {user.bot} **|** System: {user.system}\n"
-                                                                    f"Public Flags: "
-                                                                    f"{', '.join(flags)}",
-                                     color=yellow)
-        custom_embed.set_author(name=f"{user.name}#{user.discriminator}", icon_url=user.avatar)
-        member = ctx.guild.get_member(user.id)
-        if member:
-            boost = member.premium_since
-            if not boost:
-                boost = -1e+13
-            else:
-                print(boost)
-                boost = boost.timestamp()
-            custom_embed.add_field(name="Member info",
-                                   value=f"Mobile:\u2800\u2800 {EMOJI_STATUS[member.mobile_status.value]}\n"
-                                         f"Desktop:\u2800 {EMOJI_STATUS[member.desktop_status.value]}\n"
-                                         f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[member.web_status.value]}\n"
-                                         f"Joined since: <t:{int(member.joined_at.timestamp())}:R>\n"
-                                         f"Boosting since: <t:{int(boost)}:R>\n"
-                                         f"Nick: {member.nick}",
-                                   inline=False)   # no spaces? fine I'll do it myself
-        await ctx.send(embed=custom_embed)
+        async with ctx.typing():
+            flags = map(dirty_filter, user.public_flags.all()) if user.public_flags.value != 0 else ["None"]
+            custom_embed = discord.Embed(title="User Data", description=f"Created at: "
+                                                                        f"<t:{int(user.created_at.timestamp())}:D>\n"
+                                                                        f"Bot: **{user.bot}**\n"
+                                                                        f"System: **{user.system}**\n"
+                                                                        f"Public Flags: "
+                                                                        f"**{', '.join(flags)}**",
+                                         color=user.accent_color or discord.Colour.random())
+            custom_embed.set_author(name=str(user), icon_url=user.avatar)
+            custom_embed.set_footer(text=user.id)
+            member = ctx.guild.get_member(user.id)
+            if member:
+                member: discord.Member
+                boost = member.premium_since
+                if not boost:
+                    boost = -1e+13
+                else:
+                    boost = boost.timestamp()
+                custom_embed.add_field(name="Member info",
+                                       value=f"Top Role: {member.top_role.mention}\n"
+                                             f"Mobile:\u2800\u2800 {self.EMOJI_STATUS[str(member.mobile_status)]}\n"
+                                             f"Desktop:\u2800 {self.EMOJI_STATUS[str(member.desktop_status)]}\n"
+                                             f"Web:\u2800\u2800\u2800 {self.EMOJI_STATUS[str(member.web_status)]}\n"
+                                             f"Pending verification: **{member.pending}**\n"
+                                             f"Joined at: <t:{int(member.joined_at.timestamp())}:D>\n"
+                                             f"Boosting since: <t:{int(boost)}:R>\n"
+                                             f"Nick: {member.nick}",
+                                       inline=False)   # no spaces? fine I'll do it myself
+                if member.display_icon:
+                    custom_embed.set_author(name=str(user), icon_url=member.display_icon)
+                    custom_embed.set_thumbnail(url=member.display_avatar)
+            await ctx.send(embed=custom_embed)
 
     @commands.command(name="avatar", help="yes avatar", aliases=["av"])
-    async def show_avatar(self, ctx, user: discord.User = None):
+    async def show_avatar(self, ctx, user: Optional[discord.User] = None):
         if not user:
             user = ctx.author
         embed = discord.Embed(title='Avatar')
@@ -102,7 +110,7 @@ class General(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.command(name="avatar2", aliases=["av2"])
-    async def show_avatar2(self, ctx, user: discord.Member = None):
+    async def show_avatar2(self, ctx, user: Optional[discord.Member] = None):
         """
         Avatar V2!! with ~~useless~~ updated feature
         """
@@ -113,20 +121,17 @@ class General(commands.Cog):
         embed.set_image(url=user.guild_avatar)
         await ctx.send(embed=embed)
 
-    @commands.command(name="banner", help="beta")
-    async def check_banner(self, ctx, user: discord.User = None):
+    @commands.command(name="banner")
+    async def check_banner(self, ctx, user: Optional[discord.User] = None):
         """
         Returns a user's Discord banner
         """
         if not user:
             user = ctx.author
         user = await self.bot.fetch_user(user.id)
-        banner_url = user.banner
-        if not banner_url:
-            banner_url = "https://c4.wallpaperflare.com/wallpaper/" \
-                         "357/645/211/easter-island-chile-starry-night-statue-wallpaper-preview.jpg"
-
-        custom_embed = discord.Embed(description=f"{user.name}'s banner")
+        banner_url = user.banner or self.DEFAULT_BANNER_URL
+        custom_embed = discord.Embed()
+        custom_embed.set_author(name=f"{user.display_name}'s banner", icon_url=user.display_avatar)
         custom_embed.set_image(url=banner_url)
         await ctx.send(embed=custom_embed)
         # if not user:

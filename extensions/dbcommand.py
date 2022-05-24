@@ -17,18 +17,19 @@ if TYPE_CHECKING:
 
 # If this is working, don't touch it
 
-# This may be changed as soon as new location is confirmed
-REGISTERED_LOCATION = {"beach", "city"}
-REGISTERED_ETC = {"Ice Cream Stand Upgrades 🍦": "beach", "Taco Truck Upgrades 🚚": "",
-                  "Hotdog Cart Upgrades 🌭": "city"}
-SHORTCUT_LOCATION = {'s': "", 'b': "beach", "c": "city"}
-taco_set, taco_recommend = set(), set()
-
 
 class Taco(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
         self.COLLECTION = self.bot.DB["userdata"]
+
+        # This may be changed as soon as new location is confirmed
+        self.REGISTERED_LOCATION = {"beach", "city"}
+        self.REGISTERED_ETC = {"Taco Truck Upgrades 🚚": "",
+                               "Ice Cream Stand Upgrades 🍦": "beach",
+                               "Hotdog Cart Upgrades 🌭": "city"}
+        self.SHORTCUT_LOCATION = {'s': "", 'b': "beach", "c": "city"}
+        self.taco_set, self.taco_recommend = set(), set()
 
     @commands.command(name="tacoset", aliases=["ts"])
     async def set_taco(self, ctx, multiple: bool = False):
@@ -37,7 +38,7 @@ class Taco(commands.Cog):
         Detect up to 5 message if not multiple else 8
         To set multiple: s!tacoset true
         """
-        if str(ctx.author.id) in taco_set:
+        if str(ctx.author.id) in self.taco_set:
             await ctx.send('Chill down <:blobsob:809721186966831105>', delete_after=2)
             return
         history = [x async for x in ctx.channel.history(limit=5 if not multiple else 8)]
@@ -53,10 +54,10 @@ class Taco(commands.Cog):
                 is_shack = False
                 if "Shack" in title:
                     is_shack = True
-                title = REGISTERED_ETC[title] if title in REGISTERED_ETC else title.split(" ")[0].lower()
+                title = self.REGISTERED_ETC[title] if title in self.REGISTERED_ETC else title.split(" ")[0].lower()
             except KeyError:
                 continue
-            location = title if title in REGISTERED_LOCATION else ""
+            location = title if title in self.REGISTERED_LOCATION else ""
             if is_shack and not location:
                 await ctx.send("New location detected and unregistered. Please DM invalid-user#8807")
                 return
@@ -108,9 +109,9 @@ class Taco(commands.Cog):
                 return
             await ctx.send("Multiple check feature look up to **8 messages** before you and it **overrides** "
                            "older embed if newer one is the same so be careful")
-        taco_set.add(str(ctx.author.id))
+        self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
-        taco_set.remove(str(ctx.author.id))
+        self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name='tsrecommend', aliases=['tr'])
     async def find_taco(self, ctx, limit: int = 3, location: str = ""):
@@ -119,13 +120,13 @@ class Taco(commands.Cog):
         s!tsrecommend 3 beach
         """
         location = location.lower()
-        location = location if location not in SHORTCUT_LOCATION else SHORTCUT_LOCATION[location]
-        if location not in REGISTERED_LOCATION and location:
+        location = location if location not in self.SHORTCUT_LOCATION else self.SHORTCUT_LOCATION[location]
+        if location not in self.REGISTERED_LOCATION and location:
             await ctx.send("You input scary location to me <:blobsob:809721186966831105>", delete_after=5)
         if limit > 10:
             await ctx.send("Why booli me <:blobsob:809721186966831105> (max 10)", delete_after=5)
             return
-        if str(ctx.author.id) in taco_recommend:
+        if str(ctx.author.id) in self.taco_recommend:
             await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=4)
             return
         query = {"_id": f'{ctx.author.id}taco{location}'}
@@ -145,13 +146,13 @@ class Taco(commands.Cog):
                 custom_embed.add_field(name=f"Recommendation {n}", value=f"{t}\n(Value = {v})")
             custom_embed.set_author(name=f"{ctx.author.name}\'s Taco", icon_url=ctx.author.avatar)
             await ctx.send(embed=custom_embed)
-        taco_recommend.add(str(ctx.author.id))
+        self.taco_recommend.add(str(ctx.author.id))
         await asyncio.sleep(4)
-        taco_recommend.remove(str(ctx.author.id))
+        self.taco_recommend.remove(str(ctx.author.id))
 
     @commands.command(name="tscleartruck", aliases=['tct'])
     async def delete_truck(self, ctx):
-        if str(ctx.author.id) in taco_set:
+        if str(ctx.author.id) in self.taco_set:
             await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
         dl = ["Register", "Assistant", "Driver", "Kitchen", "Engine"]
@@ -166,13 +167,13 @@ class Taco(commands.Cog):
                 taco.pop(x)
             await self.COLLECTION.update_one(query, {"$set": {'taco': taco}})
             await ctx.message.add_reaction('👍')
-        taco_set.add(str(ctx.author.id))
+        self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
-        taco_set.remove(str(ctx.author.id))
+        self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name="tsclearstand", aliases=['tcs'])
     async def delete_stand(self, ctx):
-        if str(ctx.author.id) in taco_set:
+        if str(ctx.author.id) in self.taco_set:
             await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
         dl = ["Decals", "Wheels", "Mixers", "Server", "Freezer"]
@@ -188,13 +189,13 @@ class Taco(commands.Cog):
                 taco.pop(x)
             await self.COLLECTION.update_one({"_id": f"{ctx.author.id}tacobeach"}, {"$set": {"taco": taco}})
             await ctx.message.add_reaction('👍')
-        taco_set.add(str(ctx.author.id))
+        self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
-        taco_set.remove(str(ctx.author.id))
+        self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name="tsclearcart", aliases=['tcc'])
     async def delete_stand(self, ctx):
-        if str(ctx.author.id) in taco_set:
+        if str(ctx.author.id) in self.taco_set:
             await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
         dl = ["Buns", "Condiments", "Beverages", "Coolers", "Grill"]
@@ -210,9 +211,9 @@ class Taco(commands.Cog):
                 taco.pop(x)
             await self.COLLECTION.update_one(query, {"$set": {"taco": taco}})
             await ctx.message.add_reaction('👍')
-        taco_set.add(str(ctx.author.id))
+        self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
-        taco_set.remove(str(ctx.author.id))
+        self.taco_set.remove(str(ctx.author.id))
 
 
 class OwO(commands.Cog):

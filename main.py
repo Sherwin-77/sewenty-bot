@@ -17,8 +17,6 @@ import motor.motor_asyncio
 
 load_dotenv()  # in case we use .env in future
 
-COMMANDS_FOLDER = r"extensions/"
-
 TOKEN = getenv("DISCORD_TOKEN")
 EMAILS = getenv("EMAIL")
 PASSWORDS = getenv("PASSWORD")
@@ -26,8 +24,8 @@ SECOND_EMAIL = getenv("NEXT_EMAIL")
 SECOND_PASSWORD = getenv("NEXT_PASSWORD")
 CPDB_NAME = getenv("CPDB_NAME")
 DB_NAME = getenv("DB_NAME")
-PSQL_USER = getenv("PSQL_USER")
-PSQL_PASSWORD = getenv("PSQL_PASSWORD")
+# PSQL_USER = getenv("PSQL_USER")
+# PSQL_PASSWORD = getenv("PSQL_PASSWORD")
 
 # Test db
 # MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
@@ -38,29 +36,16 @@ CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.ne
 
 prefixes = ["s!", "S!"]
 
-TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
-                              "<:hikanoplsOwO:804522598289375232>"],
-                    "shifud": ["<a:BowingPandas:771010441324920853>",
-                               "<:speechlessOwO:793026526911135744>"],
-                    "meo": "<a:catMIAOwO:782034693905186816>",
-                    "radishh": ["<a:blossomradish:812889706249453618>",
-                                "<a:blossomradish:812889706249453618>"],
-                    "naed": "<a:emoji3:776775391154798593>",
-                    "test ajg": "<:wurk:858721776770744320>",
-                    "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
-                              "<a:pandasmackOwO:799955371074519041>"}
-
 
 class NewHelpCommand(commands.MinimalHelpCommand):
     def __init__(self, **options):
         super().__init__(**options)
-        self.no_category = 'Other Command'
+        self.no_category = "Other Command"
 
     async def send_pages(self):
-        rand_num = random.randint(0, 16777215)
         destination = self.get_destination()
         for page in self.paginator.pages:
-            help_embed = discord.Embed(title="Help", description=page, color=rand_num)
+            help_embed = discord.Embed(title="Help", description=page, color=discord.Colour.random())
             await destination.send(embed=help_embed)
 
 
@@ -95,6 +80,18 @@ class SewentyBot(commands.Bot):
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
 
+        self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
+                                           "<:hikanoplsOwO:804522598289375232>"],
+                                 "shifud": ["<a:BowingPandas:771010441324920853>",
+                                            "<:speechlessOwO:793026526911135744>"],
+                                 "meo": "<a:catMIAOwO:782034693905186816>",
+                                 "radishh": ["<a:blossomradish:812889706249453618>",
+                                             "<a:radishblossom:802357456885383198>"],
+                                 "naed": "<a:emoji3:776775391154798593>",
+                                 "test ajg": "<:wurk:858721776770744320>",
+                                 "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
+                                           "<a:pandasmackOwO:799955371074519041>"}
+
         # we define this later
         # self.pool = None
         self.session = None
@@ -104,7 +101,7 @@ class SewentyBot(commands.Bot):
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
 
-        for file in glob(f"{COMMANDS_FOLDER}*.py"):
+        for file in glob(r"extensions/*.py"):
             module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
             await self.load_extension(module_name)
         # await self.load_extension("experiment")  # for experimenting
@@ -148,6 +145,7 @@ def slash_is_enabled():
 
 
 def main():
+    default_banner_url = getenv("DEFAULT_BANNER_URL")
 
     bot = SewentyBot()
 
@@ -159,15 +157,13 @@ def main():
 
     @bot.tree.context_menu(name="Banner")
     async def search_banner(interaction: discord.Interaction, member: discord.Member):
-        embed = discord.Embed(title="Banner")
-        embed.set_author(name=member.display_name, icon_url=member.display_avatar)
         member = await bot.fetch_user(member.id)
-        banner_url = member.banner
-        if not banner_url:
-            banner_url = "https://c4.wallpaperflare.com/wallpaper/" \
-                         "357/645/211/easter-island-chile-starry-night-statue-wallpaper-preview.jpg"
-        embed.set_image(url=banner_url)
-        await interaction.response.send_message(embed=embed)
+        banner_url = member.banner or default_banner_url
+
+        custom_embed = discord.Embed()
+        custom_embed.set_author(name=f"{member.display_name}'s banner", icon_url=member.display_avatar)
+        custom_embed.set_image(url=banner_url)
+        await interaction.response.send_message(embed=custom_embed)
 
     @bot.tree.context_menu(name="Ajg", guild=discord.Object(id=714152739252338749))
     async def ajg(interaction: discord.Interaction, user: discord.User):
@@ -199,14 +195,11 @@ def main():
     #     await ctx.reply(f"Failed to fetch: {type(error)} {error}", mention_author=False)
 
     @bot.command(name="dm", hidden=True)
-    async def dm_user(ctx, userid: int, *, text="Test"):
-        if ctx.author.id == 436376194166816770:
-            user = await bot.fetch_user(userid)
-            channel = await user.create_dm()
-            await channel.send(text)
-            await ctx.message.add_reaction('👍')
-        else:
-            await ctx.send("Hoho you are expecting dm works for you. But its only me")
+    @commands.is_owner()
+    async def dm_user(ctx, user: discord.User, *, text="Test"):
+        channel = await user.create_dm()
+        await channel.send(text)
+        await ctx.message.add_reaction('👍')
 
     @dm_user.error
     async def dm_error(ctx, error):
@@ -293,11 +286,11 @@ def main():
                     await message.channel.send("<a:bun:743740123094450217>")
                 else:
                     await message.channel.send("<a:gimme:751779307688296498>")
-            if low_msg in TRIGGER_RESPONSE.keys():
-                if isinstance(TRIGGER_RESPONSE[low_msg], list):
-                    await message.channel.send(random.choice(TRIGGER_RESPONSE[low_msg]))
+            if low_msg in bot.TRIGGER_RESPONSE.keys():
+                if isinstance(bot.TRIGGER_RESPONSE[low_msg], list):
+                    await message.channel.send(random.choice(bot.TRIGGER_RESPONSE[low_msg]))
                 else:
-                    await message.channel.send(TRIGGER_RESPONSE[low_msg])
+                    await message.channel.send(bot.TRIGGER_RESPONSE[low_msg])
 
         await bot.process_commands(message)
 
