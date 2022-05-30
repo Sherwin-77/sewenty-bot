@@ -5,12 +5,13 @@ from discord.ext import commands
 from datetime import datetime
 
 from os import getenv
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from main import SewentyBot
 
 
+# noinspection SpellCheckingInspection
 class General(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
@@ -100,28 +101,19 @@ class General(commands.Cog):
                     custom_embed.set_thumbnail(url=member.display_avatar)
             await ctx.send(embed=custom_embed)
 
-    @commands.command(name="avatar", help="yes avatar", aliases=["av"])
-    async def show_avatar(self, ctx, user: Optional[discord.User] = None):
-        if not user:
-            user = ctx.author
-        embed = discord.Embed(title='Avatar')
-        embed.set_author(name=user.name, icon_url=user.avatar)
-        embed.set_image(url=user.avatar)
-        await ctx.send(embed=embed)
-
-    @commands.command(name="avatar2", aliases=["av2"])
-    async def show_avatar2(self, ctx, user: Optional[discord.Member] = None):
+    @commands.command(name="avatar", aliases=["av"])
+    async def show_avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
         """
-        Avatar V2!! with ~~useless~~ updated feature
+        Just avatar
         """
         if not user:
             user = ctx.author
-        embed = discord.Embed(title='Avatar')
-        embed.set_author(name=user.display_name, icon_url=user.display_icon)
-        embed.set_image(url=user.guild_avatar)
+        embed = discord.Embed(title="Avatar", color=user.accent_color or discord.Colour.random())
+        embed.set_author(name=user.display_name, icon_url=user.avatar)
+        embed.set_image(url=user.display_avatar)
         await ctx.send(embed=embed)
 
-    @commands.command(name="banner")
+    @commands.command(name="banner", aliases=['b'])
     async def check_banner(self, ctx, user: Optional[discord.User] = None):
         """
         Returns a user's Discord banner
@@ -151,6 +143,17 @@ class General(commands.Cog):
         # custom_embed.set_author(name=user.name)
         # custom_embed.set_image(url=banner_url)
         # await ctx.send(embed=custom_embed)
+
+    @commands.command(name="gbanner", aliases=["gb"])
+    async def check_guild_banner(self, ctx):
+        """
+        Returns guild banner if exist
+        """
+        banner_url = ctx.guild.banner or self.DEFAULT_BANNER_URL
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.set_author(name="Server banner", icon_url=ctx.guild.icon)
+        custom_embed.set_image(url=banner_url)
+        await ctx.send(embed=custom_embed)
 
 
 def dirty_filter(text):

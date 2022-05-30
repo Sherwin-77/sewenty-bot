@@ -331,7 +331,7 @@ def main():
         if isinstance(error, app_commands.CheckFailure):
             return await interaction.response.send_message("You can't use this command (probably on maintenance)")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 2000:
+        if len(output) > 1500:
             return print(output)
         owner = await bot.fetch_user(436376194166816770)
         channel = await owner.create_dm()
@@ -354,7 +354,7 @@ def main():
             return
 
         output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 2000:
+        if len(output) > 1500:
             return print(output)
         owner = await bot.fetch_user(436376194166816770)
         channel = await owner.create_dm()

@@ -8,8 +8,8 @@ import datetime
 import random
 import asyncio
 import os
+# import io
 from math import ceil, log
-from traceback import format_exception
 from typing import TYPE_CHECKING, Optional, Union, List
 
 from utils.view_util import Dropdown
@@ -107,10 +107,12 @@ class ActivityDropdown(Dropdown):
         await interaction.response.edit_message(embed=custom_embed, view=None)
 
 
+# noinspection SpellCheckingInspection
 class Miscellaneous(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
         self.occupied_channel = set()
+        self.current_token = tuple()
 
         self.CLIENT_ID = os.getenv("CLIENT_ID")
         self.CLIENT_SECRET = os.getenv("CLIENT_SECRET")
@@ -119,7 +121,7 @@ class Miscellaneous(commands.Cog):
 
     @commands.command(name='wikipedia', help='Ah yes wikipedia')
     @commands.cooldown(rate=1, per=10.0)
-    async def checkwiki(self, ctx, key, option, number: Optional[int] = None, lang=None):
+    async def check_wiki(self, ctx, key, option, number: Optional[int] = None, lang=None):
         if key and option and number:
             if lang:
                 wikipedia.set_lang(lang)
@@ -147,8 +149,8 @@ class Miscellaneous(commands.Cog):
         Flips a coin
         """
 
-        coinface = random.choice(["Head", "Tail"])
-        await ctx.send(f'**{coinface}** of the coin')
+        coin_face = random.choice(["Head", "Tail"])
+        await ctx.send(f'**{coin_face}** of the coin')
 
     @commands.command(help='Rock paper scissor')
     async def rps(self, ctx, choice: Optional[str] = None):
@@ -337,6 +339,11 @@ class Miscellaneous(commands.Cog):
         await ctx.send(f"You failed to guess. Correct: {selected_number}")
 
     async def get_token(self, token_url):
+        current = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        last_token, expired = self.current_token or (None, None)
+        # this logic looks dirty
+        if last_token is not None and expired is not None and current + 100 < expired:
+            return last_token
         data = {
             "client_id": int(self.CLIENT_ID),
             "client_secret": self.CLIENT_SECRET,
@@ -345,16 +352,18 @@ class Miscellaneous(commands.Cog):
         }
         async with self.bot.session.post(token_url, data=data) as response:
             res = await response.json()
+        self.current_token = (res["access_token"], current + res["expires_in"])
         return res["access_token"]
 
     @commands.command(name="osutop", help="Flex your top osu play")
     @commands.cooldown(rate=1, per=15.0)
-    async def get_osu_top(self, ctx, username):
-        api_url = "https://osu.ppy.sh/api/v2"
-        token_url = "https://osu.ppy.sh/oauth/token"
+    async def get_osu_top(self, ctx, username, limit: int = 5):
+        if limit > 10:
+            return await ctx.reply("Too big :c", mention_author=False)
+
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
-        token = await self.get_token(token_url)
+        token = await self.get_token(self.OSU_TOKEN_URL)
         headers = {
             "Content_Type": "application/json",
             "Accept": "application/json",
@@ -362,66 +371,67 @@ class Miscellaneous(commands.Cog):
         }
         params = {
             "mode": "osu",
-            "limit": 5
+            "limit": limit
         }
-        async with self.bot.session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
-                as response1:
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
+                                        params=params,
+                                        headers=headers) as response1:
+
+            if response1.status != 200:
+                return await message.edit(content=f"Failed to find user. Error code {response1.status}")
+
             find_username = await response1.json()
             userid = find_username["id"]
-            async with self.bot.session.get(f"{api_url}/users/{userid}/scores/best", params=params, headers=headers) \
-                    as response2:
+
+            async with self.bot.session.get(f"{self.OSU_API_URL}/users/{userid}/scores/best",
+                                            params=params,
+                                            headers=headers) as response2:
+
+                if response2.status != 200:
+                    return await message.edit(content=f"Failed to get score. Error code {response2.status}")
+
                 raw = await response2.json()
-        custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Top 5 map")
-        custom_embed.set_thumbnail(url=raw[0]["user"]["avatar_url"])
-        for x in range(5):
-            title = raw[x]["beatmapset"]["title"]
-            title_url = raw[x]["beatmap"]["url"]
-            statistic = raw[x]["statistics"]
+
+        if len(raw) < 1:
+            return await message.edit(content="No scores to show")
+
+        custom_embed = discord.Embed(title=find_username["username"],
+                                     description=f"Top {limit} map",
+                                     color=discord.Colour.random())
+        custom_embed.set_thumbnail(url=find_username["avatar_url"])
+        for entry in raw:
+            title = entry["beatmapset"]["title"]
+            title_url = entry["beatmap"]["url"]
+            statistic = entry["statistics"]
             count_50, count_100, count_300 = statistic["count_50"], statistic["count_100"], statistic["count_300"]
-            count_geki, count_katu, count_miss = statistic["count_geki"], statistic["count_katu"], statistic[
-                "count_miss"]
-            pp = raw[x]["pp"]
-            difficulty_ver = raw[x]["beatmap"]["version"]
-            difficulty_rating = raw[x]["beatmap"]["difficulty_rating"]
-            accuracy = raw[x]["accuracy"]
-            max_combo = raw[x]["max_combo"]
-            mods = " ".join(raw[x]["mods"])
+            count_geki, count_katu = statistic["count_geki"], statistic["count_katu"]
+            count_miss = statistic["count_miss"]
+            pp = entry["pp"]
+            difficulty_ver = entry["beatmap"]["version"]
+            difficulty_rating = entry["beatmap"]["difficulty_rating"]
+            accuracy = entry["accuracy"]
+            max_combo = entry["max_combo"]
+            rank = entry["rank"].replace('H', " Hidden")
+            mods = " ".join(entry["mods"])
             custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
                                    value=f"[{difficulty_ver}]({title_url})\n"
-                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x\n"
+                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
                                          f"Mod(s): {mods}\n"
                                          f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
                                          f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
                                    inline=False)
         await ctx.send(embed=custom_embed)
         await message.delete()
-
-    @get_osu_top.error
-    async def osu_top_error(self, ctx, error):
-        if isinstance(error, commands.errors.CommandInvokeError):
-            # Known IndexError issue caused by iterating empty/not enough length list
-            if isinstance(error.original, IndexError):
-                return await ctx.send("User doesn't have any top play or not enough top play to show")
-            # known KeyError issue caused by invalid username
-            if isinstance(error.original, KeyError):
-                return await ctx.send("User not found")
-        owner = await self.bot.fetch_user(436376194166816770)
-        channel = await owner.create_dm()
-        output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 2000:
-            return print(output)
-        await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
-                           f"```py\n"
-                           f"{output}```")
 
     @commands.command(name="osurecent", help="Show your recent osu play")
     @commands.cooldown(rate=1, per=15.0)
-    async def get_osu_recent(self, ctx, username):
-        api_url = "https://osu.ppy.sh/api/v2"
-        token_url = "https://osu.ppy.sh/oauth/token"
+    async def get_osu_recent(self, ctx, username, limit: int = 5):
+        if limit > 10:
+            return await ctx.reply("Too big :c", mention_author=False)
+
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
-        token = await self.get_token(token_url)
+        token = await self.get_token(self.OSU_TOKEN_URL)
         headers = {
             "Content_Type": "application/json",
             "Accept": "application/json",
@@ -429,59 +439,141 @@ class Miscellaneous(commands.Cog):
         }
         params = {
             "mode": "osu",
-            "limit": 5,
+            "limit": limit,
         }
-        async with self.bot.session.get(f"{api_url}/users/{username}", params=params, headers=headers) \
-                as response1:
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
+                                        params=params,
+                                        headers=headers) as response1:
+
+            if response1.status != 200:
+                return await message.edit(content=f"Failed to find user. Error code {response1.status}")
+
             find_username = await response1.json()
             userid = find_username["id"]
-            async with self.bot.session.get(f"{api_url}/users/{userid}/scores/recent", params=params, headers=headers) \
-                    as response2:
+
+            async with self.bot.session.get(f"{self.OSU_API_URL}/users/{userid}/scores/recent",
+                                            params=params,
+                                            headers=headers) as response2:
+
+                if response2.status != 200:
+                    return await message.edit(content=f"Failed to get score. Error code {response2.status}")
+
                 raw = await response2.json()
-        custom_embed = discord.Embed(title=raw[0]["user"]["username"], description="Recent 5 map")
-        custom_embed.set_thumbnail(url=raw[0]["user"]["avatar_url"])
-        for x in range(5):
-            title = raw[x]["beatmapset"]["title"]
-            title_url = raw[x]["beatmap"]["url"]
-            statistic = raw[x]["statistics"]
+
+        if len(raw) < 1:
+            return await message.edit(content="No scores to show")
+
+        custom_embed = discord.Embed(title=find_username["username"],
+                                     description=f"Top {limit} map",
+                                     color=discord.Colour.random())
+        custom_embed.set_thumbnail(url=find_username["avatar_url"])
+        for entry in raw:
+            title = entry["beatmapset"]["title"]
+            title_url = entry["beatmap"]["url"]
+            statistic = entry["statistics"]
             count_50, count_100, count_300 = statistic["count_50"], statistic["count_100"], statistic["count_300"]
-            count_geki, count_katu, count_miss = statistic["count_geki"], statistic["count_katu"], statistic[
-                "count_miss"]
-            pp = raw[x]["pp"]
-            difficulty_ver = raw[x]["beatmap"]["version"]
-            difficulty_rating = raw[x]["beatmap"]["difficulty_rating"]
-            accuracy = raw[x]["accuracy"]
-            max_combo = raw[x]["max_combo"]
-            mods = " ".join(raw[x]["mods"])
+            count_geki, count_katu = statistic["count_geki"], statistic["count_katu"]
+            count_miss = statistic["count_miss"]
+            pp = entry["pp"]
+            difficulty_ver = entry["beatmap"]["version"]
+            difficulty_rating = entry["beatmap"]["difficulty_rating"]
+            accuracy = entry["accuracy"]
+            max_combo = entry["max_combo"]
+            rank = entry["rank"].replace('H', " Hidden")
+            mods = " ".join(entry["mods"])
             custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
                                    value=f"[{difficulty_ver}]({title_url})\n"
-                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x\n"
+                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
                                          f"Mod(s): {mods}\n"
                                          f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
                                          f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
                                    inline=False)
-        await ctx.send(embed=custom_embed)
-        await message.delete()
+        await message.edit(content=None, embed=custom_embed)
 
-    @get_osu_recent.error
-    async def osu_recent_error(self, ctx, error):
-        if isinstance(error, commands.errors.CommandInvokeError):
-            if isinstance(error.original, IndexError):
-                # Known IndexError issue caused by iterating empty/not enough length list
-                return await ctx.send("User doesn't have any recent play in 24 hours "
-                                      "or not enough recent plays to show")
-            if isinstance(error.original, KeyError):
-                # known KeyError issue caused by invalid username
-                return await ctx.send("User not found")
+    @commands.command(name="osulast", help="Last play of your osu")
+    @commands.cooldown(rate=1, per=15.0)
+    async def get_last_osu_play(self, ctx, username):
+        message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
+
+        token = await self.get_token(self.OSU_TOKEN_URL)
+        headers = {
+            "Content_Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        params = {
+            "mode": "osu",
+            "limit": 1,
+            "include_fails": 1
+        }
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
+                                        params=params,
+                                        headers=headers) as response1:
+
+            if response1.status != 200:
+                return await message.edit(content=f"Failed to find user. Error code {response1.status}")
+
+            find_username = await response1.json()
+            userid = find_username["id"]
+
+            async with self.bot.session.get(f"{self.OSU_API_URL}/users/{userid}/scores/recent",
+                                            params=params,
+                                            headers=headers) as response2:
+
+                if response2.status != 200:
+                    return await message.edit(content=f"Failed to get score. Error code {response2.status}")
+
+                raw = await response2.json()
+
+        if len(raw) < 1:
+            return await message.edit(content="No scores to show")
+
+        raw = raw[0]
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.set_author(name=find_username["username"],
+                                icon_url=find_username["avatar_url"])
+        title = raw["beatmapset"]["title"]
+        title_url = raw["beatmap"]["url"]
+        statistic = raw["statistics"]
+        count_50, count_100, count_300 = statistic["count_50"], statistic["count_100"], statistic["count_300"]
+        count_geki, count_katu = statistic["count_geki"], statistic["count_katu"]
+        count_miss = statistic["count_miss"]
+        pp = raw["pp"]
+        difficulty_ver = raw["beatmap"]["version"]
+        difficulty_rating = raw["beatmap"]["difficulty_rating"]
+        accuracy = raw["accuracy"]
+        max_combo = raw["max_combo"]
+        rank = raw["rank"].replace('H', " Hidden")
+        mods = " ".join(raw["mods"])
+        custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
+                               value=f"[{difficulty_ver}]({title_url})\n"
+                                     f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
+                                     f"Mod(s): {mods}\n"
+                                     f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
+                                     f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
+                               inline=False)
+        beatmap = raw["beatmap"]
+        custom_embed.add_field(name="Map details",
+                               value=f"**{beatmap['bpm']} BPM**\n"
+                                     f"AR **{beatmap['ar']}** | CS **{beatmap['cs']}**\n"
+                                     f"HP **{beatmap['drain']}** | OD **{beatmap['accuracy']}**\n"
+                                     f"Circles count: {beatmap['count_circles']}\n"
+                                     f"Slider count: {beatmap['count_sliders']}\n"
+                                     f"Spinner count: {beatmap['count_spinners']}")
+        custom_embed.set_thumbnail(url=raw["beatmapset"]["covers"]["cover"])
+        # async with self.bot.session.get("https://" + raw["beatmapset"]["preview_url"][2:]) as response:
+        #     if response.status == 200:
+        #         preview = io.BytesIO(await response.read())
+        #         await message.delete()
+        #         return await ctx.send(file=discord.File(preview, "preview.mp3"), embed=custom_embed)
+        await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="osuprofile", help="Flex your osu profile")
     @commands.cooldown(rate=1, per=15.0)
     async def get_osu_profile(self, ctx, username):
-        api_url = "https://osu.ppy.sh/api/v2"
-        token_url = "https://osu.ppy.sh/oauth/token"
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
-        token = await self.get_token(token_url)
+        token = await self.get_token(self.OSU_TOKEN_URL)
         headers = {
             "Content_Type": "application/json",
             "Accept": "application/json",
@@ -489,11 +581,15 @@ class Miscellaneous(commands.Cog):
         }
         params = {
             "mode": "osu",
-            "limit": 5,
         }
-        async with self.bot.session.get(f"{api_url}/users/{username}", params=params, headers=headers) as response:
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
+                                        params=params,
+                                        headers=headers) as response:
+            if response.status != 200:
+                return await ctx.edit(content=f"Failed to get user. Error code: {response.status}")
             raw = await response.json()
-        custom_embed = discord.Embed(title=raw["username"], description="Profile")
+        custom_embed = discord.Embed()
+        custom_embed.set_author(name=raw["username"])
         custom_embed.set_thumbnail(url=raw["avatar_url"])
         statistic = raw["statistics"]
         string = ""
@@ -504,7 +600,7 @@ class Miscellaneous(commands.Cog):
                     name = name.capitalize() if len(name) > 3 else name.upper()
                     string += f"{name}: {statistic[i][j]}\n"
                 continue
-            name = i.replace("_", " ")
+            name = i.replace('_', ' ')
             name = name.capitalize() if len(name) > 3 else name.upper()
             string += f"{name}: {statistic[i]}\n"
         custom_embed.add_field(name="Details", value=string)
@@ -512,23 +608,7 @@ class Miscellaneous(commands.Cog):
                                                    f"Active: {raw['is_active']}\n"
                                                    f"Discord: {raw['discord']}")
         custom_embed.set_footer(text=f"Joined at {raw['join_date']}")
-        await ctx.send(embed=custom_embed)
-        await message.delete()
-
-    @get_osu_profile.error
-    async def osu_profile_error(self, ctx, error):
-        if isinstance(error, commands.errors.CommandInvokeError) and isinstance(error.original, KeyError):
-            # known KeyError issue caused by invalid username
-            await ctx.send("Unable to find user")
-            return
-        owner = await self.bot.fetch_user(436376194166816770)
-        channel = await owner.create_dm()
-        output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 2000:
-            return print(output)
-        await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
-                           f"```py\n"
-                           f"{output}```")
+        await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="spotify", aliases=["spot", "spt"])
     @commands.cooldown(rate=1, per=5.0)
