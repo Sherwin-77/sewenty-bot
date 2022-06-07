@@ -1,21 +1,29 @@
 from __future__ import annotations
 
+import logging
+
 import discord
 from discord.ext import commands
-import wikipedia
+import googletrans
+# import wikipedia
 
-import datetime
-import random
+from ast import literal_eval
 import asyncio
-import os
+import datetime
+# from functools import partial
 # import io
 from math import ceil, log
-from typing import TYPE_CHECKING, Optional, Union, List
+import os
+import random
+from typing import TYPE_CHECKING, Optional, Union, List, Annotated
 
+from constants import USER_AGENTS, JFX_WEBSITES
 from utils.view_util import Dropdown
 
 if TYPE_CHECKING:
     from main import SewentyBot
+
+logger = logging.getLogger(__name__)
 
 
 def is_win(player_pos, current_player):
@@ -107,10 +115,15 @@ class ActivityDropdown(Dropdown):
         await interaction.response.edit_message(embed=custom_embed, view=None)
 
 
+class Language(commands.FlagConverter, delimiter=' ', prefix='--'):
+    lang: str
+
+
 # noinspection SpellCheckingInspection
 class Miscellaneous(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
+        self.translator = googletrans.Translator()
         self.occupied_channel = set()
         self.current_token = tuple()
 
@@ -118,30 +131,20 @@ class Miscellaneous(commands.Cog):
         self.CLIENT_SECRET = os.getenv("CLIENT_SECRET")
         self.OSU_API_URL = "https://osu.ppy.sh/api/v2"
         self.OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token"
+        
+    @property
+    def magic_header(self):
+        return {
+            "User-Agent": random.choice(USER_AGENTS)
+        }
 
-    @commands.command(name='wikipedia', help='Ah yes wikipedia')
+    @commands.command(name="wikipedia", enabled=False)
     @commands.cooldown(rate=1, per=10.0)
-    async def check_wiki(self, ctx, key, option, number: Optional[int] = None, lang=None):
-        if key and option and number:
-            if lang:
-                wikipedia.set_lang(lang)
-            if option == '-sc':
-                resu = wikipedia.search(key, results=number)
-                result = ', '.join(resu)
-            elif option == '-su':
-                result = wikipedia.summary(key, sentences=number)
-            else:
-                await ctx.send("Please input option", delete_after=5)
-                return
-            if number > 30:
-                await ctx.send("Too long :c")
-                return
-        else:
-            await ctx.send('Please input complete argument. Ex: wikipedia -su 5', delete_after=8)
-            return
-        custom_embed = discord.Embed(title=key, description=result)
-        wikipedia.set_lang('en')
-        await ctx.send(embed=custom_embed)
+    async def check_wiki(self, ctx):
+        """
+        Still in Work
+        """
+        pass
 
     @commands.command(name="flipcoin", aliases=['coinflip', 'cf'])
     async def flip_coin(self, ctx):
@@ -152,7 +155,7 @@ class Miscellaneous(commands.Cog):
         coin_face = random.choice(["Head", "Tail"])
         await ctx.send(f'**{coin_face}** of the coin')
 
-    @commands.command(help='Rock paper scissor')
+    @commands.command()
     async def rps(self, ctx, choice: Optional[str] = None):
         """
         Rock paper scissor
@@ -291,15 +294,12 @@ class Miscellaneous(commands.Cog):
     async def guessing(self, ctx, difficulty: int = 1, max_attempt: Optional[int] = None):
         if ctx.channel.id in self.occupied_channel:
             return
-        multiplier_list = [2, 5, 10]
-        if difficulty >= 69:
-            multiplier_list.extend([100000, 500000])
-        if difficulty >= 3:
-            multiplier_list.extend([1000, 5000])
-        if difficulty >= 2:
-            multiplier_list.extend([50, 100, 500])
+        if difficulty < 1:
+            return await ctx.reply("Are you scared to guess? Pick difficulty from 1 to 3", mention_author=False)
+        if difficulty > 3:
+            return await ctx.reply("Too big! Pick dificulty from 1 to 3", mention_author=False)
+        multiplier = 100 ** difficulty
         min_number = random.randrange(1, 101, 10)
-        multiplier = random.choice(multiplier_list)
         max_number = min_number * multiplier
         if not max_attempt:
             max_attempt = ceil(log(max_number - min_number + 2, 2)) + 1
@@ -636,6 +636,102 @@ class Miscellaneous(commands.Cog):
         view = ActivityView(ctx.author, user)
         view.add_item(dropdown)
         await ctx.send(view=view)
+
+    @commands.command(aliases=["cur"])
+    @commands.cooldown(rate=1, per=3.0)
+    async def currency(self, ctx):
+        """
+        Just currency
+        """
+        params = {'s': "LGD EURUSD GBPUSD AUDUSD CHF JPY RP"}
+        dictionary = {"LGD": "Loco London Gold",
+                      "CHF": "Franc Swiss",
+                      "JPY": "Japan Yen",
+                      "RP": "Indonesian Rupiah"}
+        website = random.choice(JFX_WEBSITES)
+        async with self.bot.session.get(f"https://{website}/modules/mod_myAjaxMarketQuotes/MAQ.Lib.php",
+                                        params=params, headers=self.magic_header) as response:
+            data = await response.text()
+            if not data.startswith('[') or not data.endswith(']'):
+                logger.error("Unexpected result for requesting host. Probably get blocked?")
+                logger.info("Unexpected fetch result: %s", data)
+                return await ctx.reply("Looks like it doesnt return expected result", mention_author=False)
+            data = literal_eval(await response.text())
+        if data[0]["count"] <= 0:
+            return await ctx.reply("No data to show", mention_author=False)
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.set_footer(text="All value in USD")
+        for section in data[1:]:
+            name = section["symbol"]
+            emoji = '⬆'
+            if name in dictionary:
+                name = dictionary[name]
+            if section["valueChange"] < 0:
+                emoji = '⬇'
+            custom_embed.add_field(name=name,
+                                   value=f"**Last value:** {section['last']} {emoji}\n"
+                                         f"Buy: {section['bid']} **|** Sell: {section['ask']}\n"
+                                         f"High: {section['high']} **|** Low: {section['low']}\n"
+                                         f"Value change: {section['valueChange']} **({section['percentChange']}%)**",
+                                   inline=False)
+        await ctx.send(embed=custom_embed)
+
+    @commands.command(aliases=["tl"])
+    @commands.cooldown(rate=1, per=10.0)
+    async def translate(self, ctx: commands.Context, *, text: Annotated[Optional[str], commands.clean_content] = None):
+        """
+        Translate accrucy 99% same as Google Translate with cost of high risk being blocked :c
+        Use it wisely
+        Put language code at last to translate other language
+        Examples s!tl text -id
+        """
+        if text is None:
+            ref = ctx.message.reference
+            if ref is not None and isinstance(ref.resolved, discord.Message):
+                text = ref.resolved.content
+            else:
+                return await ctx.reply("Where text :c", mention_author=False)
+        if len(text) > 1000:
+            return await ctx.reply("Too long :c", mention_author=False)
+
+        last = text.split(' ')[-1]
+        lang = "en"
+        if last.startswith('-') and last.removeprefix('-') in googletrans.LANGUAGES:
+            lang = last.removeprefix('-')
+            text = text.removesuffix(last)
+
+        # res = await self.bot.loop.run_in_executor(None, self.translator.translate, text)
+        # custom_embed = discord.Embed(color=discord.Colour.random())
+        # src = googletrans.LANGUAGES.get(res.src, "auto detect").title()
+        # dest = googletrans.LANGUAGES.get(res.dest, "auto detect").title()
+        # custom_embed.add_field(name=f"Original ({src})", value=res.origin, inline=False)
+        # custom_embed.add_field(name=f"Translated ({dest})", value=res.text, inline=False)
+
+        # https://github.com/Animenosekai/translate/blob/main/translatepy/translators/google.py#L322-L375
+        params = {
+            "client": "gtx",
+            "dj": 1,
+            "dt": 't',
+            'q': text,
+            "sl": "auto",
+            "tl": lang}
+        link = "https://clients5.google.com/translate_a/single?"
+        async with self.bot.session.get(link, params=params, headers=self.magic_header) as r:
+            if r.status != 200:
+                return await ctx.reply(f"Error status {r.status}", mention_author=False)
+            data = await r.json()
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        src = googletrans.LANGUAGES.get(data["src"], "auto detect").title()
+        lang_format = '\n'.join(f"**{googletrans.LANGUAGES.get(lang, 'unknown').title()}** "
+                                f"({round(confidence * 100, 1)}%)" for lang, confidence in
+                                zip(data["ld_result"]["srclangs"], data["ld_result"]["srclangs_confidences"]))
+        custom_embed.add_field(name=f"Original ({src} {round(data['confidence'] * 100, 1)}%)",
+                               value=''.join(section["orig"] for section in data["sentences"]), inline=False)
+        custom_embed.add_field(name=f"Translated {googletrans.LANGUAGES.get(lang, 'Unknown')}",
+                               value=''.join(section["trans"] for section in data["sentences"]), inline=False)
+        custom_embed.add_field(name="Detected language",
+                               value=lang_format, inline=False)
+        await ctx.send(embed=custom_embed)
 
 
 async def setup(bot: SewentyBot):

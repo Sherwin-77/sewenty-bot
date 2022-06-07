@@ -14,21 +14,14 @@ from extensions.games.gelud import Hero, Battle
 from extensions.games.gelud.game_system import weaponry
 from extensions.games import minesweeper
 
+from constants import CHARACTER_NAMES, CHAR_LIST
+
 if TYPE_CHECKING:
     from main import SewentyBot
 
 # mango_url = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
 
 list_weapon = list(weaponry.keys())
-
-char_list = [':man_walking:', ':woman_walking:', ':person_running:', ':woman_running:', ':sloth:',
-             ':cat2:', ':dog2:', ':unicorn:', ':snail:', '<:snale:770847330600484864>', ':t_rex:',
-             '<:EB_nekocute:780408575784255538>', ':wolf:', "<:MoriOwO:832762779450081312>",
-             '<a:kittyrawr:719122783828967455>', '<a:kittymad:720191651175333898>',
-             '<:babycuddle:751985441653391440>', '<:blobsob:809721186966831105>', ':snake:']
-
-random_name = ["Ghost slayer", "Death mire", "P", "Yejing", "Skull grim", "Barrel", "Dark eye", "Vino", "Dio",
-               "Mono", "Not slime", "Paul", "Fenrir"]
 
 commandCooldown, battleCooldown, teamCooldown = {}, {}, {}
 
@@ -144,7 +137,7 @@ async def insert_character(userid, char, weapon, hp, attack, speed, defense, att
 def generate_enemy(stat, name, multiplier: float = 1):
     max_stat = 200
     weapon = random.choice(list_weapon)
-    char = random.choice(char_list)
+    char = random.choice(CHAR_LIST)
     hp = random.randrange(30, 81)
     attack = random.randrange(30, 51 + (100 - hp))
     speed = random.randrange(1, 6)
@@ -335,7 +328,7 @@ class CustomGame(app_commands.Group, name="custombattle"):
         speed = random.randrange(1, 6)
         defense = max_stat - hp - attack - speed
         player = Hero(name=interaction.user.name,
-                      char=random.choice(char_list),
+                      char=random.choice(CHAR_LIST),
                       weapon=weapon.value,
                       hp=hp * 8,
                       attack=attack + weaponry[weapon.value]["attack"],
@@ -344,7 +337,7 @@ class CustomGame(app_commands.Group, name="custombattle"):
                       ranges=weaponry[weapon.value]["range"],
                       passive=weaponry[weapon.value]['passive'],
                       description=weaponry[weapon.value]['description'])
-        enemy = generate_enemy(0, random.choice(random_name), 1)
+        enemy = generate_enemy(0, random.choice(CHARACTER_NAMES), 1)
         system = Battle(player, enemy)
         log = 'Battle Started'
         custom_embed = discord.Embed(title='Battle',
@@ -432,7 +425,7 @@ class Game(commands.Cog):
         counts = await self.bot.GAME_COLLECTION.count_documents(query)
         if counts == 0 or re_roll == "reroll" or re_roll == "rr":
             weapon = random.choice(list_weapon)
-            char = random.choice(char_list)
+            char = random.choice(CHAR_LIST)
             max_stat = 200
             hp = random.randrange(30, 81)
             attack = random.randrange(30, 51 + (100 - hp))
@@ -602,7 +595,8 @@ class Game(commands.Cog):
             else:
                 stat = 15
                 add_streak = 5
-            enemy = generate_enemy(stat, random.choice(random_name), 1 + 0.5 * random.random() + 0.05 * battle_point)
+            enemy = generate_enemy(stat, random.choice(CHARACTER_NAMES),
+                                   1 + 0.5 * random.random() + 0.05 * battle_point)
 
         else:
             enemy_user = opponent
@@ -700,7 +694,7 @@ class Game(commands.Cog):
             team = [None, {}, {}, {}]
             for x in range(1, 4):
                 team[x] = {}
-                team[x]['char'] = random.choice(char_list)
+                team[x]['char'] = random.choice(CHAR_LIST)
                 team[x]['hp'] = random.randrange(30, 81)
                 team[x]['attack'] = random.randrange(30, 51 + (
                         100 - team[x]['hp']))
@@ -771,7 +765,7 @@ class Game(commands.Cog):
             return await ctx.send("You don't have team. Create team by using teamgame command (without rr option)")
         team = await self.bot.GAME_COLLECTION.find_one(query)
         x = position
-        team['team'][x]['char'] = random.choice(char_list)
+        team['team'][x]['char'] = random.choice(CHAR_LIST)
         team['team'][x]['hp'] = random.randrange(30, 81)
         team['team'][x]['attack'] = random.randrange(30, 51 + (
                 100 - team['team'][x]['hp']))
@@ -831,7 +825,7 @@ class Game(commands.Cog):
         stat = stat_buff[difficulty]
         team_profile = await self.bot.GAME_COLLECTION.count_documents(query)
         team = Team(team_profile, name=f"{ctx.author.name}'s Team")
-        boss = generate_enemy(stat, random.choice(random_name), 3 + random.randint(0, 35) / 100)
+        boss = generate_enemy(stat, random.choice(CHARACTER_NAMES), 3 + random.randint(0, 35) / 100)
         system = Battle(team, boss)
         log = "Battle started"
         raid = discord.Embed(title="Raid Boss", description="Round 0", color=discord.Colour.random())

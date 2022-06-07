@@ -7,6 +7,8 @@ from datetime import datetime
 from os import getenv
 from typing import TYPE_CHECKING, Optional, Union
 
+from constants import EMOJI_STATUS
+
 if TYPE_CHECKING:
     from main import SewentyBot
 
@@ -15,12 +17,6 @@ if TYPE_CHECKING:
 class General(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
-        self.EMOJI_STATUS = {
-            "online": "🟢",
-            "idle": "🌙",
-            "dnd": "🚫",
-            "offline": "⚫"
-        }
 
         self.DEFAULT_BANNER_URL = getenv("DEFAULT_BANNER_URL")
     #     self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
@@ -88,9 +84,9 @@ class General(commands.Cog):
                     boost = boost.timestamp()
                 custom_embed.add_field(name="Member info",
                                        value=f"Top Role: {member.top_role.mention}\n"
-                                             f"Mobile:\u2800\u2800 {self.EMOJI_STATUS[str(member.mobile_status)]}\n"
-                                             f"Desktop:\u2800 {self.EMOJI_STATUS[str(member.desktop_status)]}\n"
-                                             f"Web:\u2800\u2800\u2800 {self.EMOJI_STATUS[str(member.web_status)]}\n"
+                                             f"Mobile:\u2800\u2800 {EMOJI_STATUS[str(member.mobile_status)]}\n"
+                                             f"Desktop:\u2800 {EMOJI_STATUS[str(member.desktop_status)]}\n"
+                                             f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[str(member.web_status)]}\n"
                                              f"Pending verification: **{member.pending}**\n"
                                              f"Joined at: <t:{int(member.joined_at.timestamp())}:D>\n"
                                              f"Boosting since: <t:{int(boost)}:R>\n"

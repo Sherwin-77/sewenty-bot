@@ -2,6 +2,7 @@
 import asyncio
 from datetime import datetime
 from glob import glob
+import logging
 from os import getenv
 from os.path import relpath
 import random
@@ -17,24 +18,11 @@ import motor.motor_asyncio
 
 load_dotenv()  # in case we use .env in future
 
-TOKEN = getenv("DISCORD_TOKEN")
-EMAILS = getenv("EMAIL")
-PASSWORDS = getenv("PASSWORD")
-SECOND_EMAIL = getenv("NEXT_EMAIL")
-SECOND_PASSWORD = getenv("NEXT_PASSWORD")
-CPDB_NAME = getenv("CPDB_NAME")
-DB_NAME = getenv("DB_NAME")
-# PSQL_USER = getenv("PSQL_USER")
-# PSQL_PASSWORD = getenv("PSQL_PASSWORD")
-
-# Test db
-# MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
-
-MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
-CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
-
 
 prefixes = ["s!", "S!"]
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 
 class NewHelpCommand(commands.MinimalHelpCommand):
@@ -61,6 +49,22 @@ class SewentyBot(commands.Bot):
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train",
                             "kingdom collect", "kingdom attack"}
 
+    TOKEN = getenv("DISCORD_TOKEN")
+    EMAILS = getenv("EMAIL")
+    PASSWORDS = getenv("PASSWORD")
+    SECOND_EMAIL = getenv("NEXT_EMAIL")
+    SECOND_PASSWORD = getenv("NEXT_PASSWORD")
+    CPDB_NAME = getenv("CPDB_NAME")
+    DB_NAME = getenv("DB_NAME")
+    MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
+    CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
+
+    # PSQL_USER = getenv("PSQL_USER")
+    # PSQL_PASSWORD = getenv("PSQL_PASSWORD")
+
+    # Test db
+    # MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
+
     def __init__(self):
         intents = discord.Intents.all()  # ah yes
         super().__init__(case_insensitive=True,
@@ -71,14 +75,10 @@ class SewentyBot(commands.Bot):
                          activity=discord.Game(name="s!help")
                          )
 
-        cluster = motor.motor_asyncio.AsyncIOMotorClient(MANGO_URL)
-
-        self.DB = cluster["Data"]
-        self.CP_DB = motor.motor_asyncio.AsyncIOMotorClient(CP_URL)["Hakibot"]
-        self.GAME_COLLECTION = cluster["game"]["data"]
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
+        self.owner = None
 
         self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                                            "<:hikanoplsOwO:804522598289375232>"],
@@ -95,18 +95,29 @@ class SewentyBot(commands.Bot):
         # we define this later
         # self.pool = None
         self.session = None
+        self.DB = None
+        self.CP_DB = None
+        self.GAME_COLLECTION = None
         # self.cached_soldier_data = []
         self.allowed_track_channel = dict()
 
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
 
+        cluster = motor.motor_asyncio.AsyncIOMotorClient(self.MANGO_URL)
+        app = await self.application_info()
+
+        self.owner = app.owner
+        self.DB = cluster["Data"]
+        self.CP_DB = motor.motor_asyncio.AsyncIOMotorClient(self.CP_URL)["Hakibot"]
+        self.GAME_COLLECTION = cluster["game"]["data"]
+
         for file in glob(r"extensions/*.py"):
             module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
             await self.load_extension(module_name)
         # await self.load_extension("experiment")  # for experimenting
         await self.load_extension("jishaku")
-        print("Module loaded")
+        logger.info("Module loaded")
 
         # await self.get_soldier_cache()
         form = {"_id": "allowed_channel"}
@@ -116,11 +127,11 @@ class SewentyBot(commands.Bot):
         else:
             new = result["channel_list"]
             self.allowed_track_channel = new
-        print("Cache loaded")
+        logger.info("Cache loaded")
 
     async def close(self) -> None:
-        await super().close()
         await self.session.close()
+        await super().close()
 
     async def main(self) -> None:
         # pool = await asyncpg.create_pool(
@@ -130,7 +141,7 @@ class SewentyBot(commands.Bot):
         # )
         # async with self, pool:
         #     self.pool: asyncpg.Pool = pool
-        await self.start(TOKEN)
+        await self.start(self.TOKEN)
 
     # async def get_soldier_cache(self) -> None:
     #     async with self.pool.acquire() as conn:
@@ -201,6 +212,20 @@ def main():
         await channel.send(text)
         await ctx.message.add_reaction('👍')
 
+    @bot.command(hidden=True, aliases=["switch"])
+    @commands.is_owner()
+    async def toggle(ctx: commands.Context, command: bot.get_command):
+        """
+        Disable command-
+        """
+        if command == ctx.command:
+            return await ctx.send("You can't disable this")
+        if not command.enabled:
+            command.enabled = True
+            return await ctx.send("Switch to enabled")
+        command.enabled = False
+        return await ctx.send("Switch to disabled")
+
     @dm_user.error
     async def dm_error(ctx, error):
         await ctx.reply(f"Failed to dm: `{error}`\n"
@@ -238,14 +263,13 @@ def main():
 
     # Note that channel id in dict always str
     @bot.command(name="allowchannel", hidden=True)
+    @commands.is_owner()
     async def allow_channel(ctx, to_grant: discord.TextChannel, boss_mode=False):
         """
         Allow tracking anigame rng
         Work for owner only
         """
         collection = bot.DB["userdata"]
-        if ctx.author.id != 436376194166816770:
-            return
         channel_id = str(to_grant.id)
         form = {"_id": "allowed_channel"}
         result = collection.find_one(form)
@@ -271,21 +295,31 @@ def main():
         userid = message.author.id
         if message.author.bot and userid != 555955826880413696:
             return
+
         if message.guild is None:
             channel = bot.get_channel(784707657344221215)
             dm_embed = discord.Embed(description=message.content)
             dm_embed.set_author(name=message.author.name, icon_url=message.author.avatar)
             dm_embed.set_footer(text=message.author.id)
-            await channel.send(embed=dm_embed)
-            return
+            return await channel.send(embed=dm_embed)
+
         guild_id = message.guild.id
         if guild_id == 714152739252338749:
             low_msg = message.content.lower()
+
+            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"}:
+                sticker = discord.utils.get(message.guild.stickers, id=900116218160242818)
+                if sticker is not None:
+                    await message.reply(stickers=[sticker], mention_author=False)
+                else:
+                    pass
+
             if low_msg == "osana":
-                if userid == 436376194166816770 or userid == 532912006114836482:
+                if userid in {436376194166816770, 532912006114836482}:
                     await message.channel.send("<a:bun:743740123094450217>")
                 else:
                     await message.channel.send("<a:gimme:751779307688296498>")
+
             if low_msg in bot.TRIGGER_RESPONSE.keys():
                 if isinstance(bot.TRIGGER_RESPONSE[low_msg], list):
                     await message.channel.send(random.choice(bot.TRIGGER_RESPONSE[low_msg]))
@@ -333,8 +367,7 @@ def main():
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             return print(output)
-        owner = await bot.fetch_user(436376194166816770)
-        channel = await owner.create_dm()
+        channel = await bot.owner.create_dm()
         await channel.send(f"Uncaught error in channel <#{interaction.channel.id}> "
                            f"command `{interaction.command.qualified_name}`\n"
                            f"```py\n"
@@ -348,6 +381,8 @@ def main():
         if isinstance(error, commands.errors.CommandOnCooldown):
             return await ctx.reply(f"{error} <:angeryV2:810860324248616960>",
                                    mention_author=False, delete_after=error.retry_after)
+        if isinstance(error, commands.errors.NotOwner) or isinstance(error, discord.errors.Forbidden):
+            return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):
             return await ctx.reply("User not found", mention_author=False)
         if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, 'on_error'):
@@ -356,8 +391,7 @@ def main():
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             return print(output)
-        owner = await bot.fetch_user(436376194166816770)
-        channel = await owner.create_dm()
+        channel = await bot.owner.create_dm()
         await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
                            f"```py\n"
                            f"{output}```")
