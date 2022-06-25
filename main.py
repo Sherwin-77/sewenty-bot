@@ -90,7 +90,8 @@ class SewentyBot(commands.Bot):
                                  "naed": "<a:emoji3:776775391154798593>",
                                  "test ajg": "<:wurk:858721776770744320>",
                                  "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
-                                           "<a:pandasmackOwO:799955371074519041>"}
+                                           "<a:pandasmackOwO:799955371074519041>",
+                                 "vinwuv": "osu! when"}
 
         # we define this later
         # self.pool = None
@@ -307,7 +308,8 @@ def main():
         if guild_id == 714152739252338749:
             low_msg = message.content.lower()
 
-            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"}:
+            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>",
+                           "<@412812867348463636>", "<@!412812867348463636>"}:
                 sticker = discord.utils.get(message.guild.stickers, id=900116218160242818)
                 if sticker is not None:
                     await message.reply(stickers=[sticker], mention_author=False)
