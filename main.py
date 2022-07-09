@@ -308,8 +308,7 @@ def main():
         if guild_id == 714152739252338749:
             low_msg = message.content.lower()
 
-            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>",
-                           "<@412812867348463636>", "<@!412812867348463636>"}:
+            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"}:
                 sticker = discord.utils.get(message.guild.stickers, id=900116218160242818)
                 if sticker is not None:
                     await message.reply(stickers=[sticker], mention_author=False)
