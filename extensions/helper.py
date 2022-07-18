@@ -61,7 +61,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
         min_, max_ = selected_weapon["cost"]
         overall_cost = round((max_ - cost) / (max_ - min_) * 100, 2)
         custom_embed.add_field(name="Cost Quality",
-                               value=overall_cost,
+                               value=f"{overall_cost}%",
                                inline=False)
 
     if stat1 is None or stat1 < selected_weapon["stat1"][0] or stat1 > selected_weapon["stat1"][1]:
@@ -71,7 +71,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
         min_, max_ = selected_weapon["stat1"]
         overall_stat1 = round((stat1 - min_) / (max_ - min_) * 100, 2)
         custom_embed.add_field(name="Stat 1 Quality",
-                               value=overall_stat1,
+                               value=f"{overall_stat1}%",
                                inline=False)
         max_stat = round((overall_cost + overall_stat1 + 100) / 3, 2)
         min_stat = round((overall_cost + overall_stat1) / 3, 2)
@@ -87,7 +87,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
             min_, max_ = selected_weapon["stat2"]
             overall_stat2 = round((stat2 - min_) / (max_ - min_) * 100, 2)
             custom_embed.add_field(name="Stat 2 Quality",
-                                   value=overall_stat2,
+                                   value=f"{overall_stat2}%",
                                    inline=False)
             max_stat = round((overall_cost + overall_stat1 + overall_stat2 + 100) / 4, 2)
             min_stat = round((overall_cost + overall_stat1 + overall_stat2) / 4, 2)
@@ -103,7 +103,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
             min_, max_ = selected_weapon["stat3"]
             overall_stat3 = round((stat3 - min_) / (max_ - min_) * 100, 2)
             custom_embed.add_field(name="Stat 3 Quality",
-                                   value=overall_stat3,
+                                   value=f"{overall_stat3}%",
                                    inline=False)
             max_stat = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3 + 100) / 5, 2)
             min_stat = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3) / 5, 2)
@@ -122,7 +122,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
                            value=f"Minimum stat: **{min_stat}%**\n"
                                  f"Maximum stat ignoring passive: **{max_ignore_passive}%**\n"
                                  f"Minimum stat with crit: **{min_with_crit}%**\n"
-                                 f"Maximum stat with crit: **{max_with_crit}**")
+                                 f"Maximum stat with crit: **{max_with_crit}%**")
     if colour is not None:
         custom_embed.colour = colour
 
@@ -362,17 +362,17 @@ class HelperCommand(commands.Cog):
         async for x in ctx.message.channel.history(limit=3):
             if x.author.id != 555955826880413696:
                 continue
-            y = None
             embedded = x.embeds
-            for y in embedded:
-                y = y.to_dict()
+            if embedded is None:
+                continue
+            y = embedded[-1].to_dict()
             if 'inventory' in y['author']['name']:
                 inventory_dict = y['fields'][0]['value'].split('**')
                 log_data = {}
                 for z in range(len(inventory_dict)):
                     if ' log' in inventory_dict[z]:
                         log_data.update({inventory_dict[z].lower(): int(
-                            inventory_dict[z + 1].replace(': ', '').split('\n')[0])})
+                            inventory_dict[z + 1].replace(': ', '').split('\n')[0].replace(',', ''))})
                 # calculating
                 solution = ''
                 solution_crafter = ''
@@ -469,7 +469,8 @@ class HelperCommand(commands.Cog):
                         break
                     returned_item = float(returned_item.content) / 100
                     original = await ctx.send("Calculating <a:discordloading:792012369168957450>")
-                    await ctx.trigger_typing()
+                    async with ctx.typing():
+                        pass
                     solved = False
                     tier = ["hyper log", "mega log", "super log", "epic log"]
                     dump = 0
@@ -478,14 +479,14 @@ class HelperCommand(commands.Cog):
                     while not solved:
                         if hyper_log >= 10:
                             if dump != 0 and amount != 0:
-                                solution_crafter += f"\nrpg craft {tier[dump - 1]} {amount}"
+                                solution_crafter += f"\n{tier[dump - 1]} {amount}"
                                 dump, amount = 0, 0
-                            solution_crafter += "\nrpg craft ultra log"
+                            solution_crafter += "\nultra log"
                             solved = True
 
                         elif mega_log >= 10:
                             if dump != 1 and amount != 0:
-                                solution_crafter += f"\nrpg craft {tier[dump - 1]} {amount}"
+                                solution_crafter += f"\n{tier[dump - 1]} {amount}"
                                 dump, amount = 0, 0
                             if mega_log >= (10 - hyper_log) * 10:
                                 dump = 1
@@ -494,13 +495,13 @@ class HelperCommand(commands.Cog):
                                 mega_log -= (10 - hyper_log) * 10 - floor((100 - 10 * hyper_log) * returned_item)
                                 hyper_log = 10
                             else:
-                                solution_crafter += f"\nrpg craft hyper log all"
+                                solution_crafter += f"\nhyper log all"
                                 hyper_log += floor(mega_log / 10)
                                 mega_log = (mega_log % 10) + floor(floor(mega_log / 10) * 10 * returned_item)
 
                         elif super_log >= 10:
                             if dump != 2 and amount != 0:
-                                solution_crafter += f"\nrpg craft {tier[dump - 1]} {amount}"
+                                solution_crafter += f"\n{tier[dump - 1]} {amount}"
                                 dump, amount = 0, 0
                             if super_log >= (100 - 10 * hyper_log - mega_log) * 10:
                                 dump = 2
@@ -510,12 +511,12 @@ class HelperCommand(commands.Cog):
                                 mega_log = 100 - 10 * hyper_log
 
                             else:
-                                solution_crafter += f"\nrpg craft mega log all"
+                                solution_crafter += f"\nmega log all"
                                 mega_log += floor(super_log / 10)
                                 super_log = (super_log % 10) + floor(floor(super_log / 10) * 10 * returned_item)
                         elif epic_log >= 10:
                             if dump != 3 and amount != 0:
-                                solution_crafter += f"\nrpg craft {tier[dump - 1]} {amount}"
+                                solution_crafter += f"\n{tier[dump - 1]} {amount}"
                                 dump, amount = 0, 0
                             if epic_log >= (100 - 10 * mega_log - super_log) * 10:
                                 dump = 3
@@ -524,12 +525,12 @@ class HelperCommand(commands.Cog):
                                              - floor((100 - 10 * mega_log - super_log) * 10 * returned_item))
                                 super_log = 100 - 10 * mega_log
                             else:
-                                solution_crafter += f"\nrpg craft super log all"
+                                solution_crafter += f"\nsuper log all"
                                 super_log += floor(epic_log / 10)
                                 epic_log = (epic_log % 10) + floor(floor(epic_log / 10) * 10 * returned_item)
                         else:
                             if dump != 4 and amount != 0:
-                                solution_crafter += f"\nrpg craft {tier[dump - 1]} {amount}"
+                                solution_crafter += f"\n{tier[dump - 1]} {amount}"
                                 dump, amount = 0, 0
                             dump = 4
                             if wooden_log >= (100 - 10 * super_log - epic_log) * 25:
@@ -538,30 +539,78 @@ class HelperCommand(commands.Cog):
                                 amount += 100 - 10 * super_log - epic_log
                                 epic_log = 100 - 10 * super_log
                             elif wooden_log >= 25:
-                                solution_crafter += f"\nrpg craft epic log log all"
+                                solution_crafter += f"\nepic log all"
                                 epic_log += floor(wooden_log / 25)
                                 wooden_log = (wooden_log % 25) + floor(floor(wooden_log / 25) * 25 * returned_item)
                             else:
                                 await ctx.send("OwO what is this? solution not found. Aborting..")
                                 break
+
+                    # O(N^2) !!
+                    async def reduce(arr):
+                        i = 0
+                        while i < len(arr):
+                            start = arr[i]
+                            length = 0
+                            count = 1
+                            sub_string = None
+
+                            for j in range(i+1, len(arr)):
+                                end = arr[j]
+                                if start == end:
+                                    length = j - i
+                                    sub_string = arr[i:j]
+                                    break
+                            # skip if not found
+                            if length == 0 and sub_string is None:
+                                i += 1
+                                continue
+
+                            # continue capture substring
+                            check = i + length
+                            while len(arr) >= check + length and arr[check:check+length] == sub_string:
+                                count += 1
+                                check += length
+                            if count == 1:
+                                i += 1
+                                continue
+                            if length > 5:
+                                sub_string = await reduce(sub_string)
+                            if length > 5:
+                                sub_string = f"----- S T A R T ----- \n" \
+                                             f"{sub_string}\n" \
+                                             f"----- E N D ----- **(Repeat {count} times)**"
+                            else:
+                                sub_string = f"({' >> '.join(sub_string)})-> **{count} times**"
+                            arr = arr[0:i] + [sub_string] + arr[check:len(arr)]
+                            i += 1
+
+                        reduced = '\n'.join(arr)
+                        return reduced
+
+                    # try to reduce the repeated string
+                    raw = solution_crafter.strip().split('\n')
+                    solution_crafter = await reduce(raw)
+
                     try:
                         if len(solution_crafter) > 2000:
-                            async def divide_conquer(string):
+                            async def divide_string(string):
                                 if len(string) > 2000:
                                     s1 = len(string) // 2
                                     s2 = s1
                                     while string[s1] != '\n':
                                         s1 += 1
                                         s2 += 1
-                                    await divide_conquer(string[:s1])
-                                    await divide_conquer(string[s2:])
+                                    await divide_string(string[:s1])
+                                    await divide_string(string[s2:])
                                 else:
                                     await ctx.send(string)
 
-                            await divide_conquer(solution_crafter)
-                            await ctx.send(f"Elapsed time: {time.time() - t1}")
+                            await divide_string(solution_crafter)
+                            await ctx.send(f"Elapsed time: {time.time() - t1}s")
                         else:
                             await original.edit(content=solution_crafter)
+                            await ctx.send(f"Elapsed time: {time.time() - t1}s")
                     except discord.HTTPException:
                         await original.edit(content="Character limit reached")
 

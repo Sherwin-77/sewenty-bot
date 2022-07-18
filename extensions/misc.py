@@ -139,7 +139,7 @@ class Miscellaneous(commands.Cog):
         }
 
     @commands.command(name="wikipedia", enabled=False)
-    @commands.cooldown(rate=1, per=10.0)
+    @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.user)
     async def check_wiki(self, ctx):
         """
         Still in Work
@@ -356,7 +356,7 @@ class Miscellaneous(commands.Cog):
         return res["access_token"]
 
     @commands.command(name="osutop", help="Flex your top osu play")
-    @commands.cooldown(rate=1, per=15.0)
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
     async def get_osu_top(self, ctx, username, limit: int = 5):
         if limit > 10:
             return await ctx.reply("Too big :c", mention_author=False)
@@ -424,7 +424,7 @@ class Miscellaneous(commands.Cog):
         await message.delete()
 
     @commands.command(name="osurecent", help="Show your recent osu play")
-    @commands.cooldown(rate=1, per=15.0)
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
     async def get_osu_recent(self, ctx, username, limit: int = 5):
         if limit > 10:
             return await ctx.reply("Too big :c", mention_author=False)
@@ -491,7 +491,7 @@ class Miscellaneous(commands.Cog):
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="osulast", help="Last play of your osu")
-    @commands.cooldown(rate=1, per=15.0)
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
     async def get_last_osu_play(self, ctx, username):
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
@@ -569,7 +569,7 @@ class Miscellaneous(commands.Cog):
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="osuprofile", help="Flex your osu profile")
-    @commands.cooldown(rate=1, per=15.0)
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
     async def get_osu_profile(self, ctx, username):
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
@@ -611,7 +611,7 @@ class Miscellaneous(commands.Cog):
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="spotify", aliases=["spot", "spt"])
-    @commands.cooldown(rate=1, per=5.0)
+    @commands.cooldown(rate=1, per=5.0, type=commands.BucketType.user)
     async def activity_spotify(self, ctx, member: Optional[discord.Member] = None):
         if not member:
             member = ctx.author
@@ -638,7 +638,7 @@ class Miscellaneous(commands.Cog):
         await ctx.send(view=view)
 
     @commands.command(aliases=["cur"])
-    @commands.cooldown(rate=1, per=3.0)
+    @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.user)
     async def currency(self, ctx):
         """
         Just currency
@@ -677,7 +677,7 @@ class Miscellaneous(commands.Cog):
         await ctx.send(embed=custom_embed)
 
     @commands.command(aliases=["tl"])
-    @commands.cooldown(rate=1, per=10.0)
+    @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.user)
     async def translate(self, ctx: commands.Context, *, text: Annotated[Optional[str], commands.clean_content] = None):
         """
         Translate accrucy 99% same as Google Translate with cost of high risk being blocked :c
@@ -685,20 +685,19 @@ class Miscellaneous(commands.Cog):
         Put language code at last to translate other language
         Examples s!tl text -id
         """
-        if text is None:
+        last = text.split(' ')[-1] if text is not None else ''
+        if text is None or (len(text.split(' ')) < 2 and last.startswith('-')):
             ref = ctx.message.reference
             if ref is not None and isinstance(ref.resolved, discord.Message):
                 text = ref.resolved.content
             else:
                 return await ctx.reply("Where text :c", mention_author=False)
-        if len(text) > 1000:
-            return await ctx.reply("Too long :c", mention_author=False)
-
-        last = text.split(' ')[-1]
         lang = "en"
         if last.startswith('-') and last.removeprefix('-') in googletrans.LANGUAGES:
             lang = last.removeprefix('-')
             text = text.removesuffix(last)
+        if len(text) > 1000:
+            return await ctx.reply("Too long :c", mention_author=False)
 
         # res = await self.bot.loop.run_in_executor(None, self.translator.translate, text)
         # custom_embed = discord.Embed(color=discord.Colour.random())

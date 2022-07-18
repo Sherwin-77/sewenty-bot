@@ -9,17 +9,21 @@ import random
 from traceback import format_exception
 
 import aiohttp
-# import asyncpg
 import discord
 from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 import motor.motor_asyncio
 
+USE_PSQL = False
+if USE_PSQL:
+    import asyncpg
+
+
 load_dotenv()  # in case we use .env in future
 
-
 prefixes = ["s!", "S!"]
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -58,9 +62,8 @@ class SewentyBot(commands.Bot):
     DB_NAME = getenv("DB_NAME")
     MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
     CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
-
-    # PSQL_USER = getenv("PSQL_USER")
-    # PSQL_PASSWORD = getenv("PSQL_PASSWORD")
+    PSQL_USER = getenv("PSQL_USER")
+    PSQL_PASSWORD = getenv("PSQL_PASSWORD")
 
     # Test db
     # MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
@@ -94,12 +97,12 @@ class SewentyBot(commands.Bot):
                                  "vinwuv": "osu! when"}
 
         # we define this later
-        # self.pool = None
+        self.pool = None
         self.session = None
         self.DB = None
         self.CP_DB = None
         self.GAME_COLLECTION = None
-        # self.cached_soldier_data = []
+        self.cached_soldier_data = []
         self.allowed_track_channel = dict()
 
     async def setup_hook(self) -> None:
@@ -119,12 +122,11 @@ class SewentyBot(commands.Bot):
         # await self.load_extension("experiment")  # for experimenting
         await self.load_extension("jishaku")
         logger.info("Module loaded")
-
-        # await self.get_soldier_cache()
+        await self.get_soldier_cache()
         form = {"_id": "allowed_channel"}
         result = await self.DB["userdata"].find_one(form)
         if not result:
-            print("No channel to be refreshed")
+            logger.warning("No channel to be refreshed")
         else:
             new = result["channel_list"]
             self.allowed_track_channel = new
@@ -135,19 +137,24 @@ class SewentyBot(commands.Bot):
         await super().close()
 
     async def main(self) -> None:
-        # pool = await asyncpg.create_pool(
-        #     database=PSQL_USER,
-        #     user=PSQL_USER,
-        #     password=PSQL_PASSWORD
-        # )
-        # async with self, pool:
-        #     self.pool: asyncpg.Pool = pool
-        await self.start(self.TOKEN)
+        if USE_PSQL:
+            pool = await asyncpg.create_pool(
+                database=self.PSQL_USER,
+                user=self.PSQL_USER,
+                password=self.PSQL_PASSWORD
+            )
+            async with self, pool:
+                self.pool: asyncpg.Pool = pool
+                await self.start(self.TOKEN)
+        else:
+            await self.start(self.TOKEN)
 
-    # async def get_soldier_cache(self) -> None:
-    #     async with self.pool.acquire() as conn:
-    #         async with conn.transaction():
-    #             self.cached_soldier_data = await conn.fetch("SELECT * FROM soldier_info")
+    async def get_soldier_cache(self) -> None:
+        if not USE_PSQL:
+            return
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                self.cached_soldier_data = await conn.fetch("SELECT * FROM soldier_info")
 
 
 def slash_is_enabled():
@@ -181,30 +188,32 @@ def main():
     async def ajg(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f"Ajg 👉 {user.mention}")
 
-    # @bot.command(hidden=True)
-    # async def refresh(ctx):
-    #     """
-    #     Nothing Special
-    #     """
-    #     original = await ctx.send("Refreshing <a:discordloading:792012369168957450>")
-    #     await bot.get_soldier_cache()
-    #     await original.edit(content="Done <:wurk:858721776770744320>")
+    @bot.command(hidden=True)
+    async def refresh(ctx):
+        """
+        Nothing Special
+        """
+        original = await ctx.send("Refreshing <a:discordloading:792012369168957450>")
+        await bot.get_soldier_cache()
+        await original.edit(content="Done <:wurk:858721776770744320>")
 
-    # @bot.command(hidden=True)
-    # @commands.is_owner()
-    # async def sql(ctx, *, query):
-    #     async with bot.pool.acquire() as conn:
-    #         async with conn.transaction():
-    #             value = await conn.execute(query)
-    #     await ctx.send(embed=discord.Embed(title="Result",
-    #                                        description=value,
-    #                                        color=discord.Colour.random()))
+    @bot.command(hidden=True)
+    @commands.is_owner()
+    async def sql(ctx, *, query):
+        if not USE_PSQL:
+            return await ctx.reply("Psql disabled", mention_author=False)
+        async with bot.pool.acquire() as conn:
+            async with conn.transaction():
+                value = await conn.execute(query)
+        await ctx.send(embed=discord.Embed(title="Result",
+                                           description=value,
+                                           color=discord.Colour.random()))
 
-    # @sql.error
-    # async def sql_on_error(ctx, error):
-    #     if isinstance(error, commands.CommandInvokeError):
-    #         return await ctx.reply(f"Failed to fetch: {type(error.original)} {error.original}", mention_author=False)
-    #     await ctx.reply(f"Failed to fetch: {type(error)} {error}", mention_author=False)
+    @sql.error
+    async def sql_on_error(ctx, error):
+        if isinstance(error, commands.CommandInvokeError):
+            return await ctx.reply(f"Failed to fetch: {type(error.original)} {error.original}", mention_author=False)
+        await ctx.reply(f"Failed to fetch: {type(error)} {error}", mention_author=False)
 
     @bot.command(name="dm", hidden=True)
     @commands.is_owner()
@@ -244,7 +253,7 @@ def main():
                         f"`{type(error)}`")
 
     @bot.command()
-    @commands.cooldown(rate=1, per=3.0)
+    @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.user)
     async def stat(ctx):
         """
         Show bot stats
@@ -292,7 +301,7 @@ def main():
         await ctx.send("Enabled!")
 
     @bot.event
-    async def on_message(message):
+    async def on_message(message: discord.Message):
         userid = message.author.id
         if message.author.bot and userid != 555955826880413696:
             return
@@ -303,6 +312,77 @@ def main():
             dm_embed.set_author(name=message.author.name, icon_url=message.author.avatar)
             dm_embed.set_footer(text=message.author.id)
             return await channel.send(embed=dm_embed)
+
+        # check if message is yui command
+        if message.content.lower().startswith('y'):
+            args = message.content.lower().removeprefix('y').strip().split(' ')
+            if message.content.startswith("yui"):
+                args = message.content.lower().removeprefix("yui").strip().split(' ')
+            command = args[0]
+            command_list = {"spank": "spanked",
+                            "slap": "slapped",
+                            "bonk": "bonked",
+                            "kiss": "kissed",
+                            "hug": "hugged",
+                            "kill": "killed",
+                            "imagine": "imagined",
+                            "pet": "pet",
+                            "ajg": "ajg ed",
+                            "study": "studied",
+                            "when": "when",
+                            "code": "coded"}
+            if command in command_list.keys():
+                hashmap = {m: None for m in args[1:6]}
+
+                # First method to get user
+                query = args[1:]
+                ctx = await bot.get_context(message)
+                for q in query:
+                    try:
+                        member = await commands.MemberConverter().convert(ctx, q)
+                    except commands.errors.MemberNotFound:
+                        continue
+                    else:
+                        hashmap[q] = member
+
+                # fallback for no mention in message
+                if len(args) < 2:
+                    return await message.reply("Where user", mention_author=False)
+
+                for member in message.guild.members:
+                    for k in hashmap.keys():
+                        if k in member.name.lower() or (member.nick is not None and k in member.nick.lower()):
+                            if hashmap[k] is None or hashmap[k].id > member.id:
+                                hashmap[k] = member
+
+                arr = hashmap.values()
+
+                msg = ""
+                index = 0
+                length = len(arr)
+                for m in arr:
+                    if m is None:
+                        length -= 1
+                        continue
+                    index += 1
+                    if index == len(arr):
+                        msg += f"and {m.mention}"
+                    else:
+                        msg += f"{m.mention}, "
+
+                if index == 1:
+                    msg = msg.removeprefix("and ")
+
+                if length < 1:
+                    return await message.reply("User ded\n"
+                                               "Doesn't detect mention bot btw", mention_author=False)
+
+                return await message.channel.send(f"You {command_list[command]} {msg}! "
+                                                  f"That's {random.randrange(-696970, 2147483)} " +
+                                                  (
+                                                      f"{command}(s) now" if not command.endswith('s') else
+                                                      f"{command}(es) now"
+                                                  ))
 
         guild_id = message.guild.id
         if guild_id == 714152739252338749:
@@ -367,7 +447,7 @@ def main():
             return await interaction.response.send_message("You can't use this command (probably on maintenance)")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
-            return print(output)
+            return logger.error(output)
         channel = await bot.owner.create_dm()
         await channel.send(f"Uncaught error in channel <#{interaction.channel.id}> "
                            f"command `{interaction.command.qualified_name}`\n"
