@@ -7,6 +7,7 @@ from os import getenv
 from os.path import relpath
 import random
 from traceback import format_exception
+from typing import Optional
 
 import aiohttp
 import discord
@@ -70,13 +71,14 @@ class SewentyBot(commands.Bot):
 
     def __init__(self):
         intents = discord.Intents.all()  # ah yes
-        super().__init__(case_insensitive=True,
-                         command_prefix=_prefix_callable,
-                         description="Sewenty bot written in python",
-                         intents=intents,
-                         status=discord.Status.idle,
-                         activity=discord.Game(name="s!help")
-                         )
+        super().__init__(
+            case_insensitive=True,
+            command_prefix=_prefix_callable,
+            description="Sewenty bot written in python",
+            intents=intents,
+            status=discord.Status.idle,
+            activity=discord.Game(name="s!help")
+        )
 
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
@@ -328,9 +330,12 @@ def main():
                             "imagine": "imagined",
                             "pet": "pet",
                             "ajg": "ajg ed",
-                            "study": "studied",
                             "when": "when",
-                            "code": "coded"}
+                            "code": "coded",
+                            "sleep": "slept with",
+                            "poke": "poked",
+                            "boop": "booped"}
+            disabled_ping = {"slap", "kiss", "hug", "kill", "imagine", "pet", "code", "poke"}
             if command in command_list.keys():
                 hashmap = {m: None for m in args[1:6]}
 
@@ -345,17 +350,20 @@ def main():
                     else:
                         hashmap[q] = member
 
-                # fallback for no mention in message
+                arr = [detected for detected in hashmap.values() if detected is not None]
+
+                # fallback for no exact match in message
                 if len(args) < 2:
                     return await message.reply("Where user", mention_author=False)
 
-                for member in message.guild.members:
-                    for k in hashmap.keys():
-                        if k in member.name.lower() or (member.nick is not None and k in member.nick.lower()):
-                            if hashmap[k] is None or hashmap[k].id > member.id:
-                                hashmap[k] = member
-
-                arr = hashmap.values()
+                if len(arr) < 1:
+                    target: Optional[discord.Member] = None
+                    query = ' '.join(args[1:])
+                    for member in message.guild.members:
+                        if query in member.name.lower() or (member.nick is not None and query in member.nick.lower()):
+                            if target is None or target.id > member.id:
+                                target = member
+                    arr = [target]
 
                 msg = ""
                 index = 0
@@ -382,7 +390,9 @@ def main():
                                                   (
                                                       f"{command}(s) now" if not command.endswith('s') else
                                                       f"{command}(es) now"
-                                                  ))
+                                                  ),
+                                                  allowed_mentions=discord.AllowedMentions.none()
+                                                  if command in disabled_ping else None)
 
         guild_id = message.guild.id
         if guild_id == 714152739252338749:
@@ -390,8 +400,9 @@ def main():
 
             if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"}:
                 sticker = discord.utils.get(message.guild.stickers, id=900116218160242818)
-                if sticker is not None:
-                    await message.reply(stickers=[sticker], mention_author=False)
+                sticker1 = discord.utils.get(message.guild.stickers, id=961046798821126214)
+                if None not in {sticker, sticker1}:
+                    await message.reply(stickers=[sticker, sticker1], mention_author=False)
                 else:
                     pass
 
@@ -413,9 +424,9 @@ def main():
     async def on_message_edit(before, after):
         if before.author.id == 571027211407196161 and str(before.channel.id) in bot.allowed_track_channel:
             catch = after.embeds
-            processed = {}
-            for x in catch:
-                processed = x.to_dict()
+            if not catch:
+                return
+            processed = catch[-1].to_dict()
             try:
                 message = processed["fields"][0]["value"]
             except KeyError:
@@ -441,9 +452,9 @@ def main():
 
     @bot.tree.error
     async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, app_commands.CommandNotFound) or hasattr(interaction.command, 'on_error'):
+        if isinstance(error, app_commands.errors.CommandNotFound):
             return
-        if isinstance(error, app_commands.CheckFailure):
+        if isinstance(error, app_commands.errors.CheckFailure):
             return await interaction.response.send_message("You can't use this command (probably on maintenance)")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
@@ -458,6 +469,9 @@ def main():
     async def on_command_error(ctx, error):
         if isinstance(error, commands.errors.DisabledCommand):
             return await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
+                                   mention_author=False)
+        if isinstance(error, commands.errors.CheckFailure):
+            return await ctx.reply("You are not allowed to use this command (probably on maintenance)",
                                    mention_author=False)
         if isinstance(error, commands.errors.CommandOnCooldown):
             return await ctx.reply(f"{error} <:angeryV2:810860324248616960>",

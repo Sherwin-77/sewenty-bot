@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import discord
 from discord.ext import commands
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from os import getenv
 from typing import TYPE_CHECKING, Optional, Union
@@ -79,19 +79,26 @@ class General(commands.Cog):
                 member: discord.Member
                 boost = member.premium_since
                 if not boost:
-                    boost = -1e+13
+                    boost = discord.utils.utcnow()
+                    boost = discord.utils.format_dt(boost.replace(year=boost.year-69), style='R')
+                    boost += " ||Not boosting||"
                 else:
-                    boost = boost.timestamp()
+                    boost = discord.utils.format_dt(boost, style='R')
                 custom_embed.add_field(name="Member info",
                                        value=f"Top Role: {member.top_role.mention}\n"
                                              f"Mobile:\u2800\u2800 {EMOJI_STATUS[str(member.mobile_status)]}\n"
                                              f"Desktop:\u2800 {EMOJI_STATUS[str(member.desktop_status)]}\n"
                                              f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[str(member.web_status)]}\n"
                                              f"Pending verification: **{member.pending}**\n"
-                                             f"Joined at: <t:{int(member.joined_at.timestamp())}:D>\n"
-                                             f"Boosting since: <t:{int(boost)}:R>\n"
+                                             f"Joined at: {discord.utils.format_dt(member.joined_at)}\n"
+                                             f"Boosting since: {boost}\n"
                                              f"Nick: {member.nick}",
                                        inline=False)   # no spaces? fine I'll do it myself
+                custom_embed.add_field(name="< - - - Permissions - - - >",
+                                       value=', '.join([perm.replace('_', ' ').capitalize()
+                                                        for perm, value in iter(member.guild_permissions)
+                                                        if value]),
+                                       inline=False)
                 if member.display_icon:
                     custom_embed.set_author(name=str(user), icon_url=member.display_icon)
                     custom_embed.set_thumbnail(url=member.display_avatar)
