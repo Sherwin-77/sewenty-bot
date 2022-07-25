@@ -3,7 +3,25 @@ import discord
 from typing import List
 
 
-class ConfirmEmbed(discord.ui.View):
+class BaseView(discord.ui.View):
+    """
+    Base view for every implement
+    """
+    def __init__(self):
+        super().__init__()
+        self.value = None
+
+
+class NumberButton(discord.ui.Button):
+    def __init__(self, number):
+        super().__init__()
+        self.number = number
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+
+
+class ConfirmEmbed(BaseView):
     def __init__(self, message):
         super().__init__()
         self.value = None

@@ -9,13 +9,85 @@ import calendar
 from datetime import datetime
 import datetime as dt
 import random
-from typing import TYPE_CHECKING
+from traceback import format_exception
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from main import SewentyBot
 
 
-# If this is working, don't touch it
+class ConversionFailed(BaseException):
+    pass
+
+
+class TacoNode:
+    def __init__(self, cost: int, boost: int, level: int, max_level: int):
+        self.level = int(level)
+        self.boost = int(boost)
+        self.max_level = int(max_level)
+        self.base_cost = int(cost) / (level + 1)**2
+
+    @classmethod
+    def from_dict(cls, to_convert: dict) -> TacoNode:
+        """
+        Convert from dict to TacoNode
+
+        Parameters
+        ----------
+        to_convert : dict
+        Dict to convert
+
+        Returns
+        -------
+        TacoNode
+        """
+        try:
+            level = to_convert["level"]
+            max_level = to_convert["max_level"]
+            boost = to_convert["boost"]
+            base_cost = to_convert["base_cost"]
+        except KeyError:
+            raise ConversionFailed("Invalid dict key")
+        build = cls(0, 0, 0, 0)
+        build.level = level
+        build.max_level = max_level
+        build.boost = boost
+        build.base_cost = base_cost
+        return build
+
+    @property
+    def cost(self) -> float:
+        return self.base_cost * (self.level + 1) ** 2
+
+    @property
+    def value(self) -> float:
+        if self.cost == 0:
+            return 0.0
+        return self.boost/self.cost
+
+    @property
+    def dict(self) -> dict:
+        return {"level": self.level,
+                "max_level": self.max_level,
+                "boost": self.boost,
+                "base_cost": self.base_cost}
+
+    def upgrade(self):
+        """
+        Set the cost to next level and return the effectiveness
+        """
+        if self.level >= self.max_level:
+            raise ValueError("Maxed level")
+        self.level += 1
+        if self.level == self.max_level:
+            self.base_cost = 0
+            self.boost = 0
+
+    def __repr__(self):
+        return f"<TacoNode object base_cost={self.base_cost} boost={self.boost} max_level={self.max_level}>"
+
+    def __str__(self):
+        return self.__repr__()
 
 
 class Taco(commands.Cog):
@@ -28,11 +100,99 @@ class Taco(commands.Cog):
         self.REGISTERED_ETC = {"Taco Truck Upgrades 🚚": "",
                                "Ice Cream Stand Upgrades 🍦": "beach",
                                "Hotdog Cart Upgrades 🌭": "city"}
-        self.SHORTCUT_LOCATION = {'s': "", 'b': "beach", "c": "city"}
+        self.REGISTERED_ETC_COMMAND = {"shack": "truck",
+                                       "beach": "stand",
+                                       "city": "cart"}
+        self.SHORTCUT_LOCATION = {'s': '', 'b': "beach", "c": "city", "shack": ''}
+        self.HIRE = {"Apprentice", "Cook", "Advertiser", "Greeter", "Sous", "Head", "Executive"}
+        self.ABORT_CLAUSE = {"exit", "quit", "abort", 'q'}
         self.taco_set, self.taco_recommend = set(), set()
+        self.using_auto = set()
+
+    async def read_taco(self, ctx: commands.Context, embed: discord.Embed,
+                        location_locked: Optional[str] = None) -> Optional[tuple[str, dict, dict]]:
+
+        """
+        Get taco upgrade from embed. Returns None if error happened or not matching location_locked
+        """
+        try:
+            new = embed.description.split('\n')
+            title = embed.title.split("| ")[-1]
+            is_shack = False
+            if "Shack" in title:
+                is_shack = True
+            title = self.REGISTERED_ETC[title] if title in self.REGISTERED_ETC else title.split(" ")[0].lower()
+        except (KeyError, AttributeError):
+            return None
+
+        location = title if title in self.REGISTERED_LOCATION else ""
+
+        if is_shack and not location:
+            await ctx.send("New location detected and unregistered. Please DM invalid-user#8807")
+            return None
+
+        if location_locked is not None and location != location_locked and (location_locked != "shack" or is_shack):
+            await ctx.send("Invalid location >:(")
+            return None
+
+        to_update = {}
+        taco_data = {}
+        for j in range(len(new) - 1):
+            # cursor selecting the name
+            if '(' not in new[j]:
+                continue
+            if '✅' in new[j]:
+                to_update.update({new[j + 2].split('`')[1].capitalize(): 0})
+                taco_data.update({new[j + 2].split('`')[1].capitalize(): TacoNode(0, 0, 0, 0)})
+                continue
+            if "+$" not in new[j + 2]:
+                continue
+            level_range = new[j].split('`')[1].removeprefix('(').removesuffix(')').split('/')
+            boost = int(new[j + 2].split("/hr")[0].split('$')[-1])
+            cost = int(new[j + 1].split('$')[-1].replace(',', ''))
+            id_ = new[j + 3].split('`')[-2].capitalize()
+            to_update.update({id_: boost / cost})
+            taco_data.update({id_: TacoNode(cost=cost,
+                                            boost=boost,
+                                            level=int(level_range[0]),
+                                            max_level=int(level_range[-1]))})
+        data_id = f"{ctx.author.id}taco{location}"
+        return data_id, to_update, taco_data
+
+    async def update_taco(self, taco: dict, taco_data: dict) -> None:
+        """
+        Update taco and taco_data. Only accept dict format {_id: upgrade}
+
+        Parameters
+        ----------
+        taco : dict
+        taco_data : dict
+
+        Returns
+        -------
+        None
+        """
+
+        for k in taco.keys():
+            query = {"_id": k}
+            counts = await self.COLLECTION.count_documents(query)
+            converted = {}
+            if len(taco_data) > 0:
+                converted = {key: node.dict for key, node in taco_data[k].items()}
+            if counts == 0:
+                await self.COLLECTION.insert_one({"_id": k, "taco": taco[k], "taco_data": converted})
+            else:
+                cursor = await self.COLLECTION.find_one(query)
+                old_update = cursor["taco"]
+                old_taco_data = dict()
+                if "taco_update" in cursor:
+                    old_taco_data = cursor["taco_data"]
+                merged = {**old_update, **taco[k]}
+                data_merged = {**old_taco_data, **converted}
+                await self.COLLECTION.update_one(query, {"$set": {"taco": merged, "taco_data": data_merged}})
 
     @commands.command(name="tacoset", aliases=["ts"])
-    async def set_taco(self, ctx, multiple: bool = False):
+    async def set_taco(self, ctx: commands.Context, multiple: bool = False):
         """
         Set your taco value based on embed
         Detect up to 5 message if not multiple else 8
@@ -43,59 +203,36 @@ class Taco(commands.Cog):
             return
         history = [x async for x in ctx.channel.history(limit=5 if not multiple else 8)]
         placeholder = dict()
+        data_placeholder = dict()
         for i in history:
             if i.author.id != 490707751832649738:
                 continue
-            try:
-                embedded = i.embeds
-                new = embedded[-1].to_dict()["description"].split('\n')
-                raw_title = embedded[-1].to_dict()["title"]
-                title = raw_title.split("| ")[-1]
-                is_shack = False
-                if "Shack" in title:
-                    is_shack = True
-                title = self.REGISTERED_ETC[title] if title in self.REGISTERED_ETC else title.split(" ")[0].lower()
-            except KeyError:
+            embed = i.embeds
+            if len(embed) < 1:
                 continue
-            location = title if title in self.REGISTERED_LOCATION else ""
-            if is_shack and not location:
-                await ctx.send("New location detected and unregistered. Please DM invalid-user#8807")
-                return
-            to_update = {}
-            for j in range(len(new) - 1):
-                # cursor selecting the name
-                if '(' not in new[j]:
-                    continue
-                if '✅' in new[j]:
-                    to_update.update({new[j + 2].split('`')[1].capitalize(): 0})
-                    continue
-                if "+$" not in new[j + 2]:
-                    continue
-                boost = int(new[j + 2].split("/hr")[0].split('$')[-1])
-                cost = int(new[j + 1].split('$')[-1].replace(',', ''))
-                id_ = new[j + 3].split('`')[-2].capitalize()
-                to_update.update({id_: boost / cost})
-            data_id = f"{ctx.author.id}taco{location}"
+            res = await self.read_taco(ctx, embed[-1])
+            if res is None:
+                continue
+            data_id, to_update, taco_data = res
+
             if data_id not in placeholder:
                 placeholder.update({data_id: to_update})
-                if multiple:
-                    continue
-                break
-            val = placeholder[data_id]
-            placeholder.update({data_id: {**val, **to_update}})
+            else:
+                val = placeholder[data_id]
+                placeholder.update({data_id: {**val, **to_update}})
+
+            if data_id not in data_placeholder:
+                data_placeholder.update({data_id: taco_data})
+            else:
+                data_val = data_placeholder[data_id]
+                data_placeholder.update({data_id: {**data_val, **taco_data}})
+
             if not multiple:
                 break
 
-        for k in placeholder:
-            query = {"_id": k}
-            counts = await self.COLLECTION.count_documents(query)
-            if counts == 0:
-                await self.COLLECTION.insert_one({"_id": k, "taco": placeholder[k]})
-            else:
-                old_update = await self.COLLECTION.find_one(query)
-                old_update = old_update["taco"]
-                merged = {**old_update, **placeholder[k]}
-                await self.COLLECTION.update_one(query, {"$set": {'taco': merged}})
+        if len(placeholder) < 1:
+            return await ctx.reply("No embed detected", mention_author=False)
+        await self.update_taco(placeholder, data_placeholder)
         await ctx.message.add_reaction('👍')
 
         if multiple:
@@ -122,13 +259,11 @@ class Taco(commands.Cog):
         location = location.lower()
         location = location if location not in self.SHORTCUT_LOCATION else self.SHORTCUT_LOCATION[location]
         if location not in self.REGISTERED_LOCATION and location:
-            await ctx.send("You input scary location to me <:blobsob:809721186966831105>", delete_after=5)
+            return await ctx.send("You input scary location to me <:blobsob:809721186966831105>", delete_after=5)
         if limit > 10:
-            await ctx.send("Why booli me <:blobsob:809721186966831105> (max 10)", delete_after=5)
-            return
+            return await ctx.send("Why booli me <:blobsob:809721186966831105> (max 10)", delete_after=5)
         if str(ctx.author.id) in self.taco_recommend:
-            await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=4)
-            return
+            return await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=4)
         query = {"_id": f'{ctx.author.id}taco{location}'}
         counts = await self.COLLECTION.count_documents(query)
         if counts == 0:
@@ -161,11 +296,15 @@ class Taco(commands.Cog):
         if counts == 0:
             await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         else:
-            taco = await self.COLLECTION.find_one(query)
-            taco = taco["taco"]
+            cursor = await self.COLLECTION.find_one(query)
+            taco = cursor["taco"]
+            taco_data = {}
+            if "taco_data" in cursor:
+                taco_data = cursor["taco_data"]
             for x in dl:
                 taco.pop(x)
-            await self.COLLECTION.update_one(query, {"$set": {'taco': taco}})
+                taco_data.pop(x)
+            await self.COLLECTION.update_one(query, {"$set": {"taco": taco, "taco_data": taco_data}})
             await ctx.message.add_reaction('👍')
         self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
@@ -183,12 +322,15 @@ class Taco(commands.Cog):
             await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False,
                             delete_after=5)
         else:
-            taco = await self.COLLECTION.find_one(query)
-            taco = taco["taco"]
+            cursor = await self.COLLECTION.find_one(query)
+            taco = cursor["taco"]
+            taco_data = {}
+            if "taco_data" in cursor:
+                taco_data = cursor["taco_data"]
             for x in dl:
                 taco.pop(x)
-            await self.COLLECTION.update_one({"_id": f"{ctx.author.id}tacobeach"}, {"$set": {"taco": taco}})
-            await ctx.message.add_reaction('👍')
+                taco_data.pop(x)
+            await self.COLLECTION.update_one(query, {"$set": {"taco": taco, "taco_data": taco_data}})
         self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
         self.taco_set.remove(str(ctx.author.id))
@@ -205,15 +347,243 @@ class Taco(commands.Cog):
             await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False,
                             delete_after=5)
         else:
-            taco = await self.COLLECTION.find_one(query)
-            taco = taco["taco"]
+            cursor = await self.COLLECTION.find_one(query)
+            taco = cursor["taco"]
+            taco_data = {}
+            if "taco_data" in cursor:
+                taco_data = cursor["taco_data"]
             for x in dl:
                 taco.pop(x)
-            await self.COLLECTION.update_one(query, {"$set": {"taco": taco}})
+                taco_data.pop(x)
+            await self.COLLECTION.update_one(query, {"$set": {"taco": taco, "taco_data": taco_data}})
             await ctx.message.add_reaction('👍')
         self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
         self.taco_set.remove(str(ctx.author.id))
+
+    @commands.command(name="tsgo")
+    async def auto_taco(self, ctx: commands.Context, location: str, prefix: str = '!', limit: int = 5):
+        """
+        Automate your taco upgrade
+        e.g. for taco shack prefix ajg: s!tsgo shack ajg 5
+        """
+        if ctx.author.id in self.using_auto:
+            return await ctx.reply("Please complete your previous auto taco before using new one")
+
+        if limit <= 0 or limit > 10:
+            return await ctx.reply("Invalid limit. Must be between range 1 to 10", mention_author=False)
+        self.using_auto.add(ctx.author.id)
+        location = location.lower()
+        location = location if location in self.REGISTERED_LOCATION else "shack"
+        await ctx.send(f"Starting helper in location: **{location}**\n"
+                       f"limit up to {limit}\n"
+                       f"Prefix: {prefix}\n"
+                       f"To exit helper just type 'exit'")
+
+        def valid_answer(msg) -> bool:
+            expected_answer = {'y', 'n', "yes", "no"}
+            expected_answer |= self.ABORT_CLAUSE
+            if msg.channel.id != ctx.channel.id or msg.author.id != ctx.author.id:
+                return False
+            if msg.content.lower() not in expected_answer:
+                return False
+            return True
+
+        def valid_any(msg) -> bool:
+            if msg.channel.id != ctx.channel.id or msg.author.id != ctx.author.id:
+                return False
+            return True
+
+        def valid_taco(msg) -> bool:
+            if(
+                    msg.channel.id == ctx.channel.id and
+                    msg.author.id == ctx.author.id and
+                    msg.content.lower() in self.ABORT_CLAUSE
+            ):
+                return True
+
+            if msg.channel.id != ctx.channel.id or msg.author.id != 490707751832649738:
+                return False
+            if len(msg.embeds) < 1:
+                return False
+            return True
+
+        async def get_answer() -> Optional[bool]:
+            """
+            Get user input. Returns None if user want to exit
+            """
+            temp = False
+            while not temp:
+                temp = await self.bot.wait_for("message", check=valid_answer, timeout=60.0)
+            if temp.content.lower() in self.ABORT_CLAUSE:
+                return None
+            if temp.content.lower() in {'y', "yes"}:
+                return True
+            return False
+
+        async def get_any() -> discord.Message:
+            temp = False
+            while not temp:
+                temp = await self.bot.wait_for("message", check=valid_any, timeout=60.0)
+            return temp
+
+        if prefix == '!':
+            try:
+                await ctx.send("Warning! You are using default taco shack prefix '!'\n"
+                               "Are you sure? (y/n)")
+                state = await get_answer()
+                if state is None:
+                    self.using_auto.remove(ctx.author.id)
+                    return await ctx.send("Aborting..")
+                while not state:
+                    await ctx.send("Input your new prefix: ")
+                    message = await get_any()
+                    prefix = message.content
+                    await ctx.send(f"Your prefix is: {prefix}\n"
+                                   f"Confirm? (y/n)")
+                    state = await get_answer()
+                    if state is None:
+                        self.using_auto.remove(ctx.author.id)
+                        return await ctx.send("Aborting..")
+            except asyncio.TimeoutError:
+                self.using_auto.remove(ctx.author.id)
+                return await ctx.send("User not answering in 1 minute. Aborting..")
+
+        first = True
+        _taco = {}
+        taco_data = {}
+        query = {"_id": f"{ctx.author.id}taco{location if location != 'shack' else ''}"}
+
+        while True:
+            try:
+                is_updating = False
+                if first:
+                    await ctx.send("Do you want to update your upgrade first? (y/n)\n"
+                                   "**Warning:** Starting from <t:1658728800:D>, you need to update all the upgrade"
+                                   "as we updated ~~privacy policy~~ how the command work")
+                    state = await get_answer()
+                    if state is None:
+                        self.using_auto.remove(ctx.author.id)
+                        return await ctx.send("Aborting..")
+                    if state:
+                        is_updating = True
+
+                while is_updating:
+                    await ctx.send(f"Do your taco here ({prefix}up, {prefix}deco or anything)\n"
+                                   f"Type 'abort' if you're done")
+                    message = await self.bot.wait_for("message", check=valid_taco, timeout=60.0)
+                    if message.content in self.ABORT_CLAUSE:
+                        break
+                    if len(message.embeds) < 1:
+                        await ctx.send("Invalid embed")
+                        continue
+                    res = await self.read_taco(ctx, message.embeds[-1], location_locked=location)
+                    if res is None:
+                        continue
+                    # returns upgrade only
+                    data_id, placeholder, data_placeholder = res
+
+                    _taco = {**_taco, **placeholder}
+                    taco_data = {**taco_data, **data_placeholder}
+
+                m = await ctx.send("Processing data <a:discordloading:792012369168957450>")
+                assert query["_id"] not in _taco and query["_id"] not in taco_data
+
+                if first:
+                    counts = await self.COLLECTION.count_documents(query)
+                    if counts < 1 and len(_taco) < 1:
+                        self.using_auto.remove(ctx.author.id)
+                        return await m.edit(content="No data to recommend")
+                    if counts > 0:
+                        cursor = await self.COLLECTION.find_one(query)
+                        # old one returns upgrade only
+                        old_update = cursor["taco"]
+                        old_taco_data = dict()
+                        if "taco_data" in cursor:
+                            old_taco_data = cursor["taco_data"]
+                            old_taco_data = {key: TacoNode.from_dict(value) for key, value in old_taco_data.items()}
+
+                        _taco = {**old_update, **_taco}
+                        taco_data = {**old_taco_data, **taco_data}
+
+                if not first and len(taco_data) < 1:
+                    self.using_auto.remove(ctx.author.id)
+                    return await m.edit(content="Nothing to recommend!")
+
+                await m.edit(content="Done! Copy and paste text in embed to upgrade")
+                custom_embed = discord.Embed(color=discord.Colour.random())
+                taco = _taco.copy()
+                for n in range(1, limit+1):
+
+                    if len(taco) < 1:
+                        self.using_auto.remove(ctx.author.id)
+                        return await ctx.send("No more data to recommend. Aborting")
+                    t = max(taco, key=taco.get)
+                    v = format(taco[t], '.3e')
+                    if taco[t] == 0:
+                        await ctx.send(f"{n}'th upgrade already maxed. Skipping")
+                        break
+                    if t not in taco_data:
+                        await ctx.send(f"**Warning!** Following upgrade is not updated: {t}\n"
+                                       f"This will be excluded in next upgrade recommendation and not auto updated")
+                    taco.pop(t)
+                    action = "hire" if t in self.HIRE else "buy"
+
+                    custom_embed.description = f"{prefix}{action} {t}"
+                    custom_embed.set_footer(text=f"Effectiveness: {v}")
+                    await ctx.send(embed=custom_embed)
+                    abort = False
+                    while True:
+                        message = await self.bot.wait_for("message", check=valid_any, timeout=60.0)
+                        if message.content.lower() in {"quit", "exit", 'q', "abort"}:
+                            abort = True
+                            break
+                        if message.content.lower() in {f"{prefix}{action} {t.lower()}",
+                                                       f"{prefix} {action} {t.lower()}"}:
+                            if t in taco_data:
+                                # noinspection PyTypeChecker
+                                selected: TacoNode = taco_data[t]
+                                if selected.level < selected.max_level:
+                                    selected.upgrade()
+                                    _taco = {k: v.value for k, v in taco_data.items()}
+                            break
+                    if abort:
+                        self.using_auto.remove(ctx.author.id)
+                        break
+
+                await ctx.send("Do you want to continue? (No need to update your upgrade) (y/n)")
+                answer = await get_answer()
+                if not answer:
+                    await self.update_taco({query["_id"]: _taco}, {query["_id"]: taco_data})
+                    self.using_auto.remove(ctx.author.id)
+                    return await ctx.send("Have a great day!\n"
+                                          "**Set your upgrade** if you bought upgrade but not enough money")
+
+                first = False
+
+            except asyncio.TimeoutError:
+                self.using_auto.remove(ctx.author.id)
+                await ctx.send("No interaction in 1 minute. Aborting..")
+
+    @auto_taco.error
+    async def auto_taco_error(self, ctx, error):
+        if isinstance(error, commands.errors.DisabledCommand):
+            return await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
+                                   mention_author=False)
+
+        if isinstance(error, commands.errors.MissingRequiredArgument) or isinstance(error, commands.errors.BadArgument):
+            return await ctx.reply(error, mention_author=False)
+
+        output = error
+        if ctx.author.id == self.bot.owner.id:
+            output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(str(output)) > 1500:
+            return print(output)
+
+        custom_embed = discord.Embed(title="Uh Oh! Something happened",
+                                     description=f"```{output}```",
+                                     color=discord.Colour.red())
+        await ctx.send(embed=custom_embed)
 
 
 class OwO(commands.Cog):

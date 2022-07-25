@@ -84,6 +84,7 @@ class SewentyBot(commands.Bot):
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
         self.owner = None
+        self.banned_user = set()
 
         self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                                            "<:hikanoplsOwO:804522598289375232>"],
@@ -217,6 +218,35 @@ def main():
             return await ctx.reply(f"Failed to fetch: {type(error.original)} {error.original}", mention_author=False)
         await ctx.reply(f"Failed to fetch: {type(error)} {error}", mention_author=False)
 
+    @bot.command(hidden=True)
+    @commands.is_owner()
+    async def catch(ctx):
+        ref = ctx.message.reference
+        if ref is not None and isinstance(ref.resolved, discord.Message):
+            message = ref.resolved
+        else:
+            return await ctx.reply("Where message", mention_author=False)
+        embed = message.embeds
+        if len(embed) < 1:
+            return await ctx.reply("No embed", mention_author=False)
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        for emb in embed:
+            custom_embed.add_field(name=emb.title or "No title",
+                                   value=f"Description: {emb.description}\n"
+                                         f"**Content:**\n" +
+                                         '\n'.join(f"Name: {field.name}\n Value: {field.value}"for field in emb.fields))
+        await ctx.send(embed=custom_embed)
+
+    # noinspection SpellCheckingInspection
+    @bot.command(name="ban", hidden=True)
+    @commands.is_owner()
+    async def bot_ban(ctx, user: discord.User):
+        if user.id in bot.banned_user:
+            bot.banned_user.remove(user.id)
+            return await ctx.send(f"{user.display_name} un gone <a:menheraball:810779283692978209>")
+        bot.banned_user.add(user.id)
+        await ctx.send(f"{user.display_name} gone <:kenasandal:805028596581269524>")
+
     @bot.command(name="dm", hidden=True)
     @commands.is_owner()
     async def dm_user(ctx, user: discord.User, *, text="Test"):
@@ -305,7 +335,10 @@ def main():
     @bot.event
     async def on_message(message: discord.Message):
         userid = message.author.id
-        if message.author.bot and userid != 555955826880413696:
+        if message.author.bot:
+            return
+
+        if userid in bot.banned_user:
             return
 
         if message.guild is None:
@@ -398,11 +431,13 @@ def main():
         if guild_id == 714152739252338749:
             low_msg = message.content.lower()
 
-            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"}:
-                sticker = discord.utils.get(message.guild.stickers, id=900116218160242818)
-                sticker1 = discord.utils.get(message.guild.stickers, id=961046798821126214)
-                if None not in {sticker, sticker1}:
-                    await message.reply(stickers=[sticker, sticker1], mention_author=False)
+            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"} and random.random() < 0.69:
+                counts = random.randint(1, 3)
+                sticker_ids = {949065213540458526, 900116218160242818, 961046798821126214, 948695509130944523}
+                used_sticker_ids = random.choices(list(sticker_ids), k=counts)
+                get_sticker = [discord.utils.get(message.guild.stickers, id=i) for i in used_sticker_ids]
+                if None not in get_sticker:
+                    await message.reply(stickers=get_sticker, mention_author=False)
                 else:
                     pass
 
@@ -455,7 +490,7 @@ def main():
         if isinstance(error, app_commands.errors.CommandNotFound):
             return
         if isinstance(error, app_commands.errors.CheckFailure):
-            return await interaction.response.send_message("You can't use this command (probably on maintenance)")
+            return await interaction.response.send_message("You can't use this command or command on maintenance")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             return logger.error(output)
@@ -471,7 +506,7 @@ def main():
             return await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
                                    mention_author=False)
         if isinstance(error, commands.errors.CheckFailure):
-            return await ctx.reply("You are not allowed to use this command (probably on maintenance)",
+            return await ctx.reply("You are not allowed to use this command",
                                    mention_author=False)
         if isinstance(error, commands.errors.CommandOnCooldown):
             return await ctx.reply(f"{error} <:angeryV2:810860324248616960>",

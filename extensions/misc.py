@@ -9,6 +9,7 @@ import googletrans
 
 from ast import literal_eval
 import asyncio
+import base64
 import datetime
 # from functools import partial
 # import io
@@ -126,11 +127,16 @@ class Miscellaneous(commands.Cog):
         self.translator = googletrans.Translator()
         self.occupied_channel = set()
         self.current_token = tuple()
+        self.current_spotify_token = tuple()
 
         self.CLIENT_ID = os.getenv("CLIENT_ID")
         self.CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+        self.SPOTIFY_ID = os.getenv("SPOTIFY_ID")
+        self.SPOTIFY_SECRET = os.getenv("SPOTIFY_SECRET")
         self.OSU_API_URL = "https://osu.ppy.sh/api/v2"
         self.OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token"
+        self.SPOTIFY_API_URL = "https://api.spotify.com/v1"
+        self.SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
         
     @property
     def magic_header(self):
@@ -353,6 +359,28 @@ class Miscellaneous(commands.Cog):
         async with self.bot.session.post(token_url, data=data) as response:
             res = await response.json()
         self.current_token = (res["access_token"], current + res["expires_in"])
+        return res["access_token"]
+    
+    async def get_spotify_token(self, token_url):
+        """
+        Basically get osu token but spotify
+        """
+        current = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+        last_token, expired = self.current_spotify_token or (None, None)
+        if last_token is not None and expired is not None and current + 100 < expired:
+            return last_token
+        auth_header = base64.urlsafe_b64encode(f"{self.SPOTIFY_ID}:{self.SPOTIFY_SECRET}".encode())
+        headers = {
+            "Authorization": f"Basic {auth_header.decode()}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        params = {
+            "grant_type": "client_credentials"
+        }
+        async with self.bot.session.post(token_url, params=params, headers=headers) as response:
+            res = await response.json()
+
+        self.current_spotify_token = (res["access_token"], current + res["expires_in"])
         return res["access_token"]
 
     @commands.command(name="osutop", help="Flex your top osu play")
@@ -586,7 +614,7 @@ class Miscellaneous(commands.Cog):
                                         params=params,
                                         headers=headers) as response:
             if response.status != 200:
-                return await ctx.edit(content=f"Failed to get user. Error code: {response.status}")
+                return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
             raw = await response.json()
         custom_embed = discord.Embed()
         custom_embed.set_author(name=raw["username"])
@@ -636,6 +664,37 @@ class Miscellaneous(commands.Cog):
         view = ActivityView(ctx.author, user)
         view.add_item(dropdown)
         await ctx.send(view=view)
+
+    @commands.command(name="spotifysong", aliases=["spts"])
+    async def spotify_song(self, ctx, *, name):
+        token = await self.get_spotify_token(self.SPOTIFY_TOKEN_URL)
+        headers = {
+            "Content_Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        params = {
+            'q': name,
+            "type": "track",
+            "limit": 3
+        }
+        async with self.bot.session.get(f"{self.SPOTIFY_API_URL}/search",
+                                        params=params,
+                                        headers=headers) as response:
+            if response.status != 200:
+                return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
+            raw = await response.json()
+            custom_embed = discord.Embed(title="Result", color=discord.Colour.random())
+            custom_embed.set_thumbnail(url=raw["tracks"]["items"][0]["album"]["images"][0]["url"])
+            custom_embed.set_footer(text="Want more search result? subscribe to onlyfans")
+            for item in raw["tracks"]["items"]:
+                duration_ms = item["duration_ms"]
+                custom_embed.add_field(name=item["name"],
+                                       value=f"[URL]({item['external_urls']['spotify']})\n"
+                                             f"Artist: {', '.join([a['name'] for a in item['artists']])}\n"
+                                             f"Duration: {duration_ms//60000} m {(duration_ms // 1000) % 60} s\n"
+                                             f"Popularity: {item['popularity']}")
+            await ctx.send(embed=custom_embed)
 
     @commands.command(aliases=["cur"])
     @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.user)
