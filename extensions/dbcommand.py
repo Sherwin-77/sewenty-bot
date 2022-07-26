@@ -106,6 +106,7 @@ class Taco(commands.Cog):
         self.SHORTCUT_LOCATION = {'s': '', 'b': "beach", "c": "city", "shack": ''}
         self.HIRE = {"Apprentice", "Cook", "Advertiser", "Greeter", "Sous", "Head", "Executive"}
         self.ABORT_CLAUSE = {"exit", "quit", "abort", 'q'}
+        self.DONE_CLAUSE = {"done", "end"}
         self.taco_set, self.taco_recommend = set(), set()
         self.using_auto = set()
 
@@ -362,21 +363,25 @@ class Taco(commands.Cog):
         self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name="tsgo")
-    async def auto_taco(self, ctx: commands.Context, location: str, prefix: str = '!', limit: int = 5):
+    async def auto_taco(self, ctx: commands.Context, location: str, prefix: str = '!'):
         """
         Automate your taco upgrade
-        e.g. for taco shack prefix ajg: s!tsgo shack ajg 5
+
+        Parameters
+        ----------
+        ctx: commands.Context
+        location : str
+            Which location you want to upgrade
+        prefix : str
+            taco prefix used
         """
+
         if ctx.author.id in self.using_auto:
             return await ctx.reply("Please complete your previous auto taco before using new one")
-
-        if limit <= 0 or limit > 10:
-            return await ctx.reply("Invalid limit. Must be between range 1 to 10", mention_author=False)
         self.using_auto.add(ctx.author.id)
         location = location.lower()
         location = location if location in self.REGISTERED_LOCATION else "shack"
         await ctx.send(f"Starting helper in location: **{location}**\n"
-                       f"limit up to {limit}\n"
                        f"Prefix: {prefix}\n"
                        f"To exit helper just type 'exit'")
 
@@ -398,7 +403,7 @@ class Taco(commands.Cog):
             if(
                     msg.channel.id == ctx.channel.id and
                     msg.author.id == ctx.author.id and
-                    msg.content.lower() in self.ABORT_CLAUSE
+                    msg.content.lower() in self.DONE_CLAUSE
             ):
                 return True
 
@@ -449,121 +454,121 @@ class Taco(commands.Cog):
                 self.using_auto.remove(ctx.author.id)
                 return await ctx.send("User not answering in 1 minute. Aborting..")
 
-        first = True
-        _taco = {}
+        is_updating = False
+        taco = {}
         taco_data = {}
         query = {"_id": f"{ctx.author.id}taco{location if location != 'shack' else ''}"}
-
-        while True:
-            try:
-                is_updating = False
-                if first:
-                    await ctx.send("Do you want to update your upgrade first? (y/n)\n"
-                                   "**Warning:** Starting from <t:1658728800:D>, you need to update all the upgrade"
-                                   "as we updated ~~privacy policy~~ how the command work")
-                    state = await get_answer()
-                    if state is None:
-                        self.using_auto.remove(ctx.author.id)
-                        return await ctx.send("Aborting..")
-                    if state:
-                        is_updating = True
-
-                while is_updating:
-                    await ctx.send(f"Do your taco here ({prefix}up, {prefix}deco or anything)\n"
-                                   f"Type 'abort' if you're done")
-                    message = await self.bot.wait_for("message", check=valid_taco, timeout=60.0)
-                    if message.content in self.ABORT_CLAUSE:
-                        break
-                    if len(message.embeds) < 1:
-                        await ctx.send("Invalid embed")
-                        continue
-                    res = await self.read_taco(ctx, message.embeds[-1], location_locked=location)
-                    if res is None:
-                        continue
-                    # returns upgrade only
-                    data_id, placeholder, data_placeholder = res
-
-                    _taco = {**_taco, **placeholder}
-                    taco_data = {**taco_data, **data_placeholder}
-
-                m = await ctx.send("Processing data <a:discordloading:792012369168957450>")
-                assert query["_id"] not in _taco and query["_id"] not in taco_data
-
-                if first:
-                    counts = await self.COLLECTION.count_documents(query)
-                    if counts < 1 and len(_taco) < 1:
-                        self.using_auto.remove(ctx.author.id)
-                        return await m.edit(content="No data to recommend")
-                    if counts > 0:
-                        cursor = await self.COLLECTION.find_one(query)
-                        # old one returns upgrade only
-                        old_update = cursor["taco"]
-                        old_taco_data = dict()
-                        if "taco_data" in cursor:
-                            old_taco_data = cursor["taco_data"]
-                            old_taco_data = {key: TacoNode.from_dict(value) for key, value in old_taco_data.items()}
-
-                        _taco = {**old_update, **_taco}
-                        taco_data = {**old_taco_data, **taco_data}
-
-                if not first and len(taco_data) < 1:
-                    self.using_auto.remove(ctx.author.id)
-                    return await m.edit(content="Nothing to recommend!")
-
-                await m.edit(content="Done! Copy and paste text in embed to upgrade")
-                custom_embed = discord.Embed(color=discord.Colour.random())
-                taco = _taco.copy()
-                for n in range(1, limit+1):
-
-                    if len(taco) < 1:
-                        self.using_auto.remove(ctx.author.id)
-                        return await ctx.send("No more data to recommend. Aborting")
-                    t = max(taco, key=taco.get)
-                    v = format(taco[t], '.3e')
-                    if taco[t] == 0:
-                        await ctx.send(f"{n}'th upgrade already maxed. Skipping")
-                        break
-                    if t not in taco_data:
-                        await ctx.send(f"**Warning!** Following upgrade is not updated: {t}\n"
-                                       f"This will be excluded in next upgrade recommendation and not auto updated")
-                    taco.pop(t)
-                    action = "hire" if t in self.HIRE else "buy"
-
-                    custom_embed.description = f"{prefix}{action} {t}"
-                    custom_embed.set_footer(text=f"Effectiveness: {v}")
-                    await ctx.send(embed=custom_embed)
-                    abort = False
-                    while True:
-                        message = await self.bot.wait_for("message", check=valid_any, timeout=60.0)
-                        if message.content.lower() in {"quit", "exit", 'q', "abort"}:
-                            abort = True
-                            break
-                        if message.content.lower() in {f"{prefix}{action} {t.lower()}",
-                                                       f"{prefix} {action} {t.lower()}"}:
-                            if t in taco_data:
-                                # noinspection PyTypeChecker
-                                selected: TacoNode = taco_data[t]
-                                if selected.level < selected.max_level:
-                                    selected.upgrade()
-                                    _taco = {k: v.value for k, v in taco_data.items()}
-                            break
-                    if abort:
-                        self.using_auto.remove(ctx.author.id)
-                        break
-
-                await ctx.send("Do you want to continue? (No need to update your upgrade) (y/n)")
-                answer = await get_answer()
-                if not answer:
-                    await self.update_taco({query["_id"]: _taco}, {query["_id"]: taco_data})
-                    self.using_auto.remove(ctx.author.id)
-                    return await ctx.send("Have a great day!\n"
-                                          "**Set your upgrade** if you bought upgrade but not enough money")
-
-                first = False
-
-            except asyncio.TimeoutError:
+        try:
+            await ctx.send("Do you want to update your upgrade first? (y/n)\n"
+                           "**Warning:** Starting from <t:1658728800:D>, you need to update all the upgrade"
+                           " as we updated ~~privacy policy~~ how the command work\n"
+                           "TL;DR: Just say y")
+            state = await get_answer()
+            if state is None:
                 self.using_auto.remove(ctx.author.id)
-                await ctx.send("No interaction in 1 minute. Aborting..")
+                return await ctx.send("Aborting..")
+            if state:
+                is_updating = True
+        except asyncio.TimeoutError:
+            return await ctx.send("No answer in 1 minute. Aborting")
+
+        try:
+            success: bool = False
+            while is_updating:
+                if success:
+                    await ctx.send("**✅ Taco data merged**. Continue do your taco\n"
+                                   "Type 'done' if you're done")
+                else:
+                    await ctx.send(f"Do your taco here ({prefix}up, {prefix}deco or anything)\n"
+                                   f"Type 'done' if you're done")
+                message = await self.bot.wait_for("message", check=valid_taco, timeout=60.0)
+                if message.content.lower() in self.DONE_CLAUSE:
+                    break
+                if len(message.embeds) < 1:
+                    success = False
+                    continue
+                res = await self.read_taco(ctx, message.embeds[-1], location_locked=location)
+                if res is None:
+                    success = False
+                    continue
+
+                # returns upgrade only
+                data_id, placeholder, data_placeholder = res
+
+                taco = {**taco, **placeholder}
+                taco_data = {**taco_data, **data_placeholder}
+                success = True
+
+            m = await ctx.send("Processing data <a:discordloading:792012369168957450>")
+            assert query["_id"] not in taco and query["_id"] not in taco_data
+
+            counts = await self.COLLECTION.count_documents(query)
+            if counts < 1 and len(taco) < 1:
+                self.using_auto.remove(ctx.author.id)
+                return await m.edit(content="No data to recommend")
+            if counts > 0:
+                cursor = await self.COLLECTION.find_one(query)
+                # old one returns upgrade only
+                old_update = cursor["taco"]
+                old_taco_data = dict()
+                if "taco_data" in cursor:
+                    old_taco_data = cursor["taco_data"]
+                    old_taco_data = {key: TacoNode.from_dict(value) for key, value in old_taco_data.items()}
+
+                taco = {**old_update, **taco}
+                taco_data = {**old_taco_data, **taco_data}
+
+            await m.edit(content="Done! Copy and paste text in embed to upgrade\n"
+                                 "**Type 'abort' when you're done**")
+            custom_embed = discord.Embed(color=discord.Colour.random())
+            # loop recommendation until done
+            while True:
+                abort = False
+                if len(taco) < 1:
+                    await ctx.send("No more data to recommend. Aborting")
+                    break
+                t = max(taco, key=taco.get)
+                v = format(taco[t], '.3e')
+                if taco[t] == 0:
+                    await ctx.send(f"Upgrade already maxed. Aborting")
+                    break
+                if t not in taco_data:
+                    await ctx.send(f"**Error!** Please update following upgrade: {t}\n"
+                                   f"Aborting..")
+                    break
+                action = "hire" if t in self.HIRE else "buy"
+
+                custom_embed.description = f"{prefix}{action} {t}"
+                custom_embed.set_footer(text=f"Effectiveness: {v} | 'abort' if you're done")
+                await ctx.send(embed=custom_embed)
+
+                while True:
+                    message = await self.bot.wait_for("message", check=valid_any, timeout=60.0)
+                    if message.content.lower() in self.ABORT_CLAUSE:
+                        abort = True
+                        break
+
+                    if message.content.lower() in {f"{prefix}{action} {t.lower()}",
+                                                   f"{prefix} {action} {t.lower()}"}:
+                        # noinspection PyTypeChecker
+                        selected: TacoNode = taco_data[t]
+                        if selected.level < selected.max_level:
+                            selected.upgrade()
+                            taco = {k: v.value for k, v in taco_data.items()}
+                        break
+
+                if abort:
+                    break
+
+            self.using_auto.remove(ctx.author.id)
+            await self.update_taco({query["_id"]: taco}, {query["_id"]: taco_data})
+            return await ctx.send("Updated your taco data\n"
+                                  "**Set your upgrade** if you bought upgrade but not enough money")
+
+        except asyncio.TimeoutError:
+            self.using_auto.remove(ctx.author.id)
+            await self.update_taco({query["_id"]: taco}, {query["_id"]: taco_data})
+            return await ctx.send("No interaction in 1 minute. Saving data..")
 
     @auto_taco.error
     async def auto_taco_error(self, ctx, error):

@@ -666,7 +666,13 @@ class Miscellaneous(commands.Cog):
         await ctx.send(view=view)
 
     @commands.command(name="spotifysong", aliases=["spts"])
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
     async def spotify_song(self, ctx, *, name):
+        """
+        Search for spotify track
+        """
+
+        message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
         token = await self.get_spotify_token(self.SPOTIFY_TOKEN_URL)
         headers = {
             "Content_Type": "application/json",
@@ -684,17 +690,55 @@ class Miscellaneous(commands.Cog):
             if response.status != 200:
                 return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
             raw = await response.json()
-            custom_embed = discord.Embed(title="Result", color=discord.Colour.random())
-            custom_embed.set_thumbnail(url=raw["tracks"]["items"][0]["album"]["images"][0]["url"])
-            custom_embed.set_footer(text="Want more search result? subscribe to onlyfans")
-            for item in raw["tracks"]["items"]:
-                duration_ms = item["duration_ms"]
-                custom_embed.add_field(name=item["name"],
-                                       value=f"[URL]({item['external_urls']['spotify']})\n"
-                                             f"Artist: {', '.join([a['name'] for a in item['artists']])}\n"
-                                             f"Duration: {duration_ms//60000} m {(duration_ms // 1000) % 60} s\n"
-                                             f"Popularity: {item['popularity']}")
-            await ctx.send(embed=custom_embed)
+        custom_embed = discord.Embed(title="Result", color=discord.Colour.random())
+        custom_embed.set_thumbnail(url=raw["tracks"]["items"][0]["album"]["images"][0]["url"])
+        custom_embed.set_footer(text="Want more search result? subscribe to onlyfans")
+        for item in raw["tracks"]["items"]:
+            duration_ms = item["duration_ms"]
+            custom_embed.add_field(name=item["name"],
+                                   value=f"[URL]({item['external_urls']['spotify']})\n"
+                                         f"Artist: {', '.join([a['name'] for a in item['artists']])}\n"
+                                         f"Duration: {duration_ms//60000} m {(duration_ms // 1000) % 60} s\n"
+                                         f"Popularity: {item['popularity']}",
+                                   inline=False)
+        await message.edit(content=None, embed=custom_embed)
+
+    @commands.command(name="spotifyartist", aliases=["spta"])
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
+    async def spotify_artist(self, ctx, *, name):
+        """
+        Search for spotify artist
+        """
+        message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
+        token = await self.get_spotify_token(self.SPOTIFY_TOKEN_URL)
+        headers = {
+            "Content_Type": "application/json",
+            "Accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        params = {
+            'q': name,
+            "type": "artist",
+            "limit": 3
+        }
+        async with self.bot.session.get(f"{self.SPOTIFY_API_URL}/search",
+                                        params=params,
+                                        headers=headers) as response:
+            if response.status != 200:
+                return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
+            raw = await response.json()
+
+        custom_embed = discord.Embed(title="Result", color=discord.Colour.random())
+        custom_embed.set_thumbnail(url=raw["artists"]["items"][0]["images"][0]["url"])
+        custom_embed.set_footer(text="Want more search result? subscribe to onlyfans")
+
+        for item in raw["artists"]["items"]:
+            custom_embed.add_field(name=item["name"],
+                                   value=f"[URL]({item['external_urls']['spotify']})\n"
+                                         f"Genres: {', '.join(item['genres'])}\n"
+                                         f"Followers: {item['followers']['total']}",
+                                   inline=False)
+        await message.edit(content=None, embed=custom_embed)
 
     @commands.command(aliases=["cur"])
     @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.user)
@@ -736,7 +780,7 @@ class Miscellaneous(commands.Cog):
         await ctx.send(embed=custom_embed)
 
     @commands.command(aliases=["tl"])
-    @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.user)
+    @commands.cooldown(rate=1, per=20.0, type=commands.BucketType.user)
     async def translate(self, ctx: commands.Context, *, text: Annotated[Optional[str], commands.clean_content] = None):
         """
         Translate accrucy 99% same as Google Translate with cost of high risk being blocked :c

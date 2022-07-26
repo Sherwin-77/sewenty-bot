@@ -28,16 +28,12 @@ class General(commands.Cog):
     #         raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
     #     return True
 
-    @commands.command(name='suggest', help='Give a suggestion')
+    @commands.command(name="suggest", help="Give a suggestion")
     async def suggest(self, ctx, *, suggestion):
         blue = 0x00ffff
-        msg = []
-        for x in suggestion:
-            msg.append(x)
         channel = self.bot.get_channel(759728217069191209)
-        messages = ' '.join(msg)
         username = await self.bot.fetch_user(ctx.author.id)
-        custom_embed = discord.Embed(title=f'{username}\'s Suggestion', description=messages, color=blue)
+        custom_embed = discord.Embed(title=f"{username}\'s Suggestion", description=suggestion, color=blue)
         await channel.send(embed=custom_embed)
         await ctx.message.add_reaction('👍')
 
