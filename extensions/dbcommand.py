@@ -186,7 +186,7 @@ class Taco(commands.Cog):
                 cursor = await self.COLLECTION.find_one(query)
                 old_update = cursor["taco"]
                 old_taco_data = dict()
-                if "taco_update" in cursor:
+                if "taco_data" in cursor:
                     old_taco_data = cursor["taco_data"]
                 merged = {**old_update, **taco[k]}
                 data_merged = {**old_taco_data, **converted}
