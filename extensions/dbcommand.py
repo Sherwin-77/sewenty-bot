@@ -96,7 +96,7 @@ class Taco(commands.Cog):
         self.COLLECTION = self.bot.DB["userdata"]
 
         # This may be changed as soon as new location is confirmed
-        self.REGISTERED_LOCATION = {"beach", "city"}
+        self.REGISTERED_LOCATION = {"beach", "city", "mall"}
         self.REGISTERED_ETC = {"Taco Truck Upgrades 🚚": "",
                                "Ice Cream Stand Upgrades 🍦": "beach",
                                "Hotdog Cart Upgrades 🌭": "city"}
@@ -104,9 +104,9 @@ class Taco(commands.Cog):
                                        "beach": "stand",
                                        "city": "cart"}
         self.SHORTCUT_LOCATION = {'s': '', 'b': "beach", "c": "city", "shack": ''}
-        self.HIRE = {"Apprentice", "Cook", "Advertiser", "Greeter", "Sous", "Head", "Executive"}
-        self.ABORT_CLAUSE = {"exit", "quit", "abort", 'q'}
-        self.DONE_CLAUSE = {"done", "end"}
+        self.HIRE = {"Apprentice", "Cook", "Advertiser", "Greeter", "Sous", "Head", "Executive",
+                     "Cashier", "Associate", "Janitor", "Security", "Sales", "Leader", "Manager"}
+        self.STOP_CLAUSE = {"exit", "quit", "abort", 'q', "done", "end"}
         self.taco_set, self.taco_recommend = set(), set()
         self.using_auto = set()
 
@@ -363,17 +363,9 @@ class Taco(commands.Cog):
         self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name="tsgo")
-    async def auto_taco(self, ctx: commands.Context, location: str, prefix: str = '!'):
+    async def auto_taco(self, ctx: commands.Context, location: str):
         """
         Automate your taco upgrade
-
-        Parameters
-        ----------
-        ctx: commands.Context
-        location : str
-            Which location you want to upgrade
-        prefix : str
-            taco prefix used
         """
 
         if ctx.author.id in self.using_auto:
@@ -382,20 +374,14 @@ class Taco(commands.Cog):
         location = location.lower()
         location = location if location in self.REGISTERED_LOCATION else "shack"
         await ctx.send(f"Starting helper in location: **{location}**\n"
-                       f"Prefix: {prefix}\n"
                        f"To exit helper just type 'exit'")
 
         def valid_answer(msg) -> bool:
             expected_answer = {'y', 'n', "yes", "no"}
-            expected_answer |= self.ABORT_CLAUSE
+            expected_answer |= self.STOP_CLAUSE
             if msg.channel.id != ctx.channel.id or msg.author.id != ctx.author.id:
                 return False
             if msg.content.lower() not in expected_answer:
-                return False
-            return True
-
-        def valid_any(msg) -> bool:
-            if msg.channel.id != ctx.channel.id or msg.author.id != ctx.author.id:
                 return False
             return True
 
@@ -403,12 +389,13 @@ class Taco(commands.Cog):
             if(
                     msg.channel.id == ctx.channel.id and
                     msg.author.id == ctx.author.id and
-                    msg.content.lower() in self.DONE_CLAUSE
+                    (msg.content.lower() in self.STOP_CLAUSE or msg.content.lower() in self.STOP_CLAUSE)
             ):
                 return True
 
-            if msg.channel.id != ctx.channel.id or msg.author.id != 490707751832649738:
+            if msg.channel.id != ctx.channel.id or msg.author.id not in {490707751832649738, ctx.author.id}:
                 return False
+
             if len(msg.embeds) < 1:
                 return False
             return True
@@ -420,39 +407,11 @@ class Taco(commands.Cog):
             temp = False
             while not temp:
                 temp = await self.bot.wait_for("message", check=valid_answer, timeout=60.0)
-            if temp.content.lower() in self.ABORT_CLAUSE:
+            if temp.content.lower() in self.STOP_CLAUSE:
                 return None
             if temp.content.lower() in {'y', "yes"}:
                 return True
             return False
-
-        async def get_any() -> discord.Message:
-            temp = False
-            while not temp:
-                temp = await self.bot.wait_for("message", check=valid_any, timeout=60.0)
-            return temp
-
-        if prefix == '!':
-            try:
-                await ctx.send("Warning! You are using default taco shack prefix '!'\n"
-                               "Are you sure? (y/n)")
-                state = await get_answer()
-                if state is None:
-                    self.using_auto.remove(ctx.author.id)
-                    return await ctx.send("Aborting..")
-                while not state:
-                    await ctx.send("Input your new prefix: ")
-                    message = await get_any()
-                    prefix = message.content
-                    await ctx.send(f"Your prefix is: {prefix}\n"
-                                   f"Confirm? (y/n)")
-                    state = await get_answer()
-                    if state is None:
-                        self.using_auto.remove(ctx.author.id)
-                        return await ctx.send("Aborting..")
-            except asyncio.TimeoutError:
-                self.using_auto.remove(ctx.author.id)
-                return await ctx.send("User not answering in 1 minute. Aborting..")
 
         is_updating = False
         taco = {}
@@ -479,15 +438,15 @@ class Taco(commands.Cog):
                     await ctx.send("**✅ Taco data merged**. Continue do your taco\n"
                                    "Type 'done' if you're done")
                 else:
-                    await ctx.send(f"Do your taco here ({prefix}up, {prefix}deco or anything)\n"
-                                   f"Type 'done' if you're done")
+                    await ctx.send("Do your taco here /upgrades, /decorations or anything)\n"
+                                   "Type 'done' if you're done")
                 message = await self.bot.wait_for("message", check=valid_taco, timeout=60.0)
-                if message.content.lower() in self.DONE_CLAUSE:
+                if message.content.lower() in self.STOP_CLAUSE:
                     break
                 if len(message.embeds) < 1:
                     success = False
                     continue
-                res = await self.read_taco(ctx, message.embeds[-1], location_locked=location)
+                res = await self.read_taco(ctx, message.embeds[0], location_locked=location)
                 if res is None:
                     success = False
                     continue
@@ -518,7 +477,7 @@ class Taco(commands.Cog):
                 taco = {**old_update, **taco}
                 taco_data = {**old_taco_data, **taco_data}
 
-            await m.edit(content="Done! Copy and paste text in embed to upgrade\n"
+            await m.edit(content="Done! Follow the upgrade below\n"
                                  "**Type 'abort' when you're done**")
             custom_embed = discord.Embed(color=discord.Colour.random())
             # loop recommendation until done
@@ -538,24 +497,40 @@ class Taco(commands.Cog):
                     break
                 action = "hire" if t in self.HIRE else "buy"
 
-                custom_embed.description = f"{prefix}{action} {t}"
+                custom_embed.description = f"/{action} {t}"
                 custom_embed.set_footer(text=f"Effectiveness: {v} | 'abort' if you're done")
                 await ctx.send(embed=custom_embed)
 
                 while True:
-                    message = await self.bot.wait_for("message", check=valid_any, timeout=60.0)
-                    if message.content.lower() in self.ABORT_CLAUSE:
+                    message: discord.Message = await self.bot.wait_for("message", check=valid_taco, timeout=90.0)
+                    if message.content.lower() in self.STOP_CLAUSE:
                         abort = True
                         break
 
-                    if message.content.lower() in {f"{prefix}{action} {t.lower()}",
-                                                   f"{prefix} {action} {t.lower()}"}:
-                        # noinspection PyTypeChecker
-                        selected: TacoNode = taco_data[t]
-                        if selected.level < selected.max_level:
-                            selected.upgrade()
-                            taco = {k: v.value for k, v in taco_data.items()}
-                        break
+                    # check interaction origin
+                    if message.interaction is None and t.lower() in message.embeds[0].description.lower():
+                        await ctx.send("Looks like this isn't from slash command. We will accept this nevertheless")
+                    elif message.interaction is None:
+                        continue
+                    if message.interaction is not None:
+                        interaction = message.interaction
+                        if interaction.user.id != ctx.author.id or interaction.name not in {"buy", "hire"}:
+                            continue
+                        if interaction.name == "hire" and "you have hired" not in message.embeds[0].description.lower():
+                            continue
+                        if "don't have enough money!" in message.embeds[0].description:
+                            await ctx.send("Looks like you don't have enough money. Aborting...")
+                            abort = True
+                            break
+                        if t.lower() not in message.embeds[0].description.lower():
+                            await ctx.send("You bought wrong upgrade. It won't be detected until you update with s!ts")
+                            continue
+                    # noinspection PyTypeChecker
+                    selected: TacoNode = taco_data[t]
+                    if selected.level < selected.max_level:
+                        selected.upgrade()
+                        taco = {k: v.value for k, v in taco_data.items()}
+                    break
 
                 if abort:
                     break

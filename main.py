@@ -15,11 +15,13 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 import motor.motor_asyncio
+import psutil
 
 USE_PSQL = False
 if USE_PSQL:
     import asyncpg
 
+__version__ = "2.0.0a"
 
 load_dotenv()  # in case we use .env in future
 
@@ -50,6 +52,7 @@ def _prefix_callable(bot_, _):
 
 # noinspection SpellCheckingInspection
 class SewentyBot(commands.Bot):
+    # TODO: Implement psql
 
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train",
                             "kingdom collect", "kingdom attack"}
@@ -295,10 +298,14 @@ def main():
         is_owner = await ctx.bot.is_owner(ctx.author)
         if is_owner:
             await ctx.send(f"Hello {ctx.author.mention}", delete_after=5)
+        virtual_memory = psutil.virtual_memory()
         custom_embed = discord.Embed(title='Bot Stats',
                                      description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
                                                  f"Total Servers: {count_guild}\n"
-                                                 f"Bot Ver: 1.3 Beta\n"
+                                                 f"Bot Ver: {__version__}\n"
+                                                 f"CPU usage: {round(psutil.cpu_percent(1) * 10, 2)}%\n"
+                                                 f"Virtual memory: {virtual_memory.used >> 20} MB used of"
+                                                 f"{virtual_memory.total >> 20} MB total\n"
                                                  f"Ping: "
                                                  f"{round(bot.latency * 1000)} ms",
                                      color=discord.Colour.random())
@@ -512,7 +519,11 @@ def main():
         if isinstance(error, commands.errors.CommandOnCooldown):
             return await ctx.reply(f"{error} <:angeryV2:810860324248616960>",
                                    mention_author=False, delete_after=error.retry_after)
-        if isinstance(error, commands.errors.NotOwner) or isinstance(error, discord.errors.Forbidden):
+        if (
+                isinstance(error, commands.errors.NotOwner)
+                or isinstance(error, discord.errors.Forbidden)
+                or isinstance(error, commands.errors.BadArgument)
+        ):
             return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):
             return await ctx.reply("User not found", mention_author=False)

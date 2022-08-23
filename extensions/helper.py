@@ -14,8 +14,6 @@ from constants import OWO_WEAPONS, Colour
 if TYPE_CHECKING:
     from main import SewentyBot
 
-# TODO: Fix this unreadable code
-
 
 def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, stat3: float) -> discord.Embed:
     certified_detail = [
