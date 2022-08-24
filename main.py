@@ -108,6 +108,7 @@ class SewentyBot(commands.Bot):
         self.session = None
         self.DB = None
         self.CP_DB = None
+        self.LXV_DB = None
         self.GAME_COLLECTION = None
         self.cached_soldier_data = []
         self.allowed_track_channel = dict()
@@ -116,11 +117,13 @@ class SewentyBot(commands.Bot):
         self.session = aiohttp.ClientSession()
 
         cluster = motor.motor_asyncio.AsyncIOMotorClient(self.MANGO_URL)
+        cluster1 = motor.motor_asyncio.AsyncIOMotorClient(self.CP_URL)
         app = await self.application_info()
 
         self.owner = app.owner
         self.DB = cluster["Data"]
-        self.CP_DB = motor.motor_asyncio.AsyncIOMotorClient(self.CP_URL)["Hakibot"]
+        self.CP_DB = cluster1["Hakibot"]
+        self.LXV_DB = cluster1["lxv"]
         self.GAME_COLLECTION = cluster["game"]["data"]
 
         for file in glob(r"extensions/*.py"):
@@ -303,8 +306,8 @@ def main():
                                      description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
                                                  f"Total Servers: {count_guild}\n"
                                                  f"Bot Ver: {__version__}\n"
-                                                 f"CPU usage: {round(psutil.cpu_percent(1) * 10, 2)}%\n"
-                                                 f"Virtual memory: {virtual_memory.used >> 20} MB used of"
+                                                 f"CPU usage: {psutil.cpu_percent(1)}%\n"
+                                                 f"Virtual memory: {virtual_memory.used >> 20} MB used of "
                                                  f"{virtual_memory.total >> 20} MB total\n"
                                                  f"Ping: "
                                                  f"{round(bot.latency * 1000)} ms",

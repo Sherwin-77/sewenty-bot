@@ -385,19 +385,23 @@ class Taco(commands.Cog):
                 return False
             return True
 
-        def valid_taco(msg) -> bool:
+        def valid_taco(msg: discord.Message) -> bool:
             if(
                     msg.channel.id == ctx.channel.id and
                     msg.author.id == ctx.author.id and
-                    (msg.content.lower() in self.STOP_CLAUSE or msg.content.lower() in self.STOP_CLAUSE)
+                    msg.content.lower() in self.STOP_CLAUSE
             ):
                 return True
 
-            if msg.channel.id != ctx.channel.id or msg.author.id not in {490707751832649738, ctx.author.id}:
+            if msg.channel.id != ctx.channel.id or msg.author.id != 490707751832649738:
                 return False
+
+            if len(msg.embeds) < 1 and msg.interaction is not None and msg.interaction.user.id == ctx.author.id:
+                return True
 
             if len(msg.embeds) < 1:
                 return False
+
             return True
 
         async def get_answer() -> Optional[bool]:
@@ -443,6 +447,7 @@ class Taco(commands.Cog):
                 message = await self.bot.wait_for("message", check=valid_taco, timeout=60.0)
                 if message.content.lower() in self.STOP_CLAUSE:
                     break
+                await asyncio.sleep(0.5)
                 if len(message.embeds) < 1:
                     success = False
                     continue
@@ -506,6 +511,10 @@ class Taco(commands.Cog):
                     if message.content.lower() in self.STOP_CLAUSE:
                         abort = True
                         break
+                    await asyncio.sleep(1)
+                    if len(message.embeds) < 1:
+                        await ctx.send("No embed", delete_after=3)
+                        continue
 
                     # check interaction origin
                     if message.interaction is None and t.lower() in message.embeds[0].description.lower():
@@ -515,10 +524,11 @@ class Taco(commands.Cog):
                     if message.interaction is not None:
                         interaction = message.interaction
                         if interaction.user.id != ctx.author.id or interaction.name not in {"buy", "hire"}:
+                            print("Not buy")
                             continue
                         if interaction.name == "hire" and "you have hired" not in message.embeds[0].description.lower():
                             continue
-                        if "don't have enough money!" in message.embeds[0].description:
+                        if "don't have enough money!" in message.embeds[0].description.lower():
                             await ctx.send("Looks like you don't have enough money. Aborting...")
                             abort = True
                             break
@@ -570,38 +580,47 @@ class OwO(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
 
-    @commands.command(name='owostat', help='show your owo stat (by hakibot)',
-                      aliases=['owostats', 'statowo', ' statsowo'])
-    async def statowo(self, ctx, users: discord.User = None):
+    @commands.command(aliases=["owostats", "statowo", " statsowo", "ostat"])
+    async def owostat(self, ctx, users: discord.User = None):
+        """
+        Show owo stat (with *very new* haki db)
+        """
         if not users:
             users = ctx.author
-        yellow = 0xfff00
-        col = self.bot.CP_DB["owo-count"]
-        query = {'user': users.id, 'guild': ctx.guild.id}
-        if col.count_documents(query) == 0:
-            await ctx.send('User doesnt have any owostat in this guild')
-        result = await col.find_one(query)
-        owo_count = result['owoCount']
-        daily_count = result['dailyCount']
-        yesterday_count = result['yesterdayCount']
-        weekly_count = result['weeklyCount']
-        last_week_count = result['lastWeekCount']
-        monthly_count = result['monthlyCount']
-        last_month_count = result['lastMonthCount']
-        yearly_count = result['yearlyCount']
-        last_year_count = result['lastYearCount']
-        custom_embed = discord.Embed(title=f'{users.name}\'s owostat',
-                                     description=f'Total: {owo_count}', color=yellow)
-        custom_embed.add_field(name='Current stat',
-                               value=f'Today: {daily_count}\n'
-                               f'This week: {weekly_count}\n'
-                               f'This month: {monthly_count}\n'
-                               f'This year: {yearly_count}', inline=False)
-        custom_embed.add_field(name='Past stat',
-                               value=f'Yesterday: {yesterday_count}\n'
-                               f'Last week: {last_week_count}\n'
-                               f'Last month: {last_month_count}\n'
-                               f'Last year: {last_year_count}')
+        col = self.bot.LXV_DB["owo-stats"]
+        query =  {"$match": {"$and": [{"_id.user": ctx.author.id}, {"_id.dayId": {"$gte": 0}}]}}
+        date_before = datetime(2000, 1, 1).replace(hour=0,
+                                                   minute=0,
+                                                   second=0,
+                                                   microsecond=0,
+                                                   tzinfo=pytz.timezone("US/Pacific"))
+        date_now = datetime.now(dt.timezone.utc).astimezone(pytz.timezone("US/Pacific")).replace(hour=0,
+                                                                                                 minute=0,
+                                                                                                 second=0,
+                                                                                                 microsecond=0)
+        date_id = (date_now-date_before).days
+        result = col.aggregate([query])
+        total = 0
+        first = -1
+        last = 0
+        yesterday = 0
+        today = 0
+        async for i in result:
+            if first < 0:
+                first = i["owoCount"]
+            if i["_id"]["dayId"] == date_id-1:
+                yesterday = i["owoCount"]
+            if i["_id"]["dayId"] == date_id:
+                today = i["owoCount"]
+            last = i["owoCount"]
+            total += i["owoCount"]
+
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.add_field(name="What is stat",
+                               value=f"Today: {today}\n"
+                                     f"Yesterday: {yesterday}\n"
+                                     f"First day: {first}\n"
+                                     f"Last day: {last}")
         custom_embed.set_author(name=users.name, icon_url=users.avatar)
         await ctx.send(embed=custom_embed)
 
