@@ -74,7 +74,7 @@ class TacoNode:
 
     def upgrade(self):
         """
-        Set the cost to next level and return the effectiveness
+        Simulate upgrade on taco, updating level and cost
         """
         if self.level >= self.max_level:
             raise ValueError("Maxed level")
@@ -99,11 +99,9 @@ class Taco(commands.Cog):
         self.REGISTERED_LOCATION = {"beach", "city", "mall"}
         self.REGISTERED_ETC = {"Taco Truck Upgrades 🚚": "",
                                "Ice Cream Stand Upgrades 🍦": "beach",
-                               "Hotdog Cart Upgrades 🌭": "city"}
-        self.REGISTERED_ETC_COMMAND = {"shack": "truck",
-                                       "beach": "stand",
-                                       "city": "cart"}
-        self.SHORTCUT_LOCATION = {'s': '', 'b': "beach", "c": "city", "shack": ''}
+                               "Hotdog Cart Upgrades 🌭": "city",
+                               "Mall Kiosk Upgrades 🛒": "mall"}
+        self.SHORTCUT_LOCATION = {'s': '', 'b': "beach", "c": "city", "shack": '', 'm': "mall"}
         self.HIRE = {"Apprentice", "Cook", "Advertiser", "Greeter", "Sous", "Head", "Executive",
                      "Cashier", "Associate", "Janitor", "Security", "Sales", "Leader", "Manager"}
         self.STOP_CLAUSE = {"exit", "quit", "abort", 'q', "done", "end"}
@@ -252,36 +250,78 @@ class Taco(commands.Cog):
         self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name='tsrecommend', aliases=['tr'])
-    async def find_taco(self, ctx, limit: int = 3, location: str = ""):
+    async def recommend_taco(self, ctx,  location: str = "", auto_reduce=False):
         """
         Recommend upgrade. For specific location e.g. beach:
-        s!tsrecommend 3 beach
+        s!tsrecommend beach
         """
+
         location = location.lower()
         location = location if location not in self.SHORTCUT_LOCATION else self.SHORTCUT_LOCATION[location]
         if location not in self.REGISTERED_LOCATION and location:
             return await ctx.send("You input scary location to me <:blobsob:809721186966831105>", delete_after=5)
-        if limit > 10:
-            return await ctx.send("Why booli me <:blobsob:809721186966831105> (max 10)", delete_after=5)
         if str(ctx.author.id) in self.taco_recommend:
             return await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=4)
-        query = {"_id": f'{ctx.author.id}taco{location}'}
+
+        def valid_number(msg: discord.Message) -> bool:
+            if msg.channel.id != ctx.channel.id or msg.author.id != ctx.author.id:
+                return False
+            if not msg.content.isdecimal():
+                return False
+            if int(msg.content) < 1:
+                return False
+            return True
+
+        query = {"_id": f"{ctx.author.id}taco{location}"}
         counts = await self.COLLECTION.count_documents(query)
         if counts == 0:
-            await ctx.reply("Give taco stat when <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
-        else:
-            taco = await self.COLLECTION.find_one(query)
-            taco = taco["taco"]
-            custom_embed = discord.Embed(title="Taco upgrade recommendation",
-                                         description=f"Recommendation shows up to {limit}",
-                                         color=discord.Colour.random())
-            for n in range(1, limit + 1):
-                t = max(taco, key=taco.get)
-                v = format(taco[t], '.3e')
-                taco.pop(t)
-                custom_embed.add_field(name=f"Recommendation {n}", value=f"{t}\n(Value = {v})")
-            custom_embed.set_author(name=f"{ctx.author.name}\'s Taco", icon_url=ctx.author.avatar)
-            await ctx.send(embed=custom_embed)
+            return await ctx.reply("Give taco stat when <:PaulOwO:721154434297757727>",
+                                   mention_author=False,
+                                   delete_after=5)
+        cursor = await self.COLLECTION.find_one(query)
+        if "taco_data" not in cursor:
+            return await ctx.send("New taco data needed. Please update it")
+
+        taco_data = cursor["taco_data"]
+        taco_data = {key: TacoNode.from_dict(value) for key, value in taco_data.items()}
+        taco = cursor["taco"]
+        await ctx.send(f"Input your budget for location **{location}**. INFO: auto_reduce set to {auto_reduce}\n"
+                       f"auto_reduce decide whether your recommendation will be saved in database or not")
+        try:
+            budget = await self.bot.wait_for("message", check=valid_number, timeout=60.0)
+        except asyncio.TimeoutError:
+            return await ctx.send("No response in 1 minute. Aborting")
+
+        budget = int(budget.content)
+        bought = {}
+        cost = 0
+        while cost <= budget:
+            t = max(taco, key=taco.get)
+            if taco[t] == 0:
+                await ctx.send("Upgrade maxed")
+                break
+            if t not in taco_data:
+                return await ctx.send(f"**Error!** Please update the following upgrade: {t}")
+            selected: TacoNode = taco_data[t]
+            if cost + selected.cost > budget:
+                break
+
+            cost += selected.cost
+            selected.upgrade()
+            taco = {k: v.value for k, v in taco_data.items()}
+            if t not in bought:
+                bought.update({t: 1})
+            else:
+                bought[t] += 1
+
+        custom_embed = discord.Embed(description="", color=discord.Colour.random())
+        for k, v in bought.items():
+            action = "hire" if k in self.HIRE else "buy"
+            custom_embed.description += f"{action} {k} ({v} times)\n"
+        custom_embed.set_footer(text=f"Used {int(cost)} total of {budget} budget")
+        if auto_reduce:
+            await self.update_taco({query: taco}, {query: taco_data})
+        await ctx.send(embed=custom_embed)
         self.taco_recommend.add(str(ctx.author.id))
         await asyncio.sleep(4)
         self.taco_recommend.remove(str(ctx.author.id))
@@ -502,7 +542,7 @@ class Taco(commands.Cog):
                     break
                 action = "hire" if t in self.HIRE else "buy"
 
-                custom_embed.description = f"/{action} {t}"
+                custom_embed.description = f"/{action} id: {t.lower()}"
                 custom_embed.set_footer(text=f"Effectiveness: {v} | 'abort' if you're done")
                 await ctx.send(embed=custom_embed)
 
@@ -524,9 +564,10 @@ class Taco(commands.Cog):
                     if message.interaction is not None:
                         interaction = message.interaction
                         if interaction.user.id != ctx.author.id or interaction.name not in {"buy", "hire"}:
-                            print("Not buy")
                             continue
                         if interaction.name == "hire" and "you have hired" not in message.embeds[0].description.lower():
+                            continue
+                        if '❌' in message.embeds[0].description.lower():
                             continue
                         if "don't have enough money!" in message.embeds[0].description.lower():
                             await ctx.send("Looks like you don't have enough money. Aborting...")
@@ -594,109 +635,56 @@ class OwO(commands.Cog):
                                                    second=0,
                                                    microsecond=0,
                                                    tzinfo=pytz.timezone("US/Pacific"))
-        date_now = datetime.now(dt.timezone.utc).astimezone(pytz.timezone("US/Pacific")).replace(hour=0,
-                                                                                                 minute=0,
-                                                                                                 second=0,
-                                                                                                 microsecond=0)
+        date_now = datetime.now(dt.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
         date_id = (date_now-date_before).days
         result = col.aggregate([query])
         total = 0
         first = -1
         last = 0
+        last_year, this_year, last_month, this_month, last_week, this_week = 0, 0, 0, 0, 0, 0
         yesterday = 0
         today = 0
         async for i in result:
+            day_id = i["_id"]["dayId"]
+            owo_count = i["owoCount"]
             if first < 0:
-                first = i["owoCount"]
-            if i["_id"]["dayId"] == date_id-1:
-                yesterday = i["owoCount"]
-            if i["_id"]["dayId"] == date_id:
-                today = i["owoCount"]
-            last = i["owoCount"]
-            total += i["owoCount"]
+                first = owo_count
+            if day_id == date_id-1:
+                yesterday = owo_count
+            if day_id == date_id:
+                today = owo_count
+            if date_id - (365 * 2) <= day_id <= date_id - 365:
+                last_year += owo_count
+            if day_id > date_id - 365:
+                this_year += owo_count
+            if date_id - (30 * 2) <= day_id <= date_id - 30:
+                last_month += owo_count
+            if day_id > date_id - 30:
+                this_month += owo_count
+            if date_id - (7 * 2) <= day_id <= date_id - 7:
+                last_week += owo_count
+            if day_id > date_id - 7:
+                this_week += owo_count
+            last = owo_count
+            total += owo_count
 
         custom_embed = discord.Embed(color=discord.Colour.random())
         custom_embed.add_field(name="What is stat",
-                               value=f"Today: {today}\n"
+                               value=f"Total: {total}\n"
+                                     f"Today: {today}\n"
                                      f"Yesterday: {yesterday}\n"
                                      f"First day: {first}\n"
-                                     f"Last day: {last}")
+                                     f"Last day: {last}",
+                               inline=False)
+        custom_embed.add_field(name="Not so accurate stat",
+                               value=f"This week: {this_week}\n"
+                                     f"This month: {this_month}\n"
+                                     f"This year: {this_year}\n"
+                                     f"Last week: {last_week}\n"
+                                     f"Last month: {last_month}\n"
+                                     f"Last year: {last_year}\n")
         custom_embed.set_author(name=users.name, icon_url=users.avatar)
         await ctx.send(embed=custom_embed)
-
-    @commands.command(aliases=["ldb", "top", "owotop"])
-    async def leaderboard(self, ctx, *option):
-        """
-        OwO leaderboard using haki db
-        """
-        find_by = None
-        limit = 5
-        date_now = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=pytz.utc).astimezone(
-            pytz.timezone('US/Pacific')).replace(hour=0, minute=0, second=0, microsecond=0)
-        matching = {'lastyear': 'lastYearCount',
-                    'ly': 'lastYearCount',
-                    'lastmonth': 'lastMonthCount',
-                    'lm': 'lastMonthCount',
-                    'lastweek': 'lastWeekCount',
-                    'lw': 'lastWeekCount',
-                    'y': 'yesterdayCount',
-                    'yesterday': 'yesterdayCount',
-                    'year': 'yearlyCount',
-                    'month': 'monthlyCount',
-                    'm': 'monthlyCount',
-                    'week': 'weeklyCount',
-                    'w': 'weeklyCount',
-                    'today': 'dailyCount',
-                    't': 'dailyCount'}
-        if option:
-            for x in option:
-                if x.lower() in matching and not find_by:
-                    find_by = matching[x.lower()]
-                elif x.isdigit():
-                    if int(x) > 25:
-                        await ctx.send('Give valid number when', delete_after=5)
-                        return
-                    else:
-                        limit = int(x)
-                else:
-                    await ctx.send('What are you trying to do?', delete_after=5)
-                    return
-            if not find_by:
-                find_by = 'owoCount'
-        else:
-            find_by = 'owoCount'
-            limit = 5
-
-        if find_by == 'dailyCount':
-            epoch = datetime.timestamp(date_now) * 1000
-        elif find_by == 'weeklyCount':
-            epoch = datetime.timestamp(date_now - dt.timedelta(days=(date_now.weekday() + 1) % 7)) * 1000
-        elif find_by == 'monthlyCount':
-            epoch = datetime.timestamp(date_now.replace(day=1)) * 1000
-        elif find_by == 'yearlyCount':
-            epoch = datetime.timestamp(date_now.replace(month=1, day=1)) * 1000
-        elif find_by == 'yesterdayCount':
-            epoch = datetime.timestamp(date_now - dt.timedelta(days=1)) * 1000
-        elif find_by == 'lastWeekCount':
-            epoch = datetime.timestamp(date_now - dt.timedelta(days=((date_now.weekday() + 1) % 7) + 7)) * 1000
-        elif find_by == 'lastMonthCount':
-            epoch = datetime.timestamp((date_now.replace(day=1) - dt.timedelta(days=1)).replace(day=1)) * 1000
-        elif find_by == 'lastYearCount':
-            epoch = datetime.timestamp((date_now.replace(month=1, day=1) - dt.timedelta(days=1)).replace(day=1)) * 1000
-        else:
-            epoch = 0
-
-        leaderboard = self.bot.CP_DB['owo-count'].aggregate(
-            [{'$match': {'$and': [{'guild': ctx.guild.id}, {'lastOWO': {'$gte': epoch}}]}},
-             {'$project': {'_id': 0, 'user': 1, find_by: 1}},
-             {'$sort': {find_by: -1}}, {'$limit': limit}])
-        leaderboard_embed = discord.Embed(title='Leaderboard', color=discord.Colour.random())
-        order = 0
-        async for line in leaderboard:
-            order += 1
-            user = await self.bot.fetch_user(line['user'])
-            leaderboard_embed.add_field(name=f'[{order}]: {user.name}', value=f'{line[find_by]} OwOs', inline=False)
-        await ctx.send(embed=leaderboard_embed)
 
     @commands.command(name='cp', help='Wanna search for cp?')
     async def cp_dex(self, ctx, name):
