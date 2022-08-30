@@ -18,7 +18,7 @@ import os
 import random
 from typing import TYPE_CHECKING, Optional, Union, List, Annotated
 
-from constants import USER_AGENTS, JFX_WEBSITES
+from constants import USER_AGENTS
 from utils.view_util import Dropdown
 
 if TYPE_CHECKING:
@@ -739,45 +739,6 @@ class Miscellaneous(commands.Cog):
                                          f"Followers: {item['followers']['total']}",
                                    inline=False)
         await message.edit(content=None, embed=custom_embed)
-
-    @commands.command(aliases=["cur"])
-    @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.user)
-    async def currency(self, ctx):
-        """
-        Just currency
-        """
-        params = {'s': "LGD EURUSD GBPUSD AUDUSD CHF JPY RP"}
-        dictionary = {"LGD": "Loco London Gold",
-                      "CHF": "Franc Swiss",
-                      "JPY": "Japan Yen",
-                      "RP": "Indonesian Rupiah"}
-        website = random.choice(JFX_WEBSITES)
-        async with self.bot.session.get(f"https://{website}/modules/mod_myAjaxMarketQuotes/MAQ.Lib.php",
-                                        params=params, headers=self.magic_header) as response:
-            data = await response.text()
-            if not data.startswith('[') or not data.endswith(']'):
-                logger.error("Unexpected result for requesting host. Probably get blocked?")
-                logger.info("Unexpected fetch result: %s", data)
-                return await ctx.reply("Looks like it doesnt return expected result", mention_author=False)
-            data = literal_eval(await response.text())
-        if data[0]["count"] <= 0:
-            return await ctx.reply("No data to show", mention_author=False)
-        custom_embed = discord.Embed(color=discord.Colour.random())
-        custom_embed.set_footer(text="All value in USD")
-        for section in data[1:]:
-            name = section["symbol"]
-            emoji = '⬆'
-            if name in dictionary:
-                name = dictionary[name]
-            if section["valueChange"] < 0:
-                emoji = '⬇'
-            custom_embed.add_field(name=name,
-                                   value=f"**Last value:** {section['last']} {emoji}\n"
-                                         f"Buy: {section['bid']} **|** Sell: {section['ask']}\n"
-                                         f"High: {section['high']} **|** Low: {section['low']}\n"
-                                         f"Value change: {section['valueChange']} **({section['percentChange']}%)**",
-                                   inline=False)
-        await ctx.send(embed=custom_embed)
 
     @commands.command(aliases=["tl"])
     @commands.cooldown(rate=1, per=20.0, type=commands.BucketType.user)

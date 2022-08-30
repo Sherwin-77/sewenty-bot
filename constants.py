@@ -25,14 +25,6 @@ USER_AGENTS = (
 )
 
 # noinspection SpellCheckingInspection
-JFX_WEBSITES = (
-    "www.equityworld-futures.com",
-    "www.bestprofit-futures.co.id",
-    "www.rf-berjangka.com",
-    "www.kp-futures.com"
-)
-
-# noinspection SpellCheckingInspection
 CHAR_LIST = [':man_walking:', ':woman_walking:', ':person_running:', ':woman_running:', ':sloth:',
              ':cat2:', ':dog2:', ':unicorn:', ':snail:', '<:snale:770847330600484864>', ':t_rex:',
              '<:EB_nekocute:780408575784255538>', ':wolf:', "<:MoriOwO:832762779450081312>",

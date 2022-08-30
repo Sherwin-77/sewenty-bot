@@ -406,7 +406,7 @@ class SlashCommandGame(app_commands.Group, name="game"):
 
         game = MineBoard()
         await interaction.response.send_message("Game started", view=game)
-        game.message = await interaction.original_message()
+        game.message = await interaction.original_response()
         game.player = interaction.user
         running_game.add(str(interaction.user.id))
 

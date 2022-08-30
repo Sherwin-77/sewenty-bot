@@ -249,11 +249,11 @@ class Taco(commands.Cog):
         await asyncio.sleep(2)
         self.taco_set.remove(str(ctx.author.id))
 
-    @commands.command(name='tsrecommend', aliases=['tr'])
-    async def recommend_taco(self, ctx,  location: str = "", auto_reduce=False):
+    @commands.command(name='tacorecommend', aliases=['tr'])
+    async def recommend_taco(self, ctx,  location: str = "", auto_update=False):
         """
         Recommend upgrade. For specific location e.g. beach:
-        s!tsrecommend beach
+        s!tacorecommend beach
         """
 
         location = location.lower()
@@ -285,8 +285,8 @@ class Taco(commands.Cog):
         taco_data = cursor["taco_data"]
         taco_data = {key: TacoNode.from_dict(value) for key, value in taco_data.items()}
         taco = cursor["taco"]
-        await ctx.send(f"Input your budget for location **{location}**. INFO: auto_reduce set to {auto_reduce}\n"
-                       f"auto_reduce decide whether your recommendation will be saved in database or not")
+        await ctx.send(f"Input your budget for location **{location}**. INFO: auto_update set to {auto_update}\n"
+                       f"auto_update decide whether your recommendation will be saved in database or not")
         try:
             budget = await self.bot.wait_for("message", check=valid_number, timeout=60.0)
         except asyncio.TimeoutError:
@@ -315,11 +315,12 @@ class Taco(commands.Cog):
                 bought[t] += 1
 
         custom_embed = discord.Embed(description="", color=discord.Colour.random())
-        for k, v in bought.items():
+        for k in sorted(bought):
+            v = bought[k]
             action = "hire" if k in self.HIRE else "buy"
             custom_embed.description += f"{action} {k} ({v} times)\n"
         custom_embed.set_footer(text=f"Used {int(cost)} total of {budget} budget")
-        if auto_reduce:
+        if auto_update:
             await self.update_taco({query: taco}, {query: taco_data})
         await ctx.send(embed=custom_embed)
         self.taco_recommend.add(str(ctx.author.id))
