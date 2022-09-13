@@ -7,7 +7,7 @@ from os import getenv
 from os.path import relpath
 import random
 from traceback import format_exception
-from typing import Optional
+from typing import Optional, Union
 
 import aiohttp
 import discord
@@ -16,12 +16,13 @@ from discord.ext import commands
 from dotenv import load_dotenv
 import motor.motor_asyncio
 import psutil
+from psutil._common import bytes2human
 
 USE_PSQL = False
 if USE_PSQL:
     import asyncpg
 
-__version__ = "2.0.0a"
+__version__ = "2.0.1"
 
 load_dotenv()  # in case we use .env in future
 
@@ -302,42 +303,50 @@ def main():
         if is_owner:
             await ctx.send(f"Hello {ctx.author.mention}", delete_after=5)
         virtual_memory = psutil.virtual_memory()
+        memory_detail = []
+        for name in virtual_memory._fields:
+            value = getattr(virtual_memory, name)
+            if name != "percent":
+                value = bytes2human(value)
+            else:
+                value = f"{value} %"
+            memory_detail.append(f"{name.capitalize()}: {value}")
+
         custom_embed = discord.Embed(title='Bot Stats',
                                      description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
                                                  f"Total Servers: {count_guild}\n"
                                                  f"Bot Ver: {__version__}\n"
                                                  f"CPU usage: {psutil.cpu_percent(1)}%\n"
-                                                 f"Virtual memory: {virtual_memory.used >> 20} MB used of "
-                                                 f"{virtual_memory.total >> 20} MB total\n"
                                                  f"Ping: "
                                                  f"{round(bot.latency * 1000)} ms",
                                      color=discord.Colour.random())
+        custom_embed.add_field(name="Memory", value='\n'.join(memory_detail))
         await ctx.send(embed=custom_embed)
 
     # Note that channel id in dict always str
     @bot.command(name="allowchannel", hidden=True)
     @commands.is_owner()
-    async def allow_channel(ctx, to_grant: discord.TextChannel, boss_mode=False):
+    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False):
         """
         Allow tracking anigame rng
         Work for owner only
         """
         collection = bot.DB["userdata"]
-        channel_id = str(to_grant.id)
+        if isinstance(channel_id, discord.TextChannel):
+            channel_id = channel_id.id
+        channel_id = str(channel_id)
         form = {"_id": "allowed_channel"}
-        result = collection.find_one(form)
+        result = await collection.find_one(form)
         if not result:
             result = {channel_id: boss_mode}
-            collection.insert_one(form, {"$set": {"channel_list": result}})
-            await ctx.send("No channel list detected, creating one..")
-            return
+            await collection.insert_one(form, {"$set": {"channel_list": result}})
+            return await ctx.send("No channel list detected, creating one..")
         new = result["channel_list"]
         if channel_id in new:
             new.pop(channel_id)
             bot.allowed_track_channel.pop(channel_id)
             collection.update_one(form, {"$set": {"channel_list": new}})
-            await ctx.send("Disabled!")
-            return
+            return await ctx.send("Disabled!")
         new.update({channel_id: boss_mode})
         bot.allowed_track_channel.update({channel_id: boss_mode})
         collection.update_one(form, {"$set": {"channel_list": new}})
