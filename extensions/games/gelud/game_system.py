@@ -1,6 +1,5 @@
 import random
 
-
 weaponry = {':bow_and_arrow:': {'attack': 37, 'speed': 6, 'range': 26, 'defense': 16,
                                 'passive': ':dart:',
                                 'description': '**Archery**: Deal 50% more damage in ranged mode'},
@@ -120,7 +119,7 @@ class Battle:
         if ":bomb:" in self.enemy.weapon and rounds % 6 == 1:
             self.allies.hp -= round(self.enemy.attack * 0.8)
             self.allies.defense -= round(self.allies.defense * 0.1)
-            log = f'\n{self.allies.name} explode bomb and deal {round(self.allies.attack * 0.8)} damage to ' \
+            log = f'\n{self.enemy.name} explode bomb and deal {round(self.enemy.attack * 0.8)} damage to ' \
                   f'{self.enemy.name} and decrease def by 10%'
 
         # trigger broom

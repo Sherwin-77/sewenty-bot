@@ -823,7 +823,7 @@ class Game(commands.Cog):
         if difficulty not in stat_buff:
             return await ctx.send("Select difficulty e,h or i", delete_after=5)
         stat = stat_buff[difficulty]
-        team_profile = await self.bot.GAME_COLLECTION.count_documents(query)
+        team_profile = await self.bot.GAME_COLLECTION.find_one(query)
         team = Team(team_profile, name=f"{ctx.author.name}'s Team")
         boss = generate_enemy(stat, random.choice(CHARACTER_NAMES), 3 + random.randint(0, 35) / 100)
         system = Battle(team, boss)

@@ -61,8 +61,6 @@ class Hero:
 
         # evasion and core atk
         if ":dagger:" in target.weapon and target.chance(target.speed * 0.013):
-            if target.speed == 77:
-                log += f"{target.name} bonk {self.name}, dealing **{target.attack ** 10}** damage. Jk lol\n"
             log += f"{target.name} dodge attack and take no damage"
         else:
             target.hp -= self.power
