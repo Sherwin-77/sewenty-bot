@@ -630,7 +630,7 @@ class OwO(commands.Cog):
         if not users:
             users = ctx.author
         col = self.bot.LXV_DB["owo-stats"]
-        query =  {"$match": {"$and": [{"_id.user": ctx.author.id}, {"_id.dayId": {"$gte": 0}}]}}
+        query = {"$match": {"$and": [{"_id.user": ctx.author.id}, {"_id.dayId": {"$gte": 0}}]}}
         date_before = datetime(2000, 1, 1).replace(hour=0,
                                                    minute=0,
                                                    second=0,

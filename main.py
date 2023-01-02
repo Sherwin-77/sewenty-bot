@@ -32,7 +32,7 @@ prefixes = ["s!", "S!"]
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
-logger = logging.getLogger("main.py")
+logger = logging.getLogger("main")
 
 
 class NewHelpCommand(commands.MinimalHelpCommand):
@@ -170,6 +170,10 @@ class SewentyBot(commands.Bot):
                 await self.start(self.TOKEN)
         else:
             await self.start(self.TOKEN)
+
+    async def send_owner(self, message) -> None:
+        channel = await self.owner.create_dm()
+        await channel.send(message)
 
     async def get_soldier_cache(self) -> None:
         if not USE_PSQL:
@@ -553,11 +557,10 @@ def main():
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             return logger.error(output)
-        channel = await bot.owner.create_dm()
-        await channel.send(f"Uncaught error in channel <#{interaction.channel.id}> "
-                           f"command `{interaction.command.qualified_name}`\n"
-                           f"```py\n"
-                           f"{output}```")
+        await bot.send_owner(f"Uncaught error in channel <#{interaction.channel.id}> "
+                             f"command `{interaction.command.qualified_name}`\n"
+                             f"```py\n"
+                             f"{output}```")
 
     @bot.event
     async def on_command_error(ctx, error):
@@ -584,10 +587,9 @@ def main():
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             return print(output)
-        channel = await bot.owner.create_dm()
-        await channel.send(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
-                           f"```py\n"
-                           f"{output}```")
+        await bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
+                             f"```py\n"
+                             f"{output}```")
 
     asyncio.run(bot.main())
 

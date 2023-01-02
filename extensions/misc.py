@@ -7,7 +7,6 @@ from discord.ext import commands
 import googletrans
 # import wikipedia
 
-from ast import literal_eval
 import asyncio
 import base64
 import datetime

@@ -4,7 +4,7 @@ from discord.ext import menus
 
 class SimplePages(discord.ui.View, menus.MenuPages):
     """Pagination with ui button"""
-    def __init__(self, source: menus.PageSource, *, delete_message_after=False):
+    def __init__(self, source: menus.PageSource, *, delete_message_after=True):
         super().__init__(timeout=60)
         self._source = source
         self.current_page = 0
@@ -27,26 +27,50 @@ class SimplePages(discord.ui.View, menus.MenuPages):
         return interaction.user == self.ctx.author
 
     @discord.ui.button(emoji='⏪', style=discord.ButtonStyle.blurple)
-    async def skip_to_first(self, button, interaction):
+    async def skip_to_first(self, interaction, button):
         await self.show_page(0)
+        await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='◀', style=discord.ButtonStyle.blurple)
-    async def back_page(self, button, interaction):
+    async def back_page(self, interaction, button):
         await self.show_checked_page(self.current_page-1)
+        await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='⏹', style=discord.ButtonStyle.blurple)
-    async def stop_page(self, button, interaction):
+    async def stop_page(self, interaction, button):
+        for child in self.children:
+            child.disabled = True
         self.stop()
         if self.delete_message_after:
             await self.message.delete()
+        else:
+            await self.show_current_page()
+        await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(emoji='⏹', style=discord.ButtonStyle.blurple)
-    async def next_page(self, button, interaction):
+    @discord.ui.button(emoji='▶', style=discord.ButtonStyle.blurple)
+    async def next_page(self, interaction, button):
         await self.show_checked_page(self.current_page+1)
+        await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='⏩', style=discord.ButtonStyle.blurple)
-    async def skip_to_last(self, button, interaction):
+    async def skip_to_last(self, interaction, button):
         await self.show_page(self._source.get_max_pages()-1)
+        await interaction.response.edit_message(view=self)
+
+
+# https://github.com/Rapptz/discord-ext-menus#pagination
+class EmbedSource(menus.ListPageSource):
+    def __init__(self, entries, per_page=4, title=None):
+        self.title = title
+        super().__init__(entries, per_page=per_page)
+
+    async def format_page(self, menu: menus, page):
+        offset = menu.current_page * self.per_page  # type: ignore
+        embed = discord.Embed(color=discord.Colour.random())
+        if self.title is not None:
+            embed.title = self.title
+        embed.description = '\n'.join(f"{i+1}. {v}" for i, v in enumerate(page, start=offset))
+        return embed
 
 
 class InteractionBasedSource(menus.ListPageSource):

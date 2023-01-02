@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from os import getenv
 from typing import TYPE_CHECKING, Optional, Union
