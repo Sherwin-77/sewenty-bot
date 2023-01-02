@@ -2,6 +2,7 @@
 import asyncio
 from datetime import datetime
 from glob import glob
+from io import BytesIO
 import logging
 from os import getenv
 from os.path import relpath
@@ -31,7 +32,7 @@ prefixes = ["s!", "S!"]
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("main.py")
 
 
 class NewHelpCommand(commands.MinimalHelpCommand):
@@ -85,12 +86,14 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help")
         )
 
+        self.ISOLATED_MODE = False
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
         self.owner = None
         self.banned_user = set()
-        self.ISOLATED_MODE = False
+        self.last_stack = []
+        self.last_date = None
 
         self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                                            "<:hikanoplsOwO:804522598289375232>"],
@@ -147,6 +150,7 @@ class SewentyBot(commands.Bot):
             logger.info("Cache loaded")
 
         # await self.load_extension("experiment")  # for experimenting
+        await self.load_extension("blockingcog")
         await self.load_extension("jishaku")
         logger.info("Module loaded")
 
@@ -173,6 +177,11 @@ class SewentyBot(commands.Bot):
         async with self.pool.acquire() as conn:
             async with conn.transaction():
                 self.cached_soldier_data = await conn.fetch("SELECT * FROM soldier_info")
+
+    def blocking_stack(self, traceback) -> None:
+        logger.warning("Blocking code detected. You also can check from s!laststack")
+        self.last_stack = traceback
+        self.last_date = datetime.utcnow()
 
 
 def slash_is_enabled():
@@ -205,6 +214,21 @@ def main():
     @bot.tree.context_menu(name="Ajg", guild=discord.Object(id=714152739252338749))
     async def ajg(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f"Ajg 👉 {user.mention}")
+
+    @commands.is_owner()
+    @bot.command(hidden=True)
+    async def laststack(ctx):
+        if not bot.last_stack:
+            return await ctx.send("No blocking code detected")
+        output = ''.join(bot.last_stack)
+        if len(output) > 1500:
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await ctx.send(f"Blocked at {bot.last_date}", file=file)
+        else:
+            custom_embed = discord.Embed(description=output, color=discord.Colour.red())
+            custom_embed.set_footer(text=f"Blocked at {bot.last_date}")
+            await ctx.send(embed=custom_embed)
 
     @bot.command(hidden=True)
     async def refresh(ctx):
