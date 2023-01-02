@@ -161,14 +161,15 @@ class LoveSick(commands.Cog):
         data = dict()
         for member in role.members:
             member_id = f"user{member.id}"
+            if member_id not in old_data:
+                self.recruit_log["added"].append(f"New recruit detected: {member} ({member.id})")
+                data.update({member_id: current_date})
+                continue
             if member_id in old_data and (current_date - old_data[member_id]).days > 33:
                 self.recruit_log["expired"].append(f"{member} ({member.id})\n "
                                                    f"From {old_data[member_id].strftime('%Y/%m/%d')} "
                                                    f"(**{(current_date - old_data[member_id]).days}** days)")
-                continue
-            if member_id not in old_data:
-                self.recruit_log["added"].append(f"New recruit detected: {member} ({member.id})")
-            data.update({member_id: current_date})
+            data.update({member_id: old_data[member_id]})
 
         self.recruit_log["deleted"] = [f"Deleted recruit role id: {x}" for x in old_data if x not in data]
         self.last_checked = current_date
