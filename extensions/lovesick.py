@@ -241,6 +241,51 @@ class LoveSick(commands.Cog):
                                      color=discord.Colour.random())
         await ctx.send(embed=custom_embed)
 
+    @commands.command(aliases=["lxvafr"])
+    async def accuraterefresh(self, ctx, limit=100):
+        """
+        Accurete refresh for recruits date by checking audit log
+        """
+        if limit > 1000:
+            return await ctx.send("Too big")
+        if self.bot.owner != ctx.author:
+            allowed = False
+            for x in ctx.author.roles:
+                if x.id in self.mod_ids:
+                    allowed = True
+                    break
+            if not allowed:
+                return await ctx.send("You are not allowed to use this command >:(")
+        original = await ctx.send("Please wait <a:discordloading:792012369168957450>")
+        count = await self.LXV_COLLECTION.count_documents({"_id": "lxvrecruit"})
+        old_data = await self.LXV_COLLECTION.find_one({"_id": "lxvrecruit"})
+        channel = ctx.guild.get_channel(self.logging_channel_id)
+
+        if not count:
+            old_data = dict()
+        else:
+            old_data = old_data["members"]
+        new_data = dict()
+        async for x in ctx.guild.audit_logs(limit=limit, action=discord.AuditLogAction.member_role_update):
+            tmp_id = f"user{x.target.id}"
+            if tmp_id in new_data:
+                continue
+            check_date = None
+            for y in x.after.roles:
+                if y.id == self.lxv_recruit_id:
+                    check_date = x.created_at
+            if check_date is None:
+                continue
+            new_data.update({tmp_id: check_date})
+        merged_data = {**old_data, **new_data}
+        if not count:
+            await self.LXV_COLLECTION.insert_one({"_id": "lxvrecruit", "members": merged_data})
+        else:
+            await self.LXV_COLLECTION.update_one({"_id": "lxvrecruit"}, {"$set": {"members": merged_data}})
+        self.counter += 1
+        await original.edit(content="Done <:wurk:858721776770744320>")
+        await channel.send(f"{ctx.author} used accurate refresh command with limit of last {limit} audit log")
+
     @commands.command(hidden=True)
     async def setlxvrecruitid(self, ctx, role_id):
         if self.bot.owner != ctx.author:
