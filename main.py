@@ -19,10 +19,11 @@ import psutil
 from psutil._common import bytes2human
 
 USE_PSQL = False
+
 if USE_PSQL:
     import asyncpg
 
-__version__ = "2.0.1"
+__version__ = "2.0.2"
 
 load_dotenv()  # in case we use .env in future
 
@@ -89,6 +90,7 @@ class SewentyBot(commands.Bot):
         self.launch_timestamp = int(datetime.now().timestamp())
         self.owner = None
         self.banned_user = set()
+        self.ISOLATED_MODE = False
 
         self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                                            "<:hikanoplsOwO:804522598289375232>"],
@@ -115,11 +117,14 @@ class SewentyBot(commands.Bot):
         self.allowed_track_channel = dict()
 
     async def setup_hook(self) -> None:
+        if self.ISOLATED_MODE:
+            logger.warning("Isolated mode turned on. Consider turning off before production")
         self.session = aiohttp.ClientSession()
 
         cluster = motor.motor_asyncio.AsyncIOMotorClient(self.MANGO_URL)
         cluster1 = motor.motor_asyncio.AsyncIOMotorClient(self.CP_URL)
         app = await self.application_info()
+        logger.info("Aiohttp session and database connected")
 
         self.owner = app.owner
         self.DB = cluster["Data"]
@@ -127,21 +132,23 @@ class SewentyBot(commands.Bot):
         self.LXV_DB = cluster1["lxv"]
         self.GAME_COLLECTION = cluster["game"]["data"]
 
-        for file in glob(r"extensions/*.py"):
-            module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
-            await self.load_extension(module_name)
+        if not self.ISOLATED_MODE:
+            for file in glob(r"extensions/*.py"):
+                module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
+                await self.load_extension(module_name)
+            await self.get_soldier_cache()
+            form = {"_id": "allowed_channel"}
+            result = await self.DB["userdata"].find_one(form)
+            if not result:
+                logger.warning("No channel to be refreshed")
+            else:
+                new = result["channel_list"]
+                self.allowed_track_channel = new
+            logger.info("Cache loaded")
+
         # await self.load_extension("experiment")  # for experimenting
         await self.load_extension("jishaku")
         logger.info("Module loaded")
-        await self.get_soldier_cache()
-        form = {"_id": "allowed_channel"}
-        result = await self.DB["userdata"].find_one(form)
-        if not result:
-            logger.warning("No channel to be refreshed")
-        else:
-            new = result["channel_list"]
-            self.allowed_track_channel = new
-        logger.info("Cache loaded")
 
     async def close(self) -> None:
         await self.session.close()
@@ -312,13 +319,15 @@ def main():
                 value = f"{value} %"
             memory_detail.append(f"{name.capitalize()}: {value}")
 
-        custom_embed = discord.Embed(title='Bot Stats',
+        custom_embed = discord.Embed(title="Bot Stats",
                                      description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
                                                  f"Total Servers: {count_guild}\n"
                                                  f"Bot Ver: {__version__}\n"
                                                  f"CPU usage: {psutil.cpu_percent(1)}%\n"
                                                  f"Ping: "
-                                                 f"{round(bot.latency * 1000)} ms",
+                                                 f"{round(bot.latency * 1000)} ms\n"
+                                                 f"Running in **"
+                                                 f"{'normal' if not bot.ISOLATED_MODE else 'isolated'}** mode ",
                                      color=discord.Colour.random())
         custom_embed.add_field(name="Memory", value='\n'.join(memory_detail))
         await ctx.send(embed=custom_embed)
@@ -368,6 +377,9 @@ def main():
             dm_embed.set_footer(text=message.author.id)
             return await channel.send(embed=dm_embed)
 
+        if bot.ISOLATED_MODE:
+            return await bot.process_commands(message)
+
         # check if message is yui command
         if message.content.lower().startswith('y'):
             args = message.content.lower().removeprefix('y').strip().split(' ')
@@ -375,6 +387,7 @@ def main():
                 args = message.content.lower().removeprefix("yui").strip().split(' ')
             command = args[0]
             command_list = {"spank": "spanked",
+                            "sspank": "super spanked",
                             "slap": "slapped",
                             "bonk": "bonked",
                             "kiss": "kissed",
@@ -477,11 +490,13 @@ def main():
 
     @bot.event
     async def on_message_edit(before, after):
+        if bot.ISOLATED_MODE:
+            return
         if before.author.id == 571027211407196161 and str(before.channel.id) in bot.allowed_track_channel:
-            catch = after.embeds
-            if not catch:
+            catch_ = after.embeds
+            if not catch_:
                 return
-            processed = catch[-1].to_dict()
+            processed = catch_[-1].to_dict()
             try:
                 message = processed["fields"][0]["value"]
             except KeyError:
