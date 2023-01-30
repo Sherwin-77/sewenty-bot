@@ -86,7 +86,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help")
         )
 
-        self.ISOLATED_MODE = False
+        self.ISOLATED_MODE = True
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
@@ -235,6 +235,7 @@ def main():
             await ctx.send(embed=custom_embed)
 
     @bot.command(hidden=True)
+    @commands.is_owner()
     async def refresh(ctx):
         """
         Nothing Special
@@ -297,9 +298,14 @@ def main():
         await channel.send(text)
         await ctx.message.add_reaction('👍')
 
-    @bot.command(hidden=True, aliases=["switch"])
+    @dm_user.error
+    async def dm_error(ctx, error):
+        await ctx.reply(f"Failed to dm: `{error}`\n"
+                        f"`{type(error)}`")
+
+    @bot.command(hidden=True)
     @commands.is_owner()
-    async def toggle(ctx: commands.Context, command: bot.get_command):
+    async def switch(ctx: commands.Context, command: bot.get_command):
         """
         Disable command-
         """
@@ -311,12 +317,7 @@ def main():
         command.enabled = False
         return await ctx.send("Switch to disabled")
 
-    @dm_user.error
-    async def dm_error(ctx, error):
-        await ctx.reply(f"Failed to dm: `{error}`\n"
-                        f"`{type(error)}`")
-
-    @bot.command()
+    @bot.command(hidden=True)
     @commands.is_owner()
     async def send(ctx, channel: discord.TextChannel, *, text="Test"):
         await channel.send(text)
@@ -326,6 +327,35 @@ def main():
     async def send_error(ctx, error):
         await ctx.reply(f"Failed to send: `{error}`\n"
                         f"`{type(error)}`")
+
+    # Note that channel id in dict always str
+    @bot.command(name="allowchannel", hidden=True)
+    @commands.is_owner()
+    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False):
+        """
+        Allow tracking anigame rng
+        Work for owner only
+        """
+        collection = bot.DB["userdata"]
+        if isinstance(channel_id, discord.TextChannel):
+            channel_id = channel_id.id
+        channel_id = str(channel_id)
+        form = {"_id": "allowed_channel"}
+        result = await collection.find_one(form)
+        if not result:
+            result = {channel_id: boss_mode}
+            await collection.insert_one(form, {"$set": {"channel_list": result}})
+            return await ctx.send("No channel list detected, creating one..")
+        new = result["channel_list"]
+        if channel_id in new:
+            new.pop(channel_id)
+            bot.allowed_track_channel.pop(channel_id)
+            collection.update_one(form, {"$set": {"channel_list": new}})
+            return await ctx.send("Disabled!")
+        new.update({channel_id: boss_mode})
+        bot.allowed_track_channel.update({channel_id: boss_mode})
+        collection.update_one(form, {"$set": {"channel_list": new}})
+        await ctx.send("Enabled!")
 
     @bot.command()
     @commands.cooldown(rate=1, per=3.0, type=commands.BucketType.user)
@@ -359,35 +389,6 @@ def main():
                                      color=discord.Colour.random())
         custom_embed.add_field(name="Memory", value='\n'.join(memory_detail))
         await ctx.send(embed=custom_embed)
-
-    # Note that channel id in dict always str
-    @bot.command(name="allowchannel", hidden=True)
-    @commands.is_owner()
-    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False):
-        """
-        Allow tracking anigame rng
-        Work for owner only
-        """
-        collection = bot.DB["userdata"]
-        if isinstance(channel_id, discord.TextChannel):
-            channel_id = channel_id.id
-        channel_id = str(channel_id)
-        form = {"_id": "allowed_channel"}
-        result = await collection.find_one(form)
-        if not result:
-            result = {channel_id: boss_mode}
-            await collection.insert_one(form, {"$set": {"channel_list": result}})
-            return await ctx.send("No channel list detected, creating one..")
-        new = result["channel_list"]
-        if channel_id in new:
-            new.pop(channel_id)
-            bot.allowed_track_channel.pop(channel_id)
-            collection.update_one(form, {"$set": {"channel_list": new}})
-            return await ctx.send("Disabled!")
-        new.update({channel_id: boss_mode})
-        bot.allowed_track_channel.update({channel_id: boss_mode})
-        collection.update_one(form, {"$set": {"channel_list": new}})
-        await ctx.send("Enabled!")
 
     @bot.event
     async def on_message(message: discord.Message):
