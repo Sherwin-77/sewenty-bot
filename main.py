@@ -578,6 +578,7 @@ def main():
                 isinstance(error, commands.errors.NotOwner)
                 or isinstance(error, discord.errors.Forbidden)
                 or isinstance(error, commands.errors.BadArgument)
+                or isinstance(error, commands.errors.MissingRequiredArgument)
         ):
             return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):

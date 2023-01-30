@@ -647,7 +647,9 @@ class OwO(commands.Cog):
         today = 0
         async for i in result:
             day_id = i["_id"]["dayId"]
-            owo_count = i["owoCount"]
+            owo_count = 0
+            if "owoCount" in day_id:
+                owo_count = i["owoCount"]
             if first < 0:
                 first = owo_count
             if day_id == date_id-1:

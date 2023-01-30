@@ -361,7 +361,7 @@ class HelperCommand(commands.Cog):
             if x.author.id != 555955826880413696:
                 continue
             embedded = x.embeds
-            if embedded is None:
+            if embedded is None or len(embedded) < 1:
                 continue
             y = embedded[-1].to_dict()
             if 'inventory' in y['author']['name']:
