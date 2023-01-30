@@ -415,6 +415,12 @@ def main():
         if bot.ISOLATED_MODE:
             return await bot.process_commands(message)
 
+        if "inva" in message.content.lower():
+            await bot.send_owner(f"Mentioned 'inva' at <#{message.channel.id}> **Guild** {message.guild.name}\n"
+                                 f"**By:** {message.author} ({message.author.id})\n"
+                                 f"**Full:**\n"
+                                 f"{message.content}")
+
         # check if message is yui command
         if message.content.lower().startswith('y'):
             args = message.content[1:].strip().split(' ')
