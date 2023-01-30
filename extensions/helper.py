@@ -227,13 +227,13 @@ class HelperCommand(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
 
-    @commands.command(name='maxwstat', aliases=['wstat', 'statw', 'wcheck'])
-    async def count_max(self, ctx: commands.Context,
-                        weapon_type: Optional[str] = None,
-                        cost: Optional[int] = None,
-                        stat1: Optional[float] = None,
-                        stat2: Optional[float] = None,
-                        stat3: Optional[float] = None):
+    @commands.command(aliases=["wstat", "statw", "wcheck"])
+    async def maxwstat(self, ctx: commands.Context,
+                       weapon_type: Optional[str] = None,
+                       cost: Optional[int] = None,
+                       stat1: Optional[float] = None,
+                       stat2: Optional[float] = None,
+                       stat3: Optional[float] = None):
         if weapon_type is not None:
             return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3))
 
@@ -304,8 +304,8 @@ class HelperCommand(commands.Cog):
             weapon_type = 'bow'
         return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3))
 
-    @count_max.error
-    async def count_max_on_error(self, ctx, error):
+    @maxwstat.error
+    async def maxwstat_on_error(self, ctx, error):
         if isinstance(error, commands.errors.CommandInvokeError):
             if isinstance(error.original, IndexError):
                 return await ctx.send("Failed to parse stat. "
@@ -315,9 +315,11 @@ class HelperCommand(commands.Cog):
             return
         return await ctx.send(f"Failed to parse stat: `{error}`")
 
-    @commands.command(name='petstat', help='Visualize pet stat in certain level',
-                      aliases=['statpet', 'petlevel', 'levelpet'])
-    async def petstats(self, ctx, level=None, hp=None, strength=None, pr=None, wp=None, mag=None, mr=None):
+    @commands.command(aliases=["statpet", "petlevel", "levelpet"])
+    async def petstat(self, ctx, level=None, hp=None, strength=None, pr=None, wp=None, mag=None, mr=None):
+        """
+        Visualize pet stat in cettin level
+        """
         if level.isdigit():
             level = int(level)
             if hp and strength and pr and wp and mag and mr:
@@ -353,8 +355,8 @@ class HelperCommand(commands.Cog):
         else:
             await ctx.reply('Invalid argument :c', mention_author=False)
 
-    @commands.command(name='ultralog', aliases=['ulog'])
-    async def log_calculator(self, ctx):
+    @commands.command(aliases=["ulog"])
+    async def ultralog(self, ctx):
         # if ctx.author.id in restricted:
         #     return
         async for x in ctx.message.channel.history(limit=3):
@@ -612,7 +614,7 @@ class HelperCommand(commands.Cog):
                     except discord.HTTPException:
                         await original.edit(content="Character limit reached")
 
-    @commands.command(aliases=['streakcount', 'bonusxp', 'countxp'])
+    @commands.command(aliases=["streakcount", "bonusxp", "countxp"])
     async def countstreak(self, ctx, streak: Optional[int] = None):
         """
         Count xp bonus based on streaks

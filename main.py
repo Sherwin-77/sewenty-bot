@@ -282,23 +282,28 @@ def main():
         await ctx.send(embed=custom_embed)
 
     # noinspection SpellCheckingInspection
-    @bot.command(name="ban", hidden=True)
+    @bot.command(hidden=True)
     @commands.is_owner()
-    async def bot_ban(ctx, user: discord.User):
+    async def ban(ctx, user: discord.User):
+        """
+        Not to be confused with guild ban
+        Ban user from bot
+        """
+
         if user.id in bot.banned_user:
             bot.banned_user.remove(user.id)
             return await ctx.send(f"{user.display_name} un gone <a:menheraball:810779283692978209>")
         bot.banned_user.add(user.id)
         await ctx.send(f"{user.display_name} gone <:kenasandal:805028596581269524>")
 
-    @bot.command(name="dm", hidden=True)
+    @bot.command(hidden=True)
     @commands.is_owner()
-    async def dm_user(ctx, user: discord.User, *, text="Test"):
+    async def dm(ctx, user: discord.User, *, text="Test"):
         channel = await user.create_dm()
         await channel.send(text)
         await ctx.message.add_reaction('👍')
 
-    @dm_user.error
+    @dm.error
     async def dm_error(ctx, error):
         await ctx.reply(f"Failed to dm: `{error}`\n"
                         f"`{type(error)}`")

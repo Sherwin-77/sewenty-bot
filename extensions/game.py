@@ -415,8 +415,12 @@ class Game(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
 
-    @commands.command(name='startgame', help='interested in bot game?', aliases=["gamestart"])
-    async def start_game(self, ctx, re_roll=None):
+    @commands.command(aliases=["gamestart"])
+    async def startgame(self, ctx, re_roll=None):
+        """
+        Interested in game?
+        Add any word as a parameter for reroll existing account (Weapon and stat change)
+        """
         userid = ctx.author.id
         query = {"_id": str(ctx.author.id)}
         if str(userid) in commandCooldown:
@@ -471,8 +475,11 @@ class Game(commands.Cog):
         await asyncio.sleep(3)
         commandCooldown.pop(str(userid))
 
-    @commands.command(name='profilegame', help='Check your profile', aliases=["gameprofile", "profile"])
-    async def check_profile(self, ctx, user: Optional[discord.User] = None):
+    @commands.command(aliases=["gameprofile", "profile"])
+    async def profilegame(self, ctx, user: Optional[discord.User] = None):
+        """
+        Check for profile game
+        """
         if not user:
             userid = ctx.author.id
         else:
@@ -491,8 +498,12 @@ class Game(commands.Cog):
         await asyncio.sleep(3)
         commandCooldown.pop(str(ctx.author.id))
 
-    @commands.command(name="setpoint", help="Set your battle point")
-    async def set_point(self, ctx, point: int):
+    @commands.command()
+    async def setpoint(self, ctx, point: int):
+        """
+        Set battle point (Can only run once when you have maxed point)
+        """
+
         query = {"_id": str(ctx.author.id)}
         counts = await self.bot.GAME_COLLECTION.count_documents(query)
         if counts == 0:
@@ -533,8 +544,11 @@ class Game(commands.Cog):
         await target.edit(content=f"Success! {ctx.author.name} ascended and gained power to change weapon\n"
                                   f"`s!weaponset [weapon]`", embed=None)
 
-    @commands.command(name="weaponset", help="Change your weapon. Ascended only", aliases=["setweapon"])
-    async def change_weapon(self, ctx, weapon: str):
+    @commands.command(aliases=["setweapon"])
+    async def weaponset(self, ctx, weapon: str):
+        """
+        Change your weapon. Ascended only
+        """
         query = {"_id": str(ctx.author.id)}
         counts = self.bot.GAME_COLLECTION.count_documents(query)
         if counts == 0:
@@ -565,10 +579,11 @@ class Game(commands.Cog):
         player = User(profile)
         await ctx.send(embed=player.show())
 
-    @commands.command(name='gamefight', aliases=['gf', 'fight', 'bt'])
-    async def fighting(self, ctx, opponent: Union[discord.User, str], balance: Optional[bool] = False):
+    @commands.command(aliases=["gf", "fight", "bt"])
+    async def gamefight(self, ctx, opponent: Union[discord.User, str], balance: Optional[bool] = False):
         """
         Battle with other player or bot
+        Available difficulties are 'e', 'm', 'h', and 'i'
        """
         if str(ctx.author.id) in battleCooldown:
             return
@@ -679,8 +694,8 @@ class Game(commands.Cog):
                 break
             log = system.process(rounds)
 
-    @commands.group(name='teamgame', aliases=["team"], invoke_without_command=True)
-    async def team_game(self, ctx):
+    @commands.group(aliases=["team"], invoke_without_command=True)
+    async def teamgame(self, ctx):
         """
         Show your in game team or create it if you don't have one
         """
@@ -753,7 +768,7 @@ class Game(commands.Cog):
         await asyncio.sleep(3)
         commandCooldown.pop(str(ctx.author.id))
 
-    @team_game.command(name="rr", aliases=["reroll"])
+    @teamgame.command(name="rr", aliases=["reroll"])
     async def team_re_roll(self, ctx, position: int):
         if position < 1 or position > 3:
             return await ctx.reply("Position must be between 1 and 3", mention_author=False, delete_after=5)
@@ -806,8 +821,8 @@ class Game(commands.Cog):
                            f"```py\n"
                            f"{output}```")
 
-    @commands.command(name="bossraid", aliases=["raidboss"])
-    async def raid(self, ctx, difficulty: str):
+    @commands.command(aliases=["raidboss"])
+    async def bossraid(self, ctx, difficulty: str):
         """
         Raid some boss with your team and show your skill!
         """
@@ -873,7 +888,7 @@ class Game(commands.Cog):
                 break
             log = system.process(rounds)
 
-    @raid.error
+    @bossraid.error
     async def raid_on_errors(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             return await ctx.reply("Please input difficulty `e`,`h`, or `i`", mention_author=False, delete_after=5)
@@ -886,8 +901,11 @@ class Game(commands.Cog):
                            f"```py\n"
                            f"{output}```")
 
-    @commands.command(name="teambattle", help="Wishing to battle with your friend team?")
-    async def team_battle(self, ctx, users: discord.User):
+    @commands.command()
+    async def teambattle(self, ctx, users: discord.User):
+        """
+        Battle with your friend's team
+        """
         if str(ctx.author.id) in teamCooldown:
             return
         query = {"_id": f"team{ctx.author.id}"}
@@ -956,8 +974,8 @@ class Game(commands.Cog):
                 break
             log = system.process(rounds)
 
-    @team_battle.error
-    async def team_battle_error(self, ctx, error):
+    @teambattle.error
+    async def teambattle_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             return await ctx.reply("who you wanna battle with? (userid works instead mention)",
                                    mention_author=False,
@@ -971,8 +989,11 @@ class Game(commands.Cog):
                            f"```py\n"
                            f"{output}```")
 
-    @commands.command(name="wdesc", help="Description about weapon in game")
-    async def desc(self, ctx, name=None):
+    @commands.command()
+    async def wdesc(self, ctx, name=None):
+        """
+        Description about weapon in game
+        """
         if not name:
             weapons = " | ".join(list_weapon)
             custom_embed = discord.Embed(title="Weapon List", description=weapons)
@@ -981,24 +1002,27 @@ class Game(commands.Cog):
             return
         name = f":{name}:"
         if name not in weaponry:
-            await ctx.send('Input weapon name when', delete_after=5)
+            await ctx.send("Input weapon name when", delete_after=5)
             return
-        attack = weaponry[name]['attack']
-        speed = weaponry[name]['speed']
-        ranges = weaponry[name]['range']
-        defense = weaponry[name]['defense']
-        passive = weaponry[name]['passive']
+        attack = weaponry[name]["attack"]
+        speed = weaponry[name]["speed"]
+        ranges = weaponry[name]["range"]
+        defense = weaponry[name]["defense"]
+        passive = weaponry[name]["passive"]
         description = weaponry[name]['description']
-        dexed = discord.Embed(title=name, description=f'Attac: {attack}\n'
-                                                      f'Difens: {defense}\n'
-                                                      f'Range: {ranges}\n'
-                                                      f'Spid: {speed}\n'
-                                                      f'Passife: {passive}\n'
-                                                      f'{description}', color=discord.Colour.random())
+        dexed = discord.Embed(title=name, description=f"Attac: {attack}\n"
+                                                      f"Difens: {defense}\n"
+                                                      f"Range: {ranges}\n"
+                                                      f"Spid: {speed}\n"
+                                                      f"Passife: {passive}\n"
+                                                      f"{description}", color=discord.Colour.random())
         await ctx.send(embed=dexed)
 
-    @commands.command(name='gameguide', help='Get started', aliases=['guidegame', 'startguide', 'guidestart'])
-    async def guide(self, ctx):
+    @commands.command(aliases=["guidegame", "startguide", "guidestart"])
+    async def gameguide(self, ctx):
+        """
+        Get started
+        """
         embed = discord.Embed(title='Game Guide', description='Need more help? ask @invalid-user#8807')
         embed.add_field(name='Start your game', value='This game has 2 mode. team and solo\n'
                                                       'Get your solo character by `startgame` command.'

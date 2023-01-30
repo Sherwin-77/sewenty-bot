@@ -28,7 +28,7 @@ class General(commands.Cog):
     #         raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
     #     return True
 
-    @commands.command(name="suggest", help="Give a suggestion")
+    @commands.command(help="Give a suggestion")
     async def suggest(self, ctx, *, suggestion):
         blue = 0x00ffff
         channel = self.bot.get_channel(759728217069191209)
@@ -42,8 +42,8 @@ class General(commands.Cog):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.reply("Please input your suggestion :c", mention_author=False, delete_after=5)
 
-    @commands.command(name='ping')
-    async def pinging(self, ctx):
+    @commands.command()
+    async def ping(self, ctx):
         time0 = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=None)
         ping = round(self.bot.latency * 1000)
         time1 = datetime.utcnow().replace(tzinfo=None)
@@ -55,8 +55,8 @@ class General(commands.Cog):
             content=f':ping_pong: Pong! in: {ping} ms\nMessage received in: {time_diff1} ms\n'
                     f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
 
-    @commands.command(name='whois')
-    async def find_user(self, ctx: commands.Context, user: Optional[discord.User] = None):
+    @commands.command()
+    async def whois(self, ctx: commands.Context, user: Optional[discord.User] = None):
         if not user:
             user = ctx.author
         async with ctx.typing():
@@ -100,8 +100,8 @@ class General(commands.Cog):
                     custom_embed.set_thumbnail(url=member.display_avatar)
             await ctx.send(embed=custom_embed)
 
-    @commands.command(name="avatar", aliases=["av"])
-    async def show_avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
+    @commands.command(aliases=["av"])
+    async def avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
         """
         Just avatar
         """
@@ -112,8 +112,8 @@ class General(commands.Cog):
         embed.set_image(url=user.display_avatar)
         await ctx.send(embed=embed)
 
-    @commands.command(name="banner", aliases=['b'])
-    async def check_banner(self, ctx, user: Optional[discord.User] = None):
+    @commands.command(aliases=['b'])
+    async def banner(self, ctx, user: Optional[discord.User] = None):
         """
         Returns a user's Discord banner
         """
@@ -143,8 +143,8 @@ class General(commands.Cog):
         # custom_embed.set_image(url=banner_url)
         # await ctx.send(embed=custom_embed)
 
-    @commands.command(name="gbanner", aliases=["gb"])
-    async def check_guild_banner(self, ctx):
+    @commands.command(aliases=["gb"])
+    async def gbanner(self, ctx):
         """
         Returns guild banner if exist
         """
