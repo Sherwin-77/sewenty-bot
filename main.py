@@ -86,7 +86,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help")
         )
 
-        self.ISOLATED_MODE = True
+        self.ISOLATED_MODE = False
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
@@ -198,6 +198,7 @@ def main():
     default_banner_url = getenv("DEFAULT_BANNER_URL")
 
     bot = SewentyBot()
+    invoke_cooldown = set()
 
     # another dirty way to access bot var
 
@@ -416,10 +417,10 @@ def main():
 
         # check if message is yui command
         if message.content.lower().startswith('y'):
-            args = message.content.lower().removeprefix('y').strip().split(' ')
-            if message.content.startswith("yui"):
-                args = message.content.lower().removeprefix("yui").strip().split(' ')
-            command = args[0]
+            args = message.content[1:].strip().split(' ')
+            if message.content.lower().startswith("yui"):
+                args = message.content[3:].strip().split(' ')
+            command = args[0].lower()
             command_list = {"spank": "spanked",
                             "sspank": "super spanked",
                             "slap": "slapped",
@@ -437,6 +438,8 @@ def main():
                             "boop": "booped"}
             disabled_ping = {"slap", "kiss", "hug", "kill", "imagine", "pet", "code", "poke"}
             if command in command_list.keys():
+                if message.author.id in invoke_cooldown:
+                    return
                 hashmap = {m: None for m in args[1:6]}
 
                 # First method to get user
@@ -484,15 +487,17 @@ def main():
                 if length < 1:
                     return await message.reply("User ded\n"
                                                "Doesn't detect mention bot btw", mention_author=False)
-
-                return await message.channel.send(f"You {command_list[command]} {msg}! "
-                                                  f"That's {random.randrange(-696970, 2147483)} " +
-                                                  (
-                                                      f"{command}(s) now" if not command.endswith('s') else
-                                                      f"{command}(es) now"
-                                                  ),
-                                                  allowed_mentions=discord.AllowedMentions.none()
-                                                  if command in disabled_ping else None)
+                invoke_cooldown.add(message.author.id)
+                await message.channel.send(f"You {command_list[command]} {msg}! "
+                                           f"That's {random.randrange(-696970, 2147483)} " +
+                                           (
+                                               f"{command}(s) now" if not command.endswith('s') else
+                                               f"{command}(es) now"
+                                           ),
+                                           allowed_mentions=discord.AllowedMentions.none()
+                                           if command in disabled_ping else None)
+                await asyncio.sleep(3)
+                invoke_cooldown.remove(message.author.id)
 
         guild_id = message.guild.id
         if guild_id == 714152739252338749:
