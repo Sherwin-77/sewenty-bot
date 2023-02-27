@@ -19,16 +19,14 @@ import motor.motor_asyncio
 import psutil
 from psutil._common import bytes2human
 
-USE_PSQL = True
+USE_PSQL = False
 
 if USE_PSQL:
     import asyncpg
 
-__version__ = "2.0.2"
+__version__ = "2.0.3"
 
 load_dotenv()  # in case we use .env in future
-
-prefixes = ["s!", "S!"]
 
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
