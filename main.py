@@ -8,7 +8,7 @@ from os import getenv
 from os.path import relpath
 import random
 from traceback import format_exception
-from typing import Optional, Union
+from typing import Union
 
 import aiohttp
 import discord
@@ -19,7 +19,7 @@ import motor.motor_asyncio
 import psutil
 from psutil._common import bytes2human
 
-USE_PSQL = False
+USE_PSQL = True
 
 if USE_PSQL:
     import asyncpg
@@ -45,12 +45,6 @@ class NewHelpCommand(commands.MinimalHelpCommand):
         for page in self.paginator.pages:
             help_embed = discord.Embed(title="Help", description=page, color=discord.Colour.random())
             await destination.send(embed=help_embed)
-
-
-def _prefix_callable(bot_, _):
-    bot_id = bot_.user.id
-    prefixes.extend([f"<@!{bot_id}> ", f"<@{bot_id}> "])
-    return prefixes
 
 
 # noinspection SpellCheckingInspection
@@ -79,7 +73,7 @@ class SewentyBot(commands.Bot):
         intents = discord.Intents.all()  # ah yes
         super().__init__(
             case_insensitive=True,
-            command_prefix=_prefix_callable,
+            command_prefix=commands.when_mentioned_or("s!"),
             description="Sewenty bot written in python",
             intents=intents,
             status=discord.Status.idle,
@@ -107,7 +101,8 @@ class SewentyBot(commands.Bot):
                                  "test ajg": "<:wurk:858721776770744320>",
                                  "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
                                            "<a:pandasmackOwO:799955371074519041>",
-                                 "vinwuv": "osu! when"}
+                                 "vinwuv": "osu! when",
+                                 "invad": "When"}
 
         # we define this later
         self.pool = None
@@ -116,8 +111,9 @@ class SewentyBot(commands.Bot):
         self.CP_DB = None
         self.LXV_DB = None
         self.GAME_COLLECTION = None
-        self.cached_soldier_data = []
+        self.guild_prefix = dict()
         self.allowed_track_channel = dict()
+        self.cached_soldier_data = []
 
     async def setup_hook(self) -> None:
         if self.ISOLATED_MODE:
@@ -140,8 +136,13 @@ class SewentyBot(commands.Bot):
                 module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
                 await self.load_extension(module_name)
             await self.get_soldier_cache()
+            form = {"_id": "prefix"}
+            result = await self.DB["bot"].find_one(form)
+            if result:
+                self.guild_prefix = result["prefix_list"]
+            logger.info("Prefix loaded")
             form = {"_id": "allowed_channel"}
-            result = await self.DB["userdata"].find_one(form)
+            result = await self.DB["bot"].find_one(form)
             if not result:
                 logger.warning("No channel to be refreshed")
             else:
@@ -153,6 +154,32 @@ class SewentyBot(commands.Bot):
         await self.load_extension("blockingcog")
         await self.load_extension("jishaku")
         logger.info("Module loaded")
+
+    async def get_prefix(self, message: discord.Message, /):
+        """|coro|
+
+        Retrieves the prefix the bot is listening to
+        with the message as a context.
+
+        .. versionchanged:: 2.0
+
+            ``message`` parameter is now positional-only.
+
+        Parameters
+        -----------
+        message: :class:`discord.Message`
+            The message context to get the prefix of.
+
+        Returns
+        --------
+        Union[List[:class:`str`], :class:`str`]
+            A list of prefixes or a single prefix that the bot is
+            listening for.
+        """
+        ret = await super().get_prefix(message)
+        if f"guild{message.guild.id}" in self.guild_prefix:
+            ret.append(self.guild_prefix[f"guild{message.guild.id}"])
+        return ret
 
     async def close(self) -> None:
         await self.session.close()
@@ -198,7 +225,6 @@ def main():
     default_banner_url = getenv("DEFAULT_BANNER_URL")
 
     bot = SewentyBot()
-    invoke_cooldown = set()
 
     # another dirty way to access bot var
 
@@ -342,7 +368,7 @@ def main():
         Allow tracking anigame rng
         Work for owner only
         """
-        collection = bot.DB["userdata"]
+        collection = bot.DB["bot"]
         if isinstance(channel_id, discord.TextChannel):
             channel_id = channel_id.id
         channel_id = str(channel_id)
@@ -418,92 +444,9 @@ def main():
         if "inva" in message.content.lower():
             await bot.send_owner(f"Mentioned 'inva' at <#{message.channel.id}> **Guild** {message.guild.name}\n"
                                  f"**By:** {message.author} ({message.author.id})\n"
+                                 f"**Jump:** {message.jump_url}\n"
                                  f"**Full:**\n"
                                  f"{message.content}")
-
-        # check if message is yui command
-        if message.content.lower().startswith('y'):
-            args = message.content[1:].strip().split(' ')
-            if message.content.lower().startswith("yui"):
-                args = message.content[3:].strip().split(' ')
-            command = args[0].lower()
-            command_list = {"spank": "spanked",
-                            "sspank": "super spanked",
-                            "slap": "slapped",
-                            "bonk": "bonked",
-                            "kiss": "kissed",
-                            "hug": "hugged",
-                            "kill": "killed",
-                            "imagine": "imagined",
-                            "pet": "pet",
-                            "ajg": "ajg ed",
-                            "when": "when",
-                            "code": "coded",
-                            "sleep": "slept with",
-                            "poke": "poked",
-                            "boop": "booped"}
-            disabled_ping = {"slap", "kiss", "hug", "kill", "imagine", "pet", "code", "poke"}
-            if command in command_list.keys():
-                if message.author.id in invoke_cooldown:
-                    return
-                hashmap = {m: None for m in args[1:6]}
-
-                # First method to get user
-                query = args[1:]
-                ctx = await bot.get_context(message)
-                for q in query:
-                    try:
-                        member = await commands.MemberConverter().convert(ctx, q)
-                    except commands.errors.MemberNotFound:
-                        continue
-                    else:
-                        hashmap[q] = member
-
-                arr = [detected for detected in hashmap.values() if detected is not None]
-
-                # fallback for no exact match in message
-                if len(args) < 2:
-                    return await message.reply("Where user", mention_author=False)
-
-                if len(arr) < 1:
-                    target: Optional[discord.Member] = None
-                    query = ' '.join(args[1:])
-                    for member in message.guild.members:
-                        if query in member.name.lower() or (member.nick is not None and query in member.nick.lower()):
-                            if target is None or target.id > member.id:
-                                target = member
-                    arr = [target]
-
-                msg = ""
-                index = 0
-                length = len(arr)
-                for m in arr:
-                    if m is None:
-                        length -= 1
-                        continue
-                    index += 1
-                    if index == len(arr):
-                        msg += f"and {m.mention}"
-                    else:
-                        msg += f"{m.mention}, "
-
-                if index == 1:
-                    msg = msg.removeprefix("and ")
-
-                if length < 1:
-                    return await message.reply("User ded\n"
-                                               "Doesn't detect mention bot btw", mention_author=False)
-                invoke_cooldown.add(message.author.id)
-                await message.channel.send(f"You {command_list[command]} {msg}! "
-                                           f"That's {random.randrange(-696970, 2147483)} " +
-                                           (
-                                               f"{command}(s) now" if not command.endswith('s') else
-                                               f"{command}(es) now"
-                                           ),
-                                           allowed_mentions=discord.AllowedMentions.none()
-                                           if command in disabled_ping else None)
-                await asyncio.sleep(3)
-                invoke_cooldown.remove(message.author.id)
 
         guild_id = message.guild.id
         if guild_id == 714152739252338749:
@@ -511,7 +454,8 @@ def main():
 
             if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"} and random.random() < 0.69:
                 counts = random.randint(1, 3)
-                sticker_ids = {949065213540458526, 900116218160242818, 961046798821126214, 948695509130944523}
+                sticker_ids = {949065213540458526, 900116218160242818, 961046798821126214,
+                               948695509130944523, 1058020894783578232}
                 used_sticker_ids = random.choices(list(sticker_ids), k=counts)
                 get_sticker = [discord.utils.get(message.guild.stickers, id=i) for i in used_sticker_ids]
                 if None not in get_sticker:

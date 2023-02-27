@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
 # noinspection SpellCheckingInspection
 class General(commands.Cog):
+    # TODO: Maybe add another action command?
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
 
@@ -27,6 +28,22 @@ class General(commands.Cog):
     #     if retry_after:
     #         raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
     #     return True
+
+    @staticmethod
+    async def query_member(ctx: commands.Context, user):
+        ret = None
+        try:
+            target = await commands.MemberConverter().convert(ctx, user)
+        except commands.errors.MemberNotFound:
+            user = user.lower()
+
+        if ret is None:
+            for member in ctx.guild.members:
+                if user in member.name.lower() or (member.nick is not None and user in member.nick.lower()):
+                    if ret is None or ret.id > member.id:
+                        ret = member
+
+        return ret
 
     @commands.command(help="Give a suggestion")
     async def suggest(self, ctx, *, suggestion):
@@ -153,6 +170,53 @@ class General(commands.Cog):
         custom_embed.set_author(name="Server banner", icon_url=ctx.guild.icon)
         custom_embed.set_image(url=banner_url)
         await ctx.send(embed=custom_embed)
+
+    @commands.command()
+    async def prefix(self, ctx: commands.Context, new_prefix: commands.clean_content = None):
+        if new_prefix is None:
+            if f"guild{ctx.guild.id}" not in self.bot.guild_prefix:
+                return await ctx.send("My prefix is `s!`")
+            return await ctx.send(f"My prefix is `{self.bot.guild_prefix[f'guild{ctx.guild.id}']}`")
+        is_owner = await self.bot.is_owner(ctx.author)
+        if not is_owner and not ctx.author.guild_permissions.administrator:
+            return await ctx.send("Git admin >:(")
+        collection = self.bot.DB["bot"]
+        form = {"_id": "prefix"}
+        result = await collection.find_one(form)
+        if not result:
+            result = {f"guild{ctx.guild.id}": new_prefix}
+            await collection.insert_one({"_id": "prefix", "prefix_list": result})
+        else:
+            result = result["prefix_list"]
+            result.update({f"guild{ctx.guild.id}": new_prefix})
+            await collection.update_one(form, {"$set": {"prefix_list": result}})
+        self.bot.guild_prefix = result
+        await ctx.send(f"Updated to `{new_prefix}`")
+
+    @commands.command()
+    async def shifu(self, ctx, *, user):
+        """
+        No ping
+        """
+        target = await self.query_member(ctx, user)
+
+        if target is None:
+            return await ctx.send("User ded")
+
+        await ctx.send(f"You shifued {target.mention}!",
+                       allowed_mentions=discord.AllowedMentions.none())
+
+    @commands.command()
+    async def haki(self, ctx, *, user):
+        """
+        Has ping
+        """
+        target = await self.query_member(ctx, user)
+
+        if target is None:
+            return await ctx.send("User ded")
+
+        await ctx.send(f"You hakied {target.mention}!")
 
 
 def dirty_filter(text):
