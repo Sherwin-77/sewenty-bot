@@ -33,7 +33,7 @@ class General(commands.Cog):
     async def query_member(ctx: commands.Context, user):
         ret = None
         try:
-            target = await commands.MemberConverter().convert(ctx, user)
+            ret = await commands.MemberConverter().convert(ctx, user)
         except commands.errors.MemberNotFound:
             user = user.lower()
 
@@ -72,7 +72,7 @@ class General(commands.Cog):
             content=f':ping_pong: Pong! in: {ping} ms\nMessage received in: {time_diff1} ms\n'
                     f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
 
-    @commands.command()
+    @commands.hybrid_command()
     async def whois(self, ctx: commands.Context, user: Optional[discord.User] = None):
         if not user:
             user = ctx.author
@@ -117,7 +117,7 @@ class General(commands.Cog):
                     custom_embed.set_thumbnail(url=member.display_avatar)
             await ctx.send(embed=custom_embed)
 
-    @commands.command(aliases=["av"])
+    @commands.hybrid_command(aliases=["av"])
     async def avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
         """
         Just avatar
@@ -129,7 +129,7 @@ class General(commands.Cog):
         embed.set_image(url=user.display_avatar)
         await ctx.send(embed=embed)
 
-    @commands.command(aliases=['b'])
+    @commands.hybrid_command(aliases=['b'])
     async def banner(self, ctx, user: Optional[discord.User] = None):
         """
         Returns a user's Discord banner
