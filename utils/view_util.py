@@ -1,4 +1,5 @@
 import discord
+from discord.ext import commands
 
 from typing import List
 
@@ -22,24 +23,33 @@ class NumberButton(discord.ui.Button):
 
 
 class ConfirmEmbed(BaseView):
-    def __init__(self, message):
+    def __init__(self,
+                 userid: int,
+                 embed: discord.Embed = discord.Embed(title="Confirmation!", description="Are you sure?")):
         super().__init__()
-        self.value = None
-        self.embed = discord.Embed(title="Confirmation!",
-                                   description=message,
-                                   color=discord.Colour.random())
+        self.userid = userid
+        self.embed = embed
 
     @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)
-    async def confirm(self, interaction: discord.Interaction, __: discord.Button):
+    async def confirm(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.userid:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
         self.value = True
         await interaction.response.edit_message(content="Success", view=None, embed=None)
         self.stop()
 
     @discord.ui.button(emoji='❎', style=discord.ButtonStyle.red)
-    async def cancel(self, interaction: discord.Interaction, __: discord.Button):
+    async def cancel(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.userid:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
         self.value = False
         await interaction.response.edit_message(content="Operation cancelled", view=None, embed=None)
         self.stop()
+
+    async def send(self, ctx: commands.Context):
+        await ctx.send(view=self, embed=self.embed)
 
 
 class Dropdown(discord.ui.Select):

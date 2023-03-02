@@ -216,7 +216,31 @@ class General(commands.Cog):
         if target is None:
             return await ctx.send("User ded")
 
-        await ctx.send(f"You hakied {target.mention}!")
+        await ctx.send(f"You hakied {target.mention}! <:hikanopls:804522598289375232>")
+
+    @commands.command()
+    async def meo(self, ctx, *, user):
+        """
+        Meow
+        """
+        target = await self.query_member(ctx, user)
+
+        if target is None:
+            return await ctx.send("User ded")
+
+        await ctx.send(f"You meo-ed {target.mention}! <a:catMIAOwO:782034693905186816>")
+
+    @commands.command()
+    async def flake(self, ctx, *, user):
+        """
+        Has ping
+        """
+        target = await self.query_member(ctx, user)
+
+        if target is None:
+            return await ctx.send("User ded")
+
+        await ctx.send(f"You flaked {target.mention}!")
 
 
 def dirty_filter(text):

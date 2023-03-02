@@ -4,12 +4,13 @@ from typing import TYPE_CHECKING, List
 from copy import deepcopy
 import datetime
 import logging
+import re
 
 import discord
 from discord.ext import commands, tasks
 
 from utils import paginators
-from utils.view_util import Dropdown
+from utils.view_util import Dropdown, ConfirmEmbed
 
 if TYPE_CHECKING:
     from main import SewentyBot
@@ -50,15 +51,25 @@ class LoveSick(commands.Cog):
             "deleted": []
         }
 
-        self.logging_channel_id = 789154199186702408
-        self.lxv_recruit_id = 769135734086959104
-        self.mod_ids = {714165505153302639, 714165560853790741, 714197482699227265}
+        self.logging_channel_id = 0
+        self.lxv_recruit_id = 0
+        self.mod_ids = set()
         self.counter = -1
         self.last_checked = None
         self.recruit_log = deepcopy(self.BLUEPRINT)
 
     def cog_check(self, ctx) -> bool:
         return ctx.guild.id == self.GUILD_ID
+
+    async def cog_load(self) -> None:
+        setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
+        if not setting:
+            logger.error("No setting for lovesick found. Unloading cog...")
+            await self.bot.remove_cog("extensions.lovesick")
+        # Note that id always stored in str due to big number
+        self.logging_channel_id = int(setting["logging_channel_id"])
+        self.lxv_recruit_id = int(setting["lxv_recruit_id"])
+        self.mod_ids = set(map(int, setting["mod_ids"]))
 
     async def cog_unload(self) -> None:
         self.refresh_lxv_recruit.cancel()
@@ -120,6 +131,17 @@ class LoveSick(commands.Cog):
         logger.info("Waiting for bot...")
         await self.bot.wait_until_ready()
 
+    def mod_only(self, ctx):
+        allowed = False
+        if self.bot.owner == ctx.author:
+            allowed = True
+        else:
+            for x in ctx.author.roles:
+                if x.id in self.mod_ids:
+                    allowed = True
+                    break
+        return allowed
+
     @commands.command(aliases=["lxvlr"])
     async def listrecruit(self, ctx):
         """
@@ -157,14 +179,8 @@ class LoveSick(commands.Cog):
         """
         Forcefully refreshes recruit list
         """
-        if self.bot.owner != ctx.author:
-            allowed = False
-            for x in ctx.author.roles:
-                if x.id in self.mod_ids:
-                    allowed = True
-                    break
-            if not allowed:
-                return await ctx.send("You are not allowed to use this command >:(")
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
         role = ctx.guild.get_role(self.lxv_recruit_id)
         current_date = datetime.datetime.utcnow()
         count = await self.LXV_COLLECTION.count_documents({"_id": "lxvrecruit"})
@@ -248,14 +264,8 @@ class LoveSick(commands.Cog):
         """
         if limit > 1000:
             return await ctx.send("Too big")
-        if self.bot.owner != ctx.author:
-            allowed = False
-            for x in ctx.author.roles:
-                if x.id in self.mod_ids:
-                    allowed = True
-                    break
-            if not allowed:
-                return await ctx.send("You are not allowed to use this command >:(")
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
         original = await ctx.send("Please wait <a:discordloading:792012369168957450>")
         count = await self.LXV_COLLECTION.count_documents({"_id": "lxvrecruit"})
         old_data = await self.LXV_COLLECTION.find_one({"_id": "lxvrecruit"})
@@ -286,36 +296,110 @@ class LoveSick(commands.Cog):
         await original.edit(content="Done <:wurk:858721776770744320>")
         await channel.send(f"{ctx.author} used accurate refresh command with limit of last {limit} audit log")
 
-    @commands.command(hidden=True)
-    async def setlxvrecruitid(self, ctx, role_id):
-        if self.bot.owner != ctx.author:
-            allowed = False
-            for x in ctx.author.roles:
-                if x.id in self.mod_ids:
-                    allowed = True
-                    break
-            if not allowed:
-                return await ctx.send("You are not allowed to use this command >:(")
-        self.lxv_recruit_id = role_id
-        return await ctx.send("Success")
-
-    @commands.command(hidden=True)
-    async def setlxvloggingid(self, ctx, channel_id):
-        if self.bot.owner != ctx.author:
-            allowed = False
-            for x in ctx.author.roles:
-                if x.id in self.mod_ids:
-                    allowed = True
-                    break
-            if not allowed:
-                return await ctx.send("You are not allowed to use this command >:(")
-        self.logging_channel_id = channel_id
-        return await ctx.send("Success")
-
     @commands.is_owner()
     @commands.command(hidden=True)
     async def lxveval(self, ctx, var):
         return await ctx.send(eval(var))
+
+    @commands.group(invoke_without_command=True, aliases=["ev"])
+    async def event(self, ctx):
+        await ctx.send("This is event command. All pet event command will be grouped here (WIP)")
+
+    @event.command(aliases=["f"])
+    async def focus(self, ctx, *pet):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        res = set()
+        for p in pet:
+            res.add(p.lower())
+        custom_embed = discord.Embed(title="Focus index",
+                                     description=f"Are you sure want to focus to index `{'`, `'.join(list(res))}`?",
+                                     color=discord.Colour.green())
+        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
+        await confirm.send(ctx)
+        await confirm.wait()
+        if not confirm.value:
+            return
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res)}})
+        await ctx.send("Updated focus")
+
+    @event.command(aliases=["lb"])
+    async def leaderboard(self, ctx, pet, length=5):
+        if length < 1 or length > 10:
+            return await ctx.send("Invalid number")
+        pet = pet.lower()
+        cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{pet}"})
+        if not cursor:
+            return await ctx.send("No leaderboard found")
+        top = dict(sorted(cursor["participants"].items(), key=lambda x: x[1], reverse=True))
+        custom_embed = discord.Embed(title=f"Leaderboard for pet {pet}", color=discord.Colour.random())
+        for i, item in enumerate(top):
+            custom_embed.add_field(name=f"#{i+1}: {ctx.guild.get_member(item)}", value=f"{top[item]} Hunts")
+            if i+1 >= length:
+                break
+        await ctx.send(embed=custom_embed)
+
+    # @event.command(aliases=["ac"])
+    # async def addcount(self, ctx, link):
+    #     pattern = re.compile(
+    #         r"https?://(?:(?:ptb|canary)\.)?discord(?:app)?\.com"
+    #         r"/channels/(?P<guild_id>[0-9]{15,19})/(?P<channel_id>"
+    #         r"[0-9]{15,19})/(?P<message_id>[0-9]{15,19})/?"
+    #     )
+    #     res = re.match(pattern, link)
+    #     if res is None or not res.group(0):
+    #         return await ctx.send("Invalid link")
+    #     guild_id = int(res.group("guild_id"))
+    #     channel_id = int(res.group("channel_id"))
+    #     message_id = int(res.group("message_id"))
+    #     if guild_id != self.GUILD_ID:
+    #         return await ctx.send("Not from lxv guild")
+    #     setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
+    #     if "focus" not in setting or not setting["focus"]:
+    #         return await ctx.send("No focus pet currently. Please add by s!focus")
+    #
+    #     original = await ctx.send("Checking <a:discordloading:792012369168957450>")
+    #
+    #     focus = setting["focus"]
+    #     channel = ctx.guild.get_channel(channel_id)
+    #     message: discord.Message = await channel.fetch_message(message_id)
+    #     content = message.content.lower()
+    #     if message.embeds:
+    #         message = message.embeds[0].description.lower()
+    #     content = content.split('|')
+    #     userid = str(message.author.id)
+    #     check = 1
+    #     skipped = []
+    #     if re.match(r".*\[[0-9]*/[0-9]*].*", content[check]):
+    #         check += 1
+    #     for pet in focus:
+    #         res = content[check].count(pet)
+    #         if res == 0:
+    #             skipped.append(pet)
+    #             continue
+    #         participants = dict()
+    #         form = {"_id": f"pet{pet}"}
+    #         cursor = await self.LXV_COLLECTION.find_one(form)
+    #         if cursor:
+    #             participants = cursor["participants"]
+    #         if userid in participants:
+    #             res += participants[userid]
+    #         participants.update({userid: res})
+    #         if not cursor:
+    #             await self.LXV_COLLECTION.insert_one({"_id": f"pet{pet}", "participants": participants})
+    #         else:
+    #             await self.LXV_COLLECTION.update_one(form, {"$set": {"participants": participants}})
+    #     await original.edit(content=f"Done <:wurk:858721776770744320>\n"
+    #                                 f"Skipped focus pet: `{'`, `'.join(skipped or ['None'])}`")
+    #
+    # @addcount.error
+    # async def addcount_on_error(self, ctx, error):
+    #     custom_embed = discord.Embed(title="Failed to add count",
+    #                                  description=error.original
+    #                                  if isinstance(error, commands.CommandInvokeError)
+    #                                  else error,
+    #                                  color=discord.Colour.red())
+    #     await ctx.send(embed=custom_embed)
 
 
 async def setup(bot: SewentyBot):

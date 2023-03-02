@@ -78,7 +78,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help")
         )
 
-        self.ISOLATED_MODE = False
+        self.TEST_MODE = False
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
@@ -114,8 +114,8 @@ class SewentyBot(commands.Bot):
         self.cached_soldier_data = []
 
     async def setup_hook(self) -> None:
-        if self.ISOLATED_MODE:
-            logger.warning("Isolated mode turned on. Consider turning off before production")
+        if self.TEST_MODE:
+            logger.warning("Test mode turned on. Consider turning off before production")
         self.session = aiohttp.ClientSession()
 
         cluster = motor.motor_asyncio.AsyncIOMotorClient(self.MANGO_URL)
@@ -129,24 +129,23 @@ class SewentyBot(commands.Bot):
         self.LXV_DB = cluster1["lxv"]
         self.GAME_COLLECTION = cluster["game"]["data"]
 
-        if not self.ISOLATED_MODE:
-            for file in glob(r"extensions/*.py"):
-                module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
-                await self.load_extension(module_name)
-            await self.get_soldier_cache()
-            form = {"_id": "prefix"}
-            result = await self.DB["bot"].find_one(form)
-            if result:
-                self.guild_prefix = result["prefix_list"]
-            logger.info("Prefix loaded")
-            form = {"_id": "allowed_channel"}
-            result = await self.DB["bot"].find_one(form)
-            if not result:
-                logger.warning("No channel to be refreshed")
-            else:
-                new = result["channel_list"]
-                self.allowed_track_channel = new
-            logger.info("Cache loaded")
+        for file in glob(r"extensions/*.py"):
+            module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
+            await self.load_extension(module_name)
+        await self.get_soldier_cache()
+        form = {"_id": "prefix"}
+        result = await self.DB["bot"].find_one(form)
+        if result:
+            self.guild_prefix = result["prefix_list"]
+        logger.info("Prefix loaded")
+        form = {"_id": "allowed_channel"}
+        result = await self.DB["bot"].find_one(form)
+        if not result:
+            logger.warning("No channel to be refreshed")
+        else:
+            new = result["channel_list"]
+            self.allowed_track_channel = new
+        logger.info("Cache loaded")
 
         # await self.load_extension("experiment")  # for experimenting
         await self.load_extension("blockingcog")
@@ -174,6 +173,8 @@ class SewentyBot(commands.Bot):
             A list of prefixes or a single prefix that the bot is
             listening for.
         """
+        if self.TEST_MODE:
+            return ["test!"]
         ret = await super().get_prefix(message)
         if f"guild{message.guild.id}" in self.guild_prefix:
             ret.append(self.guild_prefix[f"guild{message.guild.id}"])
@@ -415,7 +416,7 @@ def main():
                                                  f"Ping: "
                                                  f"{round(bot.latency * 1000)} ms\n"
                                                  f"Running in **"
-                                                 f"{'normal' if not bot.ISOLATED_MODE else 'isolated'}** mode ",
+                                                 f"{'normal' if not bot.TEST_MODE else 'Test'}** mode ",
                                      color=discord.Colour.random())
         custom_embed.add_field(name="Memory", value='\n'.join(memory_detail))
         await ctx.send(embed=custom_embed)
@@ -436,7 +437,7 @@ def main():
             dm_embed.set_footer(text=message.author.id)
             return await channel.send(embed=dm_embed)
 
-        if bot.ISOLATED_MODE:
+        if bot.TEST_MODE:
             return await bot.process_commands(message)
 
         if "inva" in message.content.lower():
@@ -477,7 +478,7 @@ def main():
 
     @bot.event
     async def on_message_edit(before, after):
-        if bot.ISOLATED_MODE:
+        if bot.TEST_MODE:
             return
         if before.author.id == 571027211407196161 and str(before.channel.id) in bot.allowed_track_channel:
             catch_ = after.embeds
@@ -541,7 +542,7 @@ def main():
             return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):
             return await ctx.reply("User not found", mention_author=False)
-        if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, 'on_error'):
+        if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, "on_error"):
             return
 
         output = ''.join(format_exception(type(error), error, error.__traceback__))
