@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List
 
+import asyncio
 from copy import deepcopy
 import datetime
+from io import BytesIO
 import logging
 import re
+from traceback import format_exception
 
 import discord
 from discord.ext import commands, tasks
@@ -71,6 +74,7 @@ class LoveSick(commands.Cog):
         self.logging_channel_id = 0
         self.lxv_recruit_id = 0
         self.mod_ids = set()
+        self.focus = []
         self.counter = -1
         self.last_checked = None
         self.recruit_log = deepcopy(self.BLUEPRINT)
@@ -87,6 +91,7 @@ class LoveSick(commands.Cog):
         self.logging_channel_id = int(setting["logging_channel_id"])
         self.lxv_recruit_id = int(setting["lxv_recruit_id"])
         self.mod_ids = set(map(int, setting["mod_ids"]))
+        self.focus = setting["focus"]
         self.refresh_lxv_recruit.start()
 
     async def cog_unload(self) -> None:
@@ -242,6 +247,21 @@ class LoveSick(commands.Cog):
                                      color=discord.Colour.random())
         await ctx.send(embed=custom_embed)
 
+    @commands.command()
+    async def lxvrefresh(self, ctx):
+        if not self.mod_only(ctx):
+            return await ctx.send("Huh")
+        original = await ctx.send("Refreshing <a:discordloading:792012369168957450>")
+        setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
+        if not setting:
+            return await ctx.send("ERROR: Setting doen't exist at database")
+        # Note that id always stored in str due to big number
+        self.logging_channel_id = int(setting["logging_channel_id"])
+        self.lxv_recruit_id = int(setting["lxv_recruit_id"])
+        self.mod_ids = set(map(int, setting["mod_ids"]))
+        self.focus = setting["focus"]
+        await original.edit(content="Done <:wurk:858721776770744320>")
+
     @commands.command(aliases=["lxvrc"])
     async def recruitcheck(self, ctx, member: discord.Member):
         """
@@ -316,17 +336,22 @@ class LoveSick(commands.Cog):
         await original.edit(content="Done <:wurk:858721776770744320>")
         await channel.send(f"{ctx.author} used accurate refresh command with limit of last {limit} audit log")
 
-    @commands.is_owner()
     @commands.command(hidden=True)
+    @commands.is_owner()
     async def lxveval(self, ctx, var):
         return await ctx.send(eval(var))
 
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
-        await ctx.send("This is event command. All pet event command will be grouped here (WIP)")
+        await ctx.send(f"Hi event\n"
+                       f"For detail command, check from `s!help event`"
+                       f"Focused pet: `{'` `'.join(self.focus)}`")
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
+        """
+        Set focus pet. For multiple pet just separate by space
+        """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         res = set()
@@ -340,18 +365,43 @@ class LoveSick(commands.Cog):
         await confirm.wait()
         if not confirm.value:
             return
+        self.focus = list(res)
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res)}})
-        await ctx.send("Updated focus")
 
     @event.command(aliases=["lb"])
-    async def leaderboard(self, ctx, pet, length=5):
+    async def leaderboard(self, ctx, pet=None, length=5):
+        """
+        Show pet leaderboard. Will sum all focus pet hunt if not specified
+        """
         if length < 1 or length > 10:
             return await ctx.send("Invalid number")
-        pet = pet.lower()
-        cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{pet}"})
-        if not cursor:
-            return await ctx.send("No leaderboard found")
-        top = dict(sorted(cursor["participants"].items(), key=lambda x: x[1], reverse=True))
+        top = dict()
+        if pet is None:
+            pet = "focused"
+            missing = []
+            if not self.focus:
+                return await ctx.send("No focus pet currently. Please add by s!focus")
+            for p in self.focus:
+                cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{p}"})
+                if not cursor:
+                    missing.append(p)
+                    continue
+                for k, v in cursor["participants"].items():
+                    if k in top:
+                        top[k] += v
+                    else:
+                        top.update({k: v})
+            if not top:
+                return await ctx.send(f"No leadeboard found for focus pet `{'` `'.join(self.focus)}`")
+            if missing:
+                await ctx.send(f"Following focus pet doesn't exist: `{'` `'.join(missing)}`")
+        else:
+            pet = pet.lower()
+            cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{pet}"})
+            if not cursor:
+                return await ctx.send("No leaderboard found")
+            top = cursor["participants"]
+        top = dict(sorted(top.items(), key=lambda x: x[1], reverse=True))
         custom_embed = discord.Embed(title=f"Leaderboard for pet {pet}", color=discord.Colour.random())
         for i, item in enumerate(top):
             custom_embed.add_field(name=f"#{i+1}: {ctx.guild.get_member(int(item))}",
@@ -365,8 +415,8 @@ class LoveSick(commands.Cog):
     async def addcount(self, ctx: commands.Context, link):
         pattern = re.compile(
             r"https?://(?:(?:ptb|canary)\.)?discord(?:app)?\.com"
-            r"/channels/(?P<guild_id>[0-9]{15,19})/(?P<channel_id>"
-            r"[0-9]{15,19})/(?P<message_id>[0-9]{15,19})/?"
+            r"/channels/(?P<guild_id>[0-9]+)/(?P<channel_id>"
+            r"[0-9]+)/(?P<message_id>[0-9]+)"
         )
         res = re.match(pattern, link)
         if res is None or not res.group(0):
@@ -376,42 +426,73 @@ class LoveSick(commands.Cog):
         message_id = int(res.group("message_id"))
         if guild_id != self.GUILD_ID:
             return await ctx.send("Not from lxv guild")
-        setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
-        if "focus" not in setting or not setting["focus"]:
+        if not self.focus:
             return await ctx.send("No focus pet currently. Please add by s!focus")
 
         original = await ctx.send("Checking <a:discordloading:792012369168957450>")
 
-        focus = setting["focus"]
         channel = ctx.guild.get_channel(channel_id)
         message: discord.Message = await channel.fetch_message(message_id)
-        content = message.content.lower()
-        if message.embeds:
-            content = message.embeds[0].description.lower()
-        content = content.split('|')
-        username = content[1]
-        check = 1
-        if re.match(r".*\[[0-9]*/[0-9]*].*", content[check]):
-            check += 1
-        # Y u better not mess up with username
-        found = username.rfind("**,") if check > 1 else username.find("** ")
-        username = username[:found].strip()
-        query = await ctx.guild.query_members(username)
-        userid = str(query[0].id)
-        if len(query) > 1:
-            dropdown = QueryDropdown(text="Select username",
-                                     select_list=[discord.SelectOption(label=str(member), value=str(member.id))
-                                                  for member in query])
-            view = BaseView()
-            view.add_item(dropdown)
-            check = await ctx.send(content="Multiple username found", view=view)
-            dropdown.ctx = ctx
-            await view.wait()
-            userid = dropdown.selected
-            await check.delete()
+        content = message.content.lower() if not message.embeds else message.embeds[0].description.lower()
+        userid = None
+        if message.embeds and message.embeds[0].author.icon_url:
+            cdnpattern = re.compile(
+                r"https?://(media|cdn)\.discord(?:app)?\.com"
+                r"/avatars/(?P<userid>[0-9]+)"
+                r"/(?P<hash>([0-9]+)[\S]+)\?(?P<parameter>.+)"
+            )
+            cdnres = re.match(cdnpattern, message.embeds[0].author.icon_url)
+            userid = cdnres.group("userid")
+        elif not message.embeds:
+            # Assuming non-custom hunt
+            section = content.split('|')
+            new_line = True if re.match(r".*\[[0-9]*/[0-9]*].*", section[1]) else False
+            username = section[1]
+            # Y u better not mess up with username
+            found = username.rfind("**,") if new_line else username.find("** ")
+            username = username[:found].strip()
+            query = await ctx.guild.query_members(username)
+            if query:
+                userid = str(query[0].id)
+                if len(query) > 1:
+                    dropdown = QueryDropdown(text="Select username",
+                                             select_list=[discord.SelectOption(label=str(member), value=str(member.id))
+                                                          for member in query])
+                    view = BaseView()
+                    view.add_item(dropdown)
+                    check = await ctx.send(content="Multiple username found", view=view)
+                    dropdown.ctx = ctx
+                    await view.wait()
+                    userid = dropdown.selected
+                    await check.delete()
+        else:
+            await ctx.send("Kindly enable the profile icon for custom hunt :)))")
+        if userid is None:
+            await original.edit(content="No userid found. Please input the userid (input 0 to abort)")
+            userid = await self.bot.wait_for("message",
+                                             check=lambda x: x.author == ctx.author and x.content.isdecimal())
+            userid = userid.content
+            if userid == '0':
+                return await original.edit(content="Aborted")
         skipped = []
-        for pet in focus:
-            res = content[check].count(pet)
+        should_be = 1
+        check = content.split('\n')
+        if message.embeds:
+            for i, line in enumerate(check):
+                for pet in self.focus:
+                    if pet in line:
+                        if should_be is not None and i != should_be:
+                            await original.edit(content=f"Detect pet confusion. "
+                                                        f"Please input correct line **{should_be+1}** or **{i+1}**")
+                            should_be = await self.bot.wait_for("message",
+                                                                check=lambda x:
+                                                                x.author == ctx.author and x.content.isdecimal()
+                                                                and int(x.content) in {should_be, line})
+                            should_be = int(should_be.content)-1
+                            break
+                        should_be = i
+        for pet in self.focus:
+            res = check[should_be].count(f"{pet}")
             if res == 0:
                 skipped.append(pet)
                 continue
@@ -438,8 +519,163 @@ class LoveSick(commands.Cog):
                                      else error,
                                      color=discord.Colour.red())
         await ctx.send(embed=custom_embed)
-        await self.bot.send_owner(f"Failed to addcount: {error.__traceback__}")
+        output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(output) > 1500:
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await self.bot.send_owner(file=file)
+        else:
+            custom_embed = discord.Embed(title="Addcount fail", description=f"```py\n{output}```",
+                                         color=discord.Colour.red())
+            await self.bot.send_owner(embed=custom_embed)
 
+    @event.command(aliases=["acf"])
+    async def addcountfrom(self, ctx, link):
+        """
+        Start counting link that posted after specified link message (not the link itself)
+        """
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+
+        pattern = re.compile(
+            r"https?://(?:(?:ptb|canary)\.)?discord(?:app)?\.com"
+            r"/channels/(?P<guild_id>[0-9]+)/(?P<channel_id>"
+            r"[0-9]+)/(?P<message_id>[0-9]+)"
+        )
+        res = re.match(pattern, link)
+        if res is None or not res.group(0):
+            return await ctx.send("Invalid link")
+        guild_id = int(res.group("guild_id"))
+        channel_id = int(res.group("channel_id"))
+        message_id = int(res.group("message_id"))
+        if guild_id != self.GUILD_ID:
+            return await ctx.send("Not from lxv guild")
+        if not self.focus:
+            return await ctx.send("No focus pet currently. Please add by s!focus")
+
+        original = await ctx.send("Checking <a:discordloading:792012369168957450>")
+
+        channel: discord.TextChannel = ctx.guild.get_channel(channel_id)
+        snowflake = discord.utils.snowflake_time(message_id)
+        async for message in channel.history(after=snowflake, oldest_first=True):
+            msglink = message.content
+            if message.embeds:
+                msglink = message.embeds[0].fields[-1].value
+            if not msglink:
+                await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                await asyncio.sleep(3)
+                continue
+            msgres = re.search(pattern, msglink)
+            if msgres is None:
+                await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                await asyncio.sleep(3)
+                continue
+
+            msg_guild_id = int(msgres.group("guild_id"))
+            msg_channel_id = int(msgres.group("channel_id"))
+            msg_message_id = int(msgres.group("message_id"))
+
+            if msg_guild_id != self.GUILD_ID:
+                await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                await asyncio.sleep(3)
+                continue
+
+            msg_channel = ctx.guild.get_channel(msg_channel_id)
+            msg_message: discord.Message = await msg_channel.fetch_message(msg_message_id)
+            content = (msg_message.content.lower() if not msg_message.embeds
+                       else msg_message.embeds[0].description.lower())
+            userid = None
+
+            if msg_message.embeds and msg_message.embeds[0].author.icon_url:
+                cdnpattern = re.compile(
+                    r"https?://(media|cdn)\.discord(?:app)?\.com"
+                    r"/avatars/(?P<userid>[0-9]+)"
+                    r"/(?P<hash>([0-9]+)[\S]+)\?(?P<parameter>.+)"
+                )
+                cdnres = re.match(cdnpattern, msg_message.embeds[0].author.icon_url)
+                userid = cdnres.group("userid")
+            elif not msg_message.embeds:
+                # Assuming non-custom hunt
+                section = content.split('|')
+                new_line = True if re.match(r".*\[[0-9]*/[0-9]*].*", section[1]) else False
+                username = section[1]
+                # Y u better not mess up with username
+                found = username.rfind("**,") if new_line else username.find("** ")
+                username = username[:found].strip()
+                query = await ctx.guild.query_members(username)
+                if query:
+                    userid = str(query[0].id)
+                    if len(query) > 1:
+                        await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                        await asyncio.sleep(3)
+                        continue
+            else:
+                await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                await asyncio.sleep(3)
+                continue
+
+            if userid is None:
+                await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                await asyncio.sleep(3)
+                continue
+
+            skipped = []
+            should_be = 1
+            check = content.split('\n')
+            kindly_exit = False
+            if message.embeds:
+                for i, line in enumerate(check):
+                    for pet in self.focus:
+                        if pet in line:
+                            if should_be is not None and i != should_be:
+                                kindly_exit = True
+                                break
+                            should_be = i
+                    if kindly_exit:
+                        break
+                if kindly_exit:
+                    await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                    await asyncio.sleep(3)
+                    continue
+
+            for pet in self.focus:
+                res = check[should_be].count(f":{pet}:")
+                if res == 0:
+                    skipped.append(pet)
+                    continue
+                participants = dict()
+                form = {"_id": f"pet{pet}"}
+                cursor = await self.LXV_COLLECTION.find_one(form)
+                if cursor:
+                    participants = cursor["participants"]
+                if userid in participants:
+                    res += participants[userid]
+                participants.update({userid: res})
+                if not cursor:
+                    await self.LXV_COLLECTION.insert_one({"_id": f"pet{pet}", "participants": participants})
+                else:
+                    await self.LXV_COLLECTION.update_one(form, {"$set": {"participants": participants}})
+            await message.add_reaction("<:wurk:858721776770744320>")
+            await asyncio.sleep(3)
+        await original.edit(content="Done <:wurk:858721776770744320>")
+
+    @addcountfrom.error
+    async def addcountfrom_on_error(self, ctx, error):
+        custom_embed = discord.Embed(title="Failed to mass add count",
+                                     description=error.original
+                                     if isinstance(error, commands.CommandInvokeError)
+                                     else error,
+                                     color=discord.Colour.red())
+        await ctx.send(embed=custom_embed)
+        output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(output) > 1500:
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await self.bot.send_owner(file=file)
+        else:
+            custom_embed = discord.Embed(title="Addcountfrom fail", description=f"```py\n{output}```",
+                                         color=discord.Colour.red())
+            await self.bot.send_owner(embed=custom_embed)
 
 async def setup(bot: SewentyBot):
     await bot.add_cog(LoveSick(bot))

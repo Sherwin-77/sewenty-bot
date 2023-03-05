@@ -59,21 +59,26 @@ class General(commands.Cog):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             await ctx.reply("Please input your suggestion :c", mention_author=False, delete_after=5)
 
-    @commands.command()
+    @commands.hybrid_command()
     async def ping(self, ctx):
-        time0 = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=None)
+        """
+        Yes ping
+        """
+        time0 = datetime.utcnow().replace(tzinfo=None)
+        time1 = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=None)
         ping = round(self.bot.latency * 1000)
-        time1 = datetime.utcnow().replace(tzinfo=None)
         message = await ctx.reply(f':ping_pong: Pong! in: {ping} ms', mention_author=False)
-        message_id = message.id
         time_diff1 = round((time1 - time0).microseconds / 1000)
-        time_diff2 = round((discord.utils.snowflake_time(message_id).replace(tzinfo=None) - time1).microseconds / 1000)
+        time_diff2 = round((discord.utils.snowflake_time(message.id).replace(tzinfo=None) - time0).microseconds / 1000)
         await message.edit(
             content=f':ping_pong: Pong! in: {ping} ms\nMessage received in: {time_diff1} ms\n'
                     f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
 
     @commands.hybrid_command()
     async def whois(self, ctx: commands.Context, user: Optional[discord.User] = None):
+        """
+        Show detail of user
+        """
         if not user:
             user = ctx.author
         async with ctx.typing():

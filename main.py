@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime
 from glob import glob
 from io import BytesIO
+import json
 import logging
 from os import getenv
 from os.path import relpath
@@ -197,9 +198,9 @@ class SewentyBot(commands.Bot):
         else:
             await self.start(self.TOKEN)
 
-    async def send_owner(self, message) -> None:
+    async def send_owner(self, message=None, **kwargs) -> None:
         channel = await self.owner.create_dm()
-        await channel.send(message)
+        await channel.send(message, **kwargs)
 
     async def get_soldier_cache(self) -> None:
         if not USE_PSQL:
@@ -245,8 +246,8 @@ def main():
     async def ajg(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f"Ajg 👉 {user.mention}")
 
-    @commands.is_owner()
     @bot.command(hidden=True)
+    @commands.is_owner()
     async def laststack(ctx):
         if not bot.last_stack:
             return await ctx.send("No blocking code detected")
@@ -299,12 +300,8 @@ def main():
         embed = message.embeds
         if len(embed) < 1:
             return await ctx.reply("No embed", mention_author=False)
-        custom_embed = discord.Embed(color=discord.Colour.random())
-        for emb in embed:
-            custom_embed.add_field(name=emb.title or "No title",
-                                   value=f"Description: {emb.description}\n"
-                                         f"**Content:**\n" +
-                                         '\n'.join(f"Name: {field.name}\n Value: {field.value}"for field in emb.fields))
+        custom_embed = discord.Embed(description=str(json.dumps(embed[0].to_dict(), indent='\u2800')),
+                                     color=discord.Colour.random())
         await ctx.send(embed=custom_embed)
 
     # noinspection SpellCheckingInspection
@@ -516,11 +513,17 @@ def main():
             return await interaction.response.send_message("You can't use this command or command on maintenance")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
-            return logger.error(output)
-        await bot.send_owner(f"Uncaught error in channel <#{interaction.channel.id}> "
-                             f"command `{interaction.command.qualified_name}`\n"
-                             f"```py\n"
-                             f"{output}```")
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await bot.send_owner(f"Uncaught error in channel <#{interaction.channel.id}> "
+                                 f"command `{interaction.command}`",
+                                 file=file)
+        else:
+            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{interaction.channel.id}> "
+                                               f"command {interaction.command}",
+                                         description=f"```py\n{output}```",
+                                         color=discord.Colour.red())
+            await bot.send_owner(embed=custom_embed)
 
     @bot.event
     async def on_command_error(ctx, error):
@@ -544,13 +547,16 @@ def main():
             return await ctx.reply("User not found", mention_author=False)
         if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, "on_error"):
             return
-
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
-            return print(output)
-        await bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`\n"
-                             f"```py\n"
-                             f"{output}```")
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
+        else:
+            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
+                                         description=f"```py\n{output}```",
+                                         color=discord.Colour.red())
+            await bot.send_owner(embed=custom_embed)
 
     asyncio.run(bot.main())
 
