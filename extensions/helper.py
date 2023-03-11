@@ -258,50 +258,59 @@ class HelperCommand(commands.Cog):
                                    "or check for 5 messages before you", mention_author=False)
         last: discord.Embed = embeds[-1]
         new = last.description.split('\n')
-        weapon_type = new[0].split('**')[2].lower()
-        cost = int(new[5].split('**')[2].split(' ')[1])
-        if not (('banner' in weapon_type) ^ ('aegis' in weapon_type)):
-            stat1 = float(new[6].split('**')[3].replace('%', ''))
-        if 'great' in weapon_type.lower():
-            weapon_type = 'sword'
-        elif 'healing' in weapon_type:
-            weapon_type = 'hstaff'
-        elif 'defender' in weapon_type:
-            weapon_type = 'aegis'
-            stat1 = float(new[8].split('**')[-2])
-        elif 'vampiric' in weapon_type:
-            weapon_type = 'vstaff'
-        elif 'energy' in weapon_type:
-            weapon_type = 'estaff'
-        elif 'poison' in weapon_type:
-            weapon_type = 'dagger'
-            stat2 = float(new[8].split('**')[3].replace('%', ''))
-        elif 'wand' in weapon_type:
-            weapon_type = 'wand'
-            stat2 = float(new[6].split('**')[-2].replace('%', ''))
-        elif 'flame' in weapon_type:
-            weapon_type = 'fstaff'
-            stat2 = float(new[8].split('**')[3].replace('%', ''))
-            stat3 = float(new[8].split('**')[-2].replace('%', ''))
-        elif 'spirit' in weapon_type:
-            weapon_type = 'sstaff'
-            stat2 = float(new[8].split('**')[-2].replace('%', ''))
-        elif 'scepter' in weapon_type:
-            weapon_type = 'scepter'
-        elif 'resurrection' in weapon_type:
-            weapon_type = 'rstaff'
-        elif 'glacial' in weapon_type:
+        weapon_type = new[0].split("**")[2].lower()
+        cost = int(new[5].split("**")[2].split(' ')[1])
+        if not ("banner" in weapon_type or "aegis" in weapon_type or "celebration" in weapon_type):
+            stat1 = float(new[6].split("**")[3].replace('%', ''))
+        if "great" in weapon_type.lower():
+            weapon_type = "sword"
+        elif "healing" in weapon_type:
+            weapon_type = "hstaff"
+        elif "defender" in weapon_type:
+            weapon_type = "aegis"
+            stat1 = float(new[8].split("**")[-2])
+        elif "vampiric" in weapon_type:
+            weapon_type = "vstaff"
+        elif "energy" in weapon_type:
+            weapon_type = "estaff"
+        elif "poison" in weapon_type:
+            weapon_type = "dagger"
+            stat2 = float(new[8].split("**")[3].replace('%', ''))
+        elif "wand" in weapon_type:
+            weapon_type = "wand"
+            stat2 = float(new[6].split("**")[-2].replace('%', ''))
+        elif "flame" in weapon_type:
+            weapon_type = "fstaff"
+            stat2 = float(new[8].split("**")[3].replace('%', ''))
+            stat3 = float(new[8].split("**")[-2].replace('%', ''))
+            await ctx.send(f"{stat1} {stat2} {stat3}")
+        elif "spirit" in weapon_type:
+            weapon_type = "sstaff"
+            stat2 = float(new[8].split("**")[-2].replace('%', ''))
+        elif "scepter" in weapon_type:
+            weapon_type = "scepter"
+        elif "resurrection" in weapon_type:
+            weapon_type = "rstaff"
+        elif "glacial" in weapon_type:
             weapon_type = 'axe'
-        elif 'banner' in weapon_type:
-            weapon_type = 'banner'
-            stat1 = float(new[8].split('**')[-2].replace('%', ''))
-            stat2 = float(new[9].split('**')[-2].replace('%', ''))
-            stat3 = float(new[10].split('**')[-2].replace('%', ''))
-        elif 'scythe' in weapon_type:
-            weapon_type = 'scythe'
-            stat2 = float(new[8].split('**')[-2].replace('%', ''))
-        elif 'bow' in weapon_type:
-            weapon_type = 'bow'
+        elif "banner" in weapon_type:
+            weapon_type = "banner"
+            stat1 = float(new[8].split("**")[-2].replace('%', ''))
+            stat2 = float(new[9].split("**")[-2].replace('%', ''))
+            stat3 = float(new[10].split("**")[-2].replace('%', ''))
+        elif "scythe" in weapon_type:
+            weapon_type = "scythe"
+            stat2 = float(new[8].split("**")[-2].replace('%', ''))
+        elif "bow" in weapon_type:
+            weapon_type = "bow"
+        elif "purity" in weapon_type:
+            weapon_type = "pstaff"
+            stat2 = float(new[6].split("**")[-2].replace('%', ''))
+        elif "celebration" in weapon_type:
+            weapon_type = "crune"
+            stat1 = float(new[8].split("**")[3].replace('%', ''))
+            stat2 = float(new[8].split("**")[-2].replace('%', ''))
+
         return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3))
 
     @maxwstat.error
@@ -367,7 +376,7 @@ class HelperCommand(commands.Cog):
                 continue
             y = embedded[-1].to_dict()
             if 'inventory' in y['author']['name']:
-                inventory_dict = y['fields'][0]['value'].split('**')
+                inventory_dict = y['fields'][0]['value'].split("**")
                 log_data = {}
                 for z in range(len(inventory_dict)):
                     if ' log' in inventory_dict[z]:

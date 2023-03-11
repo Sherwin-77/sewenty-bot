@@ -52,7 +52,7 @@ OWO_WEAPONS = {
         "total_stat": 1
     },
     "sword": {
-        "cost": (150, 250),
+        "cost": (100, 200),
         "stat1": (35.0, 55.0),
         "image": "https://cdn.discordapp.com/emojis/594613521271095299.png?v=1",
         "total_stat": 1
@@ -127,19 +127,33 @@ OWO_WEAPONS = {
         "image": "https://cdn.discordapp.com/emojis/594613521703108631.png?v=1",
         "total_stat": 2
     },
+    "pstaff": {
+        "cost": (125, 200),
+        "stat1": (50.0, 100.0),
+        "stat2": (50.0, 100.0),
+        "image": "https://cdn.discordapp.com/emojis/1083801509185200230.png?v=1",
+        "total_stat": 2
+    },
+    "crune": {
+        "cost": (100, 200),
+        "stat1": (20.0, 50.0),
+        "stat2": (15.0, 40.0),
+        "image": "https://cdn.discordapp.com/emojis/1083801048990371943.png?v=1",
+        "total_stat": 2
+    },
     "banner": {
         "cost": (250, 300),
-        "stat1": (10.0, 20.0),
-        "stat2": (20.0, 30.0),
-        "stat3": (30.0, 40.0),
+        "stat1": (15.0, 25.0),
+        "stat2": (25.0, 35.0),
+        "stat3": (40.0, 50.0),
         "image": "https://cdn.discordapp.com/emojis/622681759565479956.png?v=1",
         "total_stat": 3
     },
     "fstaff": {
         "cost": (100, 200),
-        "stat1": (100.0, 200.0),
+        "stat1": (75.0, 95.0),
         "stat2": (20.0, 40.0),
-        "stat3": (40.0, 60.0),
+        "stat3": (60.0, 80.0),
         "image": "https://cdn.discordapp.com/emojis/594613521573216266.png?v=1",
         "total_stat": 3
     }
