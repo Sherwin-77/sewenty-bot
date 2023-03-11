@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 import asyncio
 from copy import deepcopy
@@ -92,6 +92,7 @@ class LoveSick(commands.Cog):
         self.lxv_recruit_id = int(setting["lxv_recruit_id"])
         self.mod_ids = set(map(int, setting["mod_ids"]))
         self.focus = setting["focus"]
+        self.focus.sort()
         self.refresh_lxv_recruit.start()
 
     async def cog_unload(self) -> None:
@@ -106,7 +107,7 @@ class LoveSick(commands.Cog):
         channel = guild.get_channel(self.logging_channel_id)
         if role is None:
             if channel is None:
-                return await self.bot.send_owner(f"General channel for lxv is missing. Old: {self.logging_channel_id}\n"
+                return await self.bot.send_owner(f"Logging channel for lxv is missing. Old: {self.logging_channel_id}\n"
                                                  f"LXV recruit role missing. Old: {self.lxv_recruit_id}")
             else:
                 await channel.send(f"LXV recruit role missing. Old id: {self.lxv_recruit_id}")
@@ -142,12 +143,8 @@ class LoveSick(commands.Cog):
         else:
             await self.LXV_COLLECTION.update_one({"_id": "lxvrecruit"}, {"$set": {"members": data}})
         self.counter += 1
-        if not self.counter % 2:
-            if channel is None:
-                return await self.bot.send_owner(f"Logging channel for lxv is missing. Old: {self.logging_channel_id}")
-            await channel.send("Updated lxv recruit")
-        if self.recruit_log["expired"]:
-            await channel.send("There are members failed to recruit. Check it from s!recruitlog")
+        if channel is None:
+            return await self.bot.send_owner(f"Logging channel for lxv is missing. Old: {self.logging_channel_id}")
         ch = guild.get_channel(765818685922213948)
         await ch.send("Update data completed")
 
@@ -199,6 +196,41 @@ class LoveSick(commands.Cog):
         pages.add_item(dropdown)
         await pages.start(ctx)
 
+    @commands.command(aliases=["lxvrc"])
+    async def recruitcheck(self, ctx, member: discord.Member):
+        """
+        Check recruit status of member
+        """
+        role = discord.utils.get(member.roles, id=self.lxv_recruit_id)
+        count = await self.LXV_COLLECTION.count_documents({"_id": "lxvrecruit"})
+        old_data = await self.LXV_COLLECTION.find_one({"_id": "lxvrecruit"})
+        data_id = f"user{member.id}"
+        current_date = datetime.datetime.utcnow()
+        if not count:
+            await ctx.send("Empty database. Please initialize with s!forcerefresh")
+        old_data = old_data["members"]
+
+        if role is None and data_id not in old_data:
+            return await ctx.send("User doesn't have role here neither in database")
+        if role is not None and data_id not in old_data:
+            return await ctx.send("User have the role but doesn't exist in database. "
+                                  "For staff please do s!forcerefresh")
+        if role is None and data_id in old_data:
+            await ctx.send("User doesn't have role but exist in database. For staff consider doing s!forcerefresh")
+        custom_embed = discord.Embed(title="Recruit info",
+                                     description=f"Recruit since: {old_data[data_id]} "
+                                                 f"({(current_date - old_data[data_id]).days} days)\n"
+                                                 f"Other format:\n"
+                                                 f"{discord.utils.format_dt(old_data[data_id], 'T')}\n"
+                                                 f"{discord.utils.format_dt(old_data[data_id], 'd')}\n"
+                                                 f"{discord.utils.format_dt(old_data[data_id], 'D')}\n"
+                                                 f"{discord.utils.format_dt(old_data[data_id], 'f')}\n"
+                                                 f"{discord.utils.format_dt(old_data[data_id], 'F')}\n"
+                                                 f"{discord.utils.format_dt(old_data[data_id], 'R')}\n"
+                                                 f"Nothing to show again? Just do s!whois",
+                                     color=discord.Colour.random())
+        await ctx.send(embed=custom_embed)
+
     @commands.command(aliases=["lxvfr"])
     async def forcerefresh(self, ctx: commands.Context):
         """
@@ -247,56 +279,6 @@ class LoveSick(commands.Cog):
                                      color=discord.Colour.random())
         await ctx.send(embed=custom_embed)
 
-    @commands.command()
-    async def lxvrefresh(self, ctx):
-        if not self.mod_only(ctx):
-            return await ctx.send("Huh")
-        original = await ctx.send("Refreshing <a:discordloading:792012369168957450>")
-        setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
-        if not setting:
-            return await ctx.send("ERROR: Setting doen't exist at database")
-        # Note that id always stored in str due to big number
-        self.logging_channel_id = int(setting["logging_channel_id"])
-        self.lxv_recruit_id = int(setting["lxv_recruit_id"])
-        self.mod_ids = set(map(int, setting["mod_ids"]))
-        self.focus = setting["focus"]
-        await original.edit(content="Done <:wurk:858721776770744320>")
-
-    @commands.command(aliases=["lxvrc"])
-    async def recruitcheck(self, ctx, member: discord.Member):
-        """
-        Check recruit status of member
-        """
-        role = discord.utils.get(member.roles, id=self.lxv_recruit_id)
-        count = await self.LXV_COLLECTION.count_documents({"_id": "lxvrecruit"})
-        old_data = await self.LXV_COLLECTION.find_one({"_id": "lxvrecruit"})
-        data_id = f"user{member.id}"
-        current_date = datetime.datetime.utcnow()
-        if not count:
-            await ctx.send("Empty database. Please initialize with s!forcerefresh")
-        old_data = old_data["members"]
-
-        if role is None and data_id not in old_data:
-            return await ctx.send("User doesn't have role here neither in database")
-        if role is not None and data_id not in old_data:
-            return await ctx.send("User have the role but doesn't exist in database. "
-                                  "For staff please do s!forcerefresh")
-        if role is None and data_id in old_data:
-            await ctx.send("User doesn't have role but exist in database. For staff consider doing s!forcerefresh")
-        custom_embed = discord.Embed(title="Recruit info",
-                                     description=f"Recruit since: {old_data[data_id]} "
-                                                 f"({(current_date - old_data[data_id]).days} days)\n"
-                                                 f"Other format:\n"
-                                                 f"{discord.utils.format_dt(old_data[data_id], 'T')}\n"
-                                                 f"{discord.utils.format_dt(old_data[data_id], 'd')}\n"
-                                                 f"{discord.utils.format_dt(old_data[data_id], 'D')}\n"
-                                                 f"{discord.utils.format_dt(old_data[data_id], 'f')}\n"
-                                                 f"{discord.utils.format_dt(old_data[data_id], 'F')}\n"
-                                                 f"{discord.utils.format_dt(old_data[data_id], 'R')}\n"
-                                                 f"Nothing to show again? Just do s!whois",
-                                     color=discord.Colour.random())
-        await ctx.send(embed=custom_embed)
-
     @commands.command(aliases=["lxvafr"])
     async def accuraterefresh(self, ctx, limit=100):
         """
@@ -336,6 +318,30 @@ class LoveSick(commands.Cog):
         await original.edit(content="Done <:wurk:858721776770744320>")
         await channel.send(f"{ctx.author} used accurate refresh command with limit of last {limit} audit log")
 
+    @commands.command()
+    async def lxvrefresh(self, ctx):
+        if not self.mod_only(ctx):
+            return await ctx.send("Huh")
+        original = await ctx.send("Refreshing <a:discordloading:792012369168957450>")
+        setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
+        if not setting:
+            return await ctx.send("ERROR: Setting doen't exist at database")
+        # Note that id always stored in str due to big number
+        self.logging_channel_id = int(setting["logging_channel_id"])
+        self.lxv_recruit_id = int(setting["lxv_recruit_id"])
+        self.mod_ids = set(map(int, setting["mod_ids"]))
+        self.focus = setting["focus"]
+        self.focus.sort()
+        await original.edit(content="Done <:wurk:858721776770744320>")
+
+    @commands.command(hidden=True)
+    @commands.is_owner()
+    async def lxvlog(self, ctx, *, message):
+        guild = self.bot.get_guild(self.GUILD_ID)
+        channel = guild.get_channel(self.logging_channel_id)
+        await channel.send(f"LOGGING from {ctx.author}: {message}")
+        await ctx.message.add_reaction('👍')
+
     @commands.command(hidden=True)
     @commands.is_owner()
     async def lxveval(self, ctx, var):
@@ -344,29 +350,61 @@ class LoveSick(commands.Cog):
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
         await ctx.send(f"Hi event\n"
-                       f"For detail command, check from `s!help event`"
-                       f"Focused pet: `{'` `'.join(self.focus)}`")
+                       f"For detail command, check from `s!help event`\n"
+                       f"Focused pet: `{'` `'.join(self.focus or ['None'])}`")
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
+        Warning: if you use addcountuser without pet specified, all the count will deleted
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         res = set()
         for p in pet:
             res.add(p.lower())
+        if not pet:
+            res = ["None"]
+        res = list(res)
+        res.sort()
         custom_embed = discord.Embed(title="Focus index",
-                                     description=f"Are you sure want to focus to index `{'`, `'.join(list(res))}`?",
+                                     description=f"Are you sure want to focus to index `{'`, `'.join(res)}`?",
                                      color=discord.Colour.green())
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
         await confirm.send(ctx)
         await confirm.wait()
         if not confirm.value:
             return
-        self.focus = list(res)
+        self.focus = res
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res)}})
+
+    @event.command(aliases=["s"])
+    async def stat(self, ctx, user: Optional[discord.User] = None, pet=None):
+        """
+        Show pet count. Will sum all focus pet hunt if not specified
+        """
+        if user is None:
+            user = ctx.author
+        userid = str(user.id)
+        res = 0
+        other = dict()
+        if pet is None:
+            if not self.focus:
+                return await ctx.send("No focus pet currently")
+            for p in self.focus + ([''.join(self.focus)] if len(self.focus) > 1 else []):
+                cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{p}"})
+                if p == ''.join(self.focus) and len(self.focus) > 1:
+                    p = "global focus"
+                if not cursor or userid not in cursor["participants"]:
+                    other.update({p: 0})
+                    continue
+                other.update({p: cursor["participants"][userid]})
+                res += cursor["participants"][userid]
+        custom_embed = discord.Embed(title=f"Pet count of {user}",
+                                     description='\n'.join(f"**{k}**: **{v}** hunt(s)" for k, v in other.items()),
+                                     color=discord.Colour.random())
+        await ctx.send(embed=custom_embed)
 
     @event.command(aliases=["lb"])
     async def leaderboard(self, ctx, pet=None, length=5):
@@ -378,13 +416,11 @@ class LoveSick(commands.Cog):
         top = dict()
         if pet is None:
             pet = "focused"
-            missing = []
             if not self.focus:
                 return await ctx.send("No focus pet currently. Please add by s!focus")
-            for p in self.focus:
+            for p in self.focus + ([''.join(self.focus)] if len(self.focus) > 1 else []):
                 cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{p}"})
                 if not cursor:
-                    missing.append(p)
                     continue
                 for k, v in cursor["participants"].items():
                     if k in top:
@@ -392,9 +428,8 @@ class LoveSick(commands.Cog):
                     else:
                         top.update({k: v})
             if not top:
-                return await ctx.send(f"No leadeboard found for focus pet `{'` `'.join(self.focus)}`")
-            if missing:
-                await ctx.send(f"Following focus pet doesn't exist: `{'` `'.join(missing)}`")
+                return await ctx.send(f"No leadeboard found for focus pet `{'` `'.join(self.focus)}` "
+                                      f"neither global focus")
         else:
             pet = pet.lower()
             cursor = await self.LXV_COLLECTION.find_one({"_id": f"pet{pet}"})
@@ -676,6 +711,87 @@ class LoveSick(commands.Cog):
             custom_embed = discord.Embed(title="Addcountfrom fail", description=f"```py\n{output}```",
                                          color=discord.Colour.red())
             await self.bot.send_owner(embed=custom_embed)
+
+    @event.command(aliases=["acu"])
+    async def addcountuser(self, ctx, user: discord.User, amount: Optional[int] = 1, pet=None):
+        """
+        Manual add count for user. If pet not specified, will add to global focus pet
+        """
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        if amount < 0 or amount > 2147483647:
+            return await ctx.send("Invalid number")
+        if pet is not None:
+            pet = pet.lower()
+            entry = pet
+        else:
+            pet = ''.join(self.focus)
+            entry = "global focus" if len(pet) > 1 else pet
+        form = {"_id": f"pet{pet}"}
+        cursor = await self.LXV_COLLECTION.find_one(form)
+        if not cursor and pet not in self.focus and pet != ''.join(self.focus):
+            return await ctx.send("Pet non existent in database nor in focus")
+        if not cursor:
+            custom_embed = discord.Embed(title="Add count",
+                                         description=f"Pet doesn't exist in database. "
+                                                     f"Are you sure want to add entry of pet {entry}?",
+                                         color=discord.Colour.green())
+            confirm = ConfirmEmbed(ctx.author.id, custom_embed)
+            await confirm.send(ctx)
+            await confirm.wait()
+            if not confirm.value:
+                return
+        participants = cursor["participants"] if cursor else {}
+        res = amount
+        userid = str(user.id)
+        if userid in participants:
+            res += participants[userid]
+        participants.update({userid: res})
+        if not cursor:
+            await self.LXV_COLLECTION.insert_one({"_id": f"pet{pet}", "participants": participants})
+        else:
+            await self.LXV_COLLECTION.update_one(form, {"$set": {"participants": participants}})
+        await ctx.send(f"Succesfully add count pet {pet} of user {user} by {amount}")
+
+    @event.command(aliases=["sc"])
+    async def setcount(self, ctx, user: discord.User, amount: Optional[int] = 0, pet=None):
+        """
+        Set pet count of user. Amount 0 to delete the entry
+        If not specified, will check from global focus entry
+        """
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        if amount < 0 or amount > 2147483647:
+            return await ctx.send("Invalid number")
+        if pet is not None:
+            pet = pet.lower()
+            entry = pet
+        else:
+            pet = ''.join(self.focus)
+            entry = "global focus" if len(pet) > 1 else pet
+        userid = str(user.id)
+        form = {"_id": f"pet{pet}"}
+        cursor = await self.LXV_COLLECTION.find_one(form)
+        if not cursor:
+            return await ctx.send("Pet not found")
+        participants: dict = cursor["participants"]
+        if userid not in participants:
+            return await ctx.send("User not found")
+        custom_embed = discord.Embed(title="Set count",
+                                     description=f"You are changing pet `{entry}` count of user {user}. "
+                                                 f"Proceed to continue?",
+                                     color=discord.Colour.green())
+        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
+        await confirm.send(ctx)
+        await confirm.wait()
+        if not confirm.value:
+            return
+        if amount == 0:
+            participants.pop(userid)
+        else:
+            participants.update({userid: amount})
+        await self.LXV_COLLECTION.update_one(form, {"$set": {"participants": participants}})
+
 
 async def setup(bot: SewentyBot):
     await bot.add_cog(LoveSick(bot))
