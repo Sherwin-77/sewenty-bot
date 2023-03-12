@@ -11,6 +11,12 @@ class BaseView(discord.ui.View):
     def __init__(self):
         super().__init__()
         self.value = None
+        self.user = None
+
+    async def on_timeout(self) -> None:
+        for child in self.children:
+            child.view.stop()
+        self.stop()
 
 
 class NumberButton(discord.ui.Button):

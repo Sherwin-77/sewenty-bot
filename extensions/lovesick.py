@@ -350,7 +350,8 @@ class LoveSick(commands.Cog):
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
         await ctx.send(f"Hi event\n"
-                       f"For detail command, check from `s!help event`\n"
+                       f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
+                       f"||Read the command detail before use 👀||\n"
                        f"Focused pet: `{'` `'.join(self.focus or ['None'])}`")
 
     @event.command(aliases=["f"])
@@ -478,6 +479,8 @@ class LoveSick(commands.Cog):
             )
             cdnres = re.match(cdnpattern, message.embeds[0].author.icon_url)
             userid = cdnres.group("userid")
+            if cdnres is None or not cdnres.group(0):
+                return await ctx.send("User profile not found in custom hunt. Wrong link?")
         elif not message.embeds:
             # Assuming non-custom hunt
             section = content.split('|')
@@ -567,7 +570,8 @@ class LoveSick(commands.Cog):
     @event.command(aliases=["acf"])
     async def addcountfrom(self, ctx, link):
         """
-        Start counting link that posted after specified link message (not the link itself)
+        Start counting link that posted after specified link message **(not the link itself)**
+        Mean if you want to start at message X, then you need to get message link **before** that message X
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
@@ -595,6 +599,10 @@ class LoveSick(commands.Cog):
         async for message in channel.history(after=snowflake, oldest_first=True):
             msglink = message.content
             if message.embeds:
+                if not message.embeds[0].fields:
+                    await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                    await asyncio.sleep(3)
+                    continue
                 msglink = message.embeds[0].fields[-1].value
             if not msglink:
                 await message.add_reaction("<:Kannaconfused:799040710770032670>")
@@ -628,6 +636,10 @@ class LoveSick(commands.Cog):
                     r"/(?P<hash>([0-9]+)[\S]+)\?(?P<parameter>.+)"
                 )
                 cdnres = re.match(cdnpattern, msg_message.embeds[0].author.icon_url)
+                if cdnres is None or not cdnres.group(0):
+                    await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                    await asyncio.sleep(3)
+                    continue
                 userid = cdnres.group("userid")
             elif not msg_message.embeds:
                 # Assuming non-custom hunt

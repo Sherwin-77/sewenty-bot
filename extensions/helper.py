@@ -10,6 +10,7 @@ import time
 from typing import TYPE_CHECKING, Optional
 
 from constants import OWO_WEAPONS, Colour
+from utils.view_util import BaseView, Dropdown
 
 if TYPE_CHECKING:
     from main import SewentyBot
@@ -220,6 +221,150 @@ async def visual_stat(ctx, level, hp, strength, pr, wp, mag, mr):
                                  color=blue)
     custom_embed.add_field(name='Category', value=f'{category} {category1}', inline=False)
     await ctx.send(embed=custom_embed)
+
+
+class Anigame:
+    def __init__(self, card_base_atk: int, card_def: int,
+                 enemy_base_atk: int, enemy_def: int,
+                 card_element_multiplier: float = 1.0,
+                 card_crit_multiplier: float = 1.75,
+                 enemy_element_multiplier: float = 1.0,
+                 enemy_crit_multiplier: float = 1.75,
+                 ):
+        self.card_base_atk = card_base_atk
+        self.card_atk = card_base_atk
+        self.card_def = card_def
+        self.enemy_base_atk = enemy_base_atk
+        self.enemy_atk = enemy_base_atk
+        self.enemy_def = enemy_def
+        self.card_element_multiplier = card_element_multiplier
+        self.card_crit_multiplier = card_crit_multiplier
+        self.enemy_element_multiplier = enemy_element_multiplier
+        self.enemy_crit_multiplier = enemy_crit_multiplier
+
+    def damage(self, crit=False):
+        if crit:
+            return ((((self.card_base_atk / self.enemy_def) * (self.card_atk / 2.9)) + 220000 / self.enemy_def) / 3
+                    * self.card_element_multiplier * self.card_crit_multiplier)
+        return ((((self.card_base_atk / self.enemy_def) * (self.card_atk / 2.9)) + 220000 / self.enemy_def) / 3
+                * self.card_element_multiplier)
+
+    def enemy_damage(self, crit=False):
+        if crit:
+            return ((((self.enemy_base_atk / self.card_def) * (self.enemy_atk / 2.9)) + 220000 / self.card_def) / 3
+                    * self.enemy_element_multiplier * self.enemy_crit_multiplier)
+        return ((((self.enemy_base_atk / self.card_def) * (self.enemy_atk / 2.9)) + 220000 / self.card_def) / 3
+                * self.enemy_element_multiplier)
+
+
+class ModifyStat(discord.ui.Modal, title="Modify stat"):
+    name = discord.ui.TextInput(label="Input new stat. Percentage or number")
+
+    def __init__(self, view, stat):
+        super().__init__()
+        self.view = view
+        self.stat = stat
+
+    async def on_submit(self, interaction: discord.Interaction) -> None:
+        new_stat = self.name.value
+        is_percentage = False
+        if new_stat.endswith('%'):
+            new_stat = new_stat.removesuffix('%')
+            try:
+                new_stat = float(new_stat)/100 + 1
+            except ValueError:
+                return await interaction.response.send_message("Invalid percentage", ephemeral=True)
+            finally:
+                is_percentage = True
+        else:
+            try:
+                new_stat = float(new_stat)
+            except ValueError:
+                return await interaction.response.send_message("Invalid number", ephemeral=True)
+        if self.stat == "self atk":
+            if is_percentage:
+                self.view.anigame.card_atk *= new_stat
+            else:
+                self.view.anigame.card_atk = new_stat
+        elif self.stat == "self def":
+            if is_percentage:
+                self.view.anigame.card_def *= new_stat
+            else:
+                self.view.anigame.card_def = new_stat
+        elif self.stat == "enemy atk":
+            if is_percentage:
+                self.view.anigame.enemy_atk *= new_stat
+            else:
+                self.view.anigame.enemy_atk = new_stat
+        elif self.stat == "enemy def":
+            if is_percentage:
+                self.view.anigame.enemy_def *= new_stat
+            else:
+                self.view.anigame.enemy_def = new_stat
+        elif self.stat == "self crit mult":
+            if is_percentage:
+                self.view.anigame.card_crit_multiplier *= new_stat
+            else:
+                self.view.anigame.card_crit_multiplier = new_stat
+        elif self.stat == "enemy crit mult":
+            if is_percentage:
+                self.view.anigame.enemy_crit_multiplier *= new_stat
+            else:
+                self.view.anigame.enemy_crit_multiplier = new_stat
+        elif self.stat == "self elem mult":
+            if is_percentage:
+                self.view.anigame.card_element_multiplier *= new_stat
+            else:
+                self.view.anigame.card_element_multiplier = new_stat
+        elif self.stat == "enemy elem mult":
+            if is_percentage:
+                self.view.anigame.enemy_element_multiplier *= new_stat
+            else:
+                self.view.anigame.enemy_element_multiplier = new_stat
+        else:
+            await interaction.response.send_message("Not implemented error")
+            self.stop()
+            return
+
+        await interaction.response.edit_message(view=self.view, embed=self.view.display())
+        self.stop()
+
+
+class AnigameView(BaseView):
+    def __init__(self, anigame: Anigame):
+        super().__init__()
+        self.anigame: Anigame = anigame
+
+    def display(self) -> discord.Embed:
+        custom_embed = discord.Embed(title="Anigame simulator",
+                                     description=f"Damage: **{self.anigame.damage()}**\n"
+                                                 f"Crit damage: **{self.anigame.damage(True)}**\n"
+                                                 f"Enemy damage: **{self.anigame.enemy_damage()}**\n"
+                                                 f"Enemy crit damage **{self.anigame.enemy_damage(True)}**",
+                                     color=discord.Colour.random())
+        custom_embed.add_field(name="Self stat",
+                               value=f"Base ATK: {self.anigame.card_base_atk}\n"
+                                     f"ATK: {self.anigame.card_atk}\n"
+                                     f"DEF: {self.anigame.card_def}\n"
+                                     f"Element multiplier: {self.anigame.card_element_multiplier}\n"
+                                     f"Crit multiplier: {self.anigame.card_crit_multiplier}")
+        custom_embed.add_field(name="Enemy stat",
+                               value=f"Base ATK: {self.anigame.enemy_base_atk}\n"
+                                     f"ATK: {self.anigame.enemy_atk}\n"
+                                     f"DEF: {self.anigame.enemy_def}\n"
+                                     f"Element multiplier: {self.anigame.enemy_element_multiplier}\n"
+                                     f"Crit multiplier: {self.anigame.enemy_crit_multiplier}")
+        return custom_embed
+
+
+class AnigameDropdown(Dropdown):
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        view: AnigameView = self.view
+        if interaction.user.id != self.view.user.id:
+            return await interaction.response.send_message("You are not allowed to do this :c", ephemeral=True)
+        modify = ModifyStat(view, self.values[0])
+        await interaction.response.send_modal(modify)
 
 
 # noinspection SpellCheckingInspection
@@ -654,6 +799,42 @@ class HelperCommand(commands.Cog):
                                                                                     f'streak: {streak}',
                                      color=yellow)
         await ctx.send(embed=custom_embed)
+
+    @commands.command(aliases=["astat"])
+    async def anigamestat(self, ctx,
+                          card_base_atk: Optional[int] = None,
+                          card_def: Optional[int] = None,
+                          enemy_base_atk: Optional[int] = None,
+                          enemy_def: Optional[int] = None,
+                          card_element_multiplier: Optional[float] = 1,
+                          card_crit_multiplier: Optional[float] = 1.75,
+                          enemy_element_multiplier: Optional[float] = 1,
+                          enemy_crit_multiplier: Optional[float] = 1.75
+                          ):
+        card_base_atk *= 10
+        card_def *= 10
+        enemy_base_atk *= 10
+        enemy_def *= 10
+
+        anigame = Anigame(card_base_atk, card_def, enemy_base_atk, enemy_def,
+                          card_element_multiplier, card_crit_multiplier,
+                          enemy_element_multiplier, enemy_crit_multiplier)
+
+        view = AnigameView(anigame)
+        view.user = ctx.author
+        dropdown = AnigameDropdown(text="Select stat to modify",
+                                   select_list=[discord.SelectOption(label=s, value=s) for s in ["self atk",
+                                                                                                 "self def",
+                                                                                                 "enemy atk",
+                                                                                                 "enemy def",
+                                                                                                 "self elem mult",
+                                                                                                 "self crit mult",
+                                                                                                 "enemy elem mult",
+                                                                                                 "enemy crit mult"
+                                                                                                 ]
+                                                ])
+        view.add_item(dropdown)
+        await ctx.send(embed=view.display(), view=view)
 
 
 async def setup(bot: SewentyBot):
