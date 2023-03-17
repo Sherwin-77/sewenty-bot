@@ -101,7 +101,8 @@ class SewentyBot(commands.Bot):
                                  "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
                                            "<a:pandasmackOwO:799955371074519041>",
                                  "vinwuv": "osu! when",
-                                 "invad": "When"}
+                                 "invad": "When",
+                                 "thonk": "<:PaulThink:770782702973878283>"}
 
         # we define this later
         self.pool = None
@@ -499,10 +500,12 @@ def main():
                     or "fortunately it resisted" in message.split('\n')[2]
                     or "uses Lucky Coin" in message.split('\n')[2]
                     or "uses Unlucky Coin" in message.split('\n')[2]
+                    or "blinded by the smoke" in message.split('\n')[2]
             ):
                 message = message.replace("<:ARROW:698301107419611186>", ":arrow_right: ")
                 custom_embed = discord.Embed(title=message.split('[')[1].split(']')[0],
-                                             description=message.split('\n')[1] + '\n' + message.split('\n')[2])
+                                             description=message.split('\n')[1] + '\n' + message.split('\n')[2],
+                                             color=discord.Colour.blue())
                 await after.channel.send(embed=custom_embed)
 
     @bot.tree.error
@@ -527,6 +530,8 @@ def main():
 
     @bot.event
     async def on_command_error(ctx, error):
+        if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, "on_error"):
+            return
         if isinstance(error, commands.errors.DisabledCommand):
             return await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
                                    mention_author=False)
@@ -545,8 +550,6 @@ def main():
             return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):
             return await ctx.reply("User not found", mention_author=False)
-        if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, "on_error"):
-            return
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             buffer = BytesIO(output.encode("utf-8"))

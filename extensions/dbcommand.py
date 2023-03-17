@@ -8,6 +8,7 @@ import asyncio
 import calendar
 from datetime import datetime
 import datetime as dt
+from io import BytesIO
 import random
 from traceback import format_exception
 from typing import TYPE_CHECKING, Optional
@@ -599,23 +600,21 @@ class Taco(commands.Cog):
 
     @auto_taco.error
     async def auto_taco_error(self, ctx, error):
-        if isinstance(error, commands.errors.DisabledCommand):
-            return await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
-                                   mention_author=False)
-
-        if isinstance(error, commands.errors.MissingRequiredArgument) or isinstance(error, commands.errors.BadArgument):
-            return await ctx.reply(error, mention_author=False)
-
-        output = error
-        if ctx.author.id == self.bot.owner.id:
-            output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(str(output)) > 1500:
-            return print(output)
-
-        custom_embed = discord.Embed(title="Uh Oh! Something happened",
-                                     description=f"```{output}```",
+        custom_embed = discord.Embed(title="Failed to perfom auto taco",
+                                     description=error.original
+                                     if isinstance(error, commands.CommandInvokeError)
+                                     else error,
                                      color=discord.Colour.red())
         await ctx.send(embed=custom_embed)
+        output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(output) > 1500:
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await self.bot.send_owner(file=file)
+        else:
+            custom_embed = discord.Embed(title="Auto taco fail", description=f"```py\n{output}```",
+                                         color=discord.Colour.red())
+            await self.bot.send_owner(embed=custom_embed)
 
 
 class OwO(commands.Cog):

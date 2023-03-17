@@ -54,11 +54,6 @@ class General(commands.Cog):
         await channel.send(embed=custom_embed)
         await ctx.message.add_reaction('👍')
 
-    @suggest.error
-    async def suggest_error(self, ctx, error):
-        if isinstance(error, commands.errors.MissingRequiredArgument):
-            await ctx.reply("Please input your suggestion :c", mention_author=False, delete_after=5)
-
     @commands.hybrid_command()
     async def ping(self, ctx):
         """

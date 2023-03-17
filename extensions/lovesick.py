@@ -478,9 +478,9 @@ class LoveSick(commands.Cog):
                 r"/(?P<hash>([0-9]+)[\S]+)\?(?P<parameter>.+)"
             )
             cdnres = re.match(cdnpattern, message.embeds[0].author.icon_url)
-            userid = cdnres.group("userid")
             if cdnres is None or not cdnres.group(0):
                 return await ctx.send("User profile not found in custom hunt. Wrong link?")
+            userid = cdnres.group("userid")
         elif not message.embeds:
             # Assuming non-custom hunt
             section = content.split('|')
