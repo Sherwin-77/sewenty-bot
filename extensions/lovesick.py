@@ -469,6 +469,8 @@ class LoveSick(commands.Cog):
 
         channel = ctx.guild.get_channel(channel_id)
         message: discord.Message = await channel.fetch_message(message_id)
+        if message.embeds and message.embeds[0].description is None:
+            return await ctx.send("Unable to check the first embed description. Is that right embed?")
         content = message.content.lower() if not message.embeds else message.embeds[0].description.lower()
         userid = None
         if message.embeds and message.embeds[0].author.icon_url:
@@ -625,6 +627,11 @@ class LoveSick(commands.Cog):
 
             msg_channel = ctx.guild.get_channel(msg_channel_id)
             msg_message: discord.Message = await msg_channel.fetch_message(msg_message_id)
+            if msg_message.embeds and msg_message.embeds[0].description is None:
+                await message.add_reaction("<:Kannaconfused:799040710770032670>")
+                await asyncio.sleep(3)
+                continue
+
             content = (msg_message.content.lower() if not msg_message.embeds
                        else msg_message.embeds[0].description.lower())
             userid = None
