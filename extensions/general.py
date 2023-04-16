@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+
 import discord
 from discord.ext import commands
 from datetime import datetime
@@ -18,16 +20,21 @@ class General(commands.Cog):
     # TODO: Maybe add another action command?
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
+        self.TOKEN = getenv("ANIME_TOKEN")
 
         self.DEFAULT_BANNER_URL = getenv("DEFAULT_BANNER_URL")
-    #     self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
-    #
-    # async def cog_check(self, ctx):
-    #     bucket = self._cd.get_bucket(ctx.message)
-    #     retry_after = bucket.update_rate_limit()
-    #     if retry_after:
-    #         raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
-    #     return True
+        self.emoji_cache = {}
+
+        self._cd = commands.CooldownMapping.from_cooldown(rate=1.0, per=3.0, type=commands.BucketType.user)
+
+    async def cog_check(self, ctx):
+        if ctx.invoked_with is not None and ctx.invoked_with == "help":
+            return True
+        bucket = self._cd.get_bucket(ctx.message)
+        retry_after = bucket.update_rate_limit()
+        if retry_after:
+            raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
+        return True
 
     @staticmethod
     async def query_member(ctx: commands.Context, user):
@@ -44,6 +51,28 @@ class General(commands.Cog):
                         ret = member
 
         return ret
+
+    async def get_gif(self, endpoint: str):
+        if random.random() > 0.5 or endpoint not in self.emoji_cache:
+            api = f"https://kawaii.red/api/gif/{endpoint}/token={self.TOKEN}"
+            key = "response"
+            if endpoint in {"pat", "hug"}:
+                api = f"https://some-random-api.ml/animu/{endpoint}"
+                key = "link"
+
+            async with self.bot.session.get(api) as r:
+                if r.status != 200:
+                    return random.choice(self.emoji_cache[endpoint]) or None
+                response = await r.json()
+                link = response[key]
+                if endpoint not in self.emoji_cache:
+                    self.emoji_cache.update({endpoint: [link]})
+                else:
+                    self.emoji_cache[endpoint].append(link)
+                    self.emoji_cache[endpoint] = list(set(self.emoji_cache[endpoint]))
+                return link
+        else:
+            return random.choice(self.emoji_cache[endpoint])
 
     @commands.command(help="Give a suggestion")
     async def suggest(self, ctx, *, suggestion):
@@ -241,6 +270,70 @@ class General(commands.Cog):
             return await ctx.send("User ded")
 
         await ctx.send(f"You flaked {target.mention}!")
+
+    @commands.command()
+    async def slap(self, ctx, *, user):
+        """Feels angy? slap them"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+
+        response = await self.get_gif("slap")
+        if response is None:
+            return await ctx.send("Something went wrong :c")
+        custom_embed = discord.Embed(title="Slap",
+                                     description=f"{ctx.author.mention} slaps {target.mention}",
+                                     color=discord.Colour.random())
+        custom_embed.set_image(url=response)
+        await ctx.send(embed=custom_embed)
+
+    @commands.command()
+    async def kiss(self, ctx, *, user):
+        """Ok kiss"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+
+        response = await self.get_gif("kiss")
+        if response is None:
+            return await ctx.send("Something went wrong :c")
+        custom_embed = discord.Embed(title="Kiss",
+                                     description=f"{ctx.author.mention} kisses {target.mention}",
+                                     color=discord.Colour.random())
+        custom_embed.set_image(url=response)
+        await ctx.send(embed=custom_embed)
+
+    @commands.command()
+    async def hug(self, ctx, *, user):
+        """Hugs someone"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+
+        response = await self.get_gif("hug")
+        if response is None:
+            return await ctx.send("Something went wrong :c")
+        custom_embed = discord.Embed(title="Hug",
+                                     description=f"{ctx.author.mention} hugs {target.mention}",
+                                     color=discord.Colour.random())
+        custom_embed.set_image(url=response)
+        await ctx.send(embed=custom_embed)
+
+    @commands.command()
+    async def pat(self, ctx, *, user):
+        """Pat pat"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+
+        response = await self.get_gif("pat")
+        if response is None:
+            return await ctx.send("Something went wrong :c")
+        custom_embed = discord.Embed(title="Pat",
+                                     description=f"{ctx.author.mention} pats {target.mention}",
+                                     color=discord.Colour.random())
+        custom_embed.set_image(url=response)
+        await ctx.send(embed=custom_embed)
 
 
 def dirty_filter(text):
