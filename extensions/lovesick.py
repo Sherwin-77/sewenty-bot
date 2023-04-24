@@ -341,7 +341,7 @@ class LoveSick(commands.Cog):
 
             content = message.content.lower() if not message.embeds else message.embeds[0].description.lower()
 
-            if member.name not in content:
+            if member.name.lower() not in content:
                 await message.reply("Username doesn't match/found in hunting message. "
                                     "If you believe this is yours, contact staff")
                 self.ignored.add((payload.user_id, payload.message_id))
