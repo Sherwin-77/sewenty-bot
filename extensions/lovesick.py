@@ -175,6 +175,7 @@ class LoveSick(commands.Cog):
         self.lxv_member_id = 0
         self.lxv_link_channel = 0
         self.event_link_channel = 0
+        self.event_disabled = False
         self.mod_ids = set()
         self.focus = []
         self.ignored = set()
@@ -200,6 +201,7 @@ class LoveSick(commands.Cog):
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
             self.verified = set(map(int, verified["msg_ids"]))
+        self.event_disabled = setting["event_disabled"]
         self.focus = setting["focus"]
         self.focus.sort()
         self.refresh_lxv_recruit.start()
@@ -318,6 +320,7 @@ class LoveSick(commands.Cog):
                 and payload.message_id not in self.ignored
                 and payload.message_id not in self.verified
                 and (payload.user_id, payload.message_id) not in self.ignored
+                and not self.event_disabled
         ):
             guild = self.bot.get_guild(self.GUILD_ID)
             channel = guild.get_channel(payload.channel_id)
@@ -568,6 +571,7 @@ class LoveSick(commands.Cog):
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
             self.verified = set(map(int, verified["msg_ids"]))
+        self.event_disabled = setting["event_disabled"]
         self.focus = setting["focus"]
         self.focus.sort()
         await original.edit(content="Done <:wurk:858721776770744320>")
@@ -590,13 +594,14 @@ class LoveSick(commands.Cog):
         await ctx.send(f"Hi event\n"
                        f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
                        f"||Read the command detail before use 👀||\n"
-                       f"Focused pet: `{'` `'.join(self.focus or ['None'])}`")
+                       f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
+                       f"Event counting currently **{'disabled' if self.event_disabled else 'enabled'}**")
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
-        Warning: if you use addcountuser without pet specified, all the count will deleted
+        All verified **message id** posted at link channel will be cleared and event counting will set to eenabled
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
@@ -609,7 +614,8 @@ class LoveSick(commands.Cog):
         res.sort()
         custom_embed = discord.Embed(title="Focus index",
                                      description=f"Are you sure want to focus to index `{'`, `'.join(res)}`?\n"
-                                                 f"**All verified message id posted at link will be deleted**",
+                                                 f"**All verified message id posted at link will be cleared"
+                                                 f"and event counting will be set to enabled**",
                                      color=discord.Colour.green())
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
         await confirm.send(ctx)
@@ -618,10 +624,23 @@ class LoveSick(commands.Cog):
             return
         self.focus = res
         self.verified = set()
+        self.event_disabled = False
         await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": []}})
-        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res)}})
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res),
+                                                                           "event_disabled": self.event_disabled}})
 
-    @event.command(aliases=["s"])
+    @event.command(aliases=['d', 'e', "enable"])
+    async def disable(self, ctx):
+        """
+        Toggle enable or disable event counting
+        """
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        self.event_disabled = not self.event_disabled
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
+        await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
+
+    @event.command(aliases=['s'])
     async def stat(self, ctx, user: Optional[discord.User] = None):
         """
         Show pet count
@@ -640,7 +659,7 @@ class LoveSick(commands.Cog):
     @event.command(aliases=["lb"])
     async def leaderboard(self, ctx, length=5):
         """
-        Show pet leaderboard. Will sum all focus pet hunt if not specified
+        Show pet leaderboard
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
