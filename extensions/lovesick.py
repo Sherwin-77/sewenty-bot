@@ -382,8 +382,11 @@ class LoveSick(commands.Cog):
             link_embed.add_field(name="Detail",
                                  value=f"Detected count: **{detected}**\n"
                                        f"User id: {userid}\n"
+                                       f"Channel: {channel.mention}\n"
                                        f"Jump url: [Link]({message.jump_url})\n"
-                                       f"If anything wrong, react the emoji below")
+                                       f"In case other wondering, "
+                                       f"react your event hunt message with <:newlxv:1046848826050359368>\n"
+                                       f"If anything wrong, for staff react the emoji below")
             msg = await link_channel.send(embed=link_embed)
             await msg.add_reaction('📝')
 
@@ -595,7 +598,8 @@ class LoveSick(commands.Cog):
                        f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
                        f"||Read the command detail before use 👀||\n"
                        f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
-                       f"Event counting currently **{'disabled' if self.event_disabled else 'enabled'}**")
+                       f"Event counting currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
+                       f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>")
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
