@@ -14,6 +14,7 @@ class AnigameCard:
                  ):
         self.base_atk = base_atk
         self.atk = base_atk
+        self.base_defense = defense
         self.defense = defense
         self.element = [em if em in ELEMENT else "neutral" for em in element]
         self.crit_multiplier = crit_multiplier
@@ -41,3 +42,12 @@ class AnigameCard:
         if crit:
             ret *= self.crit_multiplier
         return ret
+
+    def reset(self):
+        self.atk = self.base_atk
+        self.defense = self.base_defense
+        self.crit_multiplier = 1.75
+        self.atk_percentage = 1
+        self.defense_percentage = 1
+        self.rarity = Rarity.COMMON
+        self.talent = None

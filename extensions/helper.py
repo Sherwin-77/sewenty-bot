@@ -247,8 +247,8 @@ class Anigame:
 
 
 class TalentButton(discord.ui.Button):
-    def __init__(self, label, card: AnigameCard):
-        super().__init__(label=label)
+    def __init__(self, card: AnigameCard, **option):
+        super().__init__(**option)
         self.card = card
 
     async def callback(self, interaction: discord.Interaction):
@@ -277,15 +277,15 @@ class AnigameDropdown(Dropdown):
             self.card.talent = AnigameTalent(self.card, self.enemy,
                                              self.values[0].split(' ')[-1].lower(),
                                              self.values[0].split(' ')[0].lower())
-            if self.card == view.anigame.card and view.card_talent_id is None:
-                button = TalentButton("Call card talent", self.card)
+            if self.card == view.anigame.card and view.card_talent_button is None:
+                button = TalentButton(self.card, label="Call card talent", style=discord.ButtonStyle.blurple)
                 view.add_item(button)
-                view.card_talent_id = button.custom_id
+                view.card_talent_button = button
 
-            if self.card == view.anigame.enemy_card:
-                button = TalentButton("Call enemy talent", self.card)
+            if self.card == view.anigame.enemy_card and view.enemy_talent_button is None:
+                button = TalentButton(self.card, label="Call enemy talent", style=discord.ButtonStyle.blurple)
                 view.add_item(button)
-                view.enemy_talent_id = button.custom_id
+                view.enemy_talent_button = button
 
         if self.change_type == "rarity":
             self.card.rarity = STR_TO_RARITY[self.values[0].lower()]
@@ -300,8 +300,12 @@ class AnigameView(BaseView):
         super().__init__()
         self.anigame: Anigame = anigame
         self.message = None
-        self.card_talent_id = None
-        self.enemy_talent_id = None
+        self.card_talent_button = None
+        self.enemy_talent_button = None
+
+    async def on_timeout(self) -> None:
+        await super(AnigameView, self).on_timeout()
+        await self.message.edit(content="Simulator timed out", view=None, embed=None)
 
     def display(self) -> discord.Embed:
         rarity_to_str = dict((v, k) for k, v in STR_TO_RARITY.items())
@@ -358,7 +362,8 @@ class AnigameView(BaseView):
                                                                  "Defense Breaker",
                                                                  "Atk Breaker",
                                                                  "Defense Trick",
-                                                                 "Atk Trick"
+                                                                 "Atk Trick",
+                                                                 "Atk Precision"
                                                                  ]
             ],
             original_view=self,
@@ -382,7 +387,8 @@ class AnigameView(BaseView):
                                                                  "Defense Overload",
                                                                  "Atk Overload",
                                                                  "Defense Breaker",
-                                                                 "Atk Breaker"
+                                                                 "Atk Breaker",
+                                                                 "Atk Precision"
                                                                  ]
             ],
             original_view=self,
@@ -437,6 +443,18 @@ class AnigameView(BaseView):
             change_type="rarity"
         ))
         await interaction.response.send_message(view=another_view, ephemeral=True)
+
+    @discord.ui.button(label="Reset all")
+    async def reset_card(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
+        self.anigame.card.reset()
+        self.anigame.enemy_card.reset()
+        for child in self.children:
+            if isinstance(child, TalentButton):
+                self.remove_item(child)
+        await interaction.response.edit_message(embed=self.display(), view=self)
 
 
 # noinspection SpellCheckingInspection

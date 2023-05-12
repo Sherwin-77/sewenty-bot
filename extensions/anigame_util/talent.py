@@ -52,6 +52,9 @@ class AnigameTalent:
             self.card.defense += floor(difference * (0.72 + 0.12 * self.card.rarity.value))
             self.enemy.defense -= floor(difference * (0.72 + 0.12 * self.card.rarity.value))
 
+    def precision(self):
+        self.card.crit_multiplier += 0.26 + 0.04 * self.card.rarity.value
+
     def call_talent(self):
         if self.talent == "overload":
             self.overload()
@@ -61,6 +64,8 @@ class AnigameTalent:
             self.breaker()
         if self.talent == "trick":
             self.trick()
+        if self.talent == "precision":
+            self.precision()
 
     def __str__(self):
         return self.stat_type.capitalize() + ' ' + self.talent.capitalize()
