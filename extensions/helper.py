@@ -7,9 +7,10 @@ import asyncio
 from math import floor
 import random
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from constants import OWO_WEAPONS, Colour
+from extensions.anigame_util import AnigameCard, RENDER_ELEMENT, AnigameTalent, STR_TO_RARITY
 from utils.view_util import BaseView, Dropdown
 
 if TYPE_CHECKING:
@@ -226,145 +227,234 @@ async def visual_stat(ctx, level, hp, strength, pr, wp, mag, mr):
 class Anigame:
     def __init__(self, card_base_atk: int, card_def: int,
                  enemy_base_atk: int, enemy_def: int,
-                 card_element_multiplier: float = 1.0,
+                 card_element: Optional[List[str]] = None,
                  card_crit_multiplier: float = 1.75,
-                 enemy_element_multiplier: float = 1.0,
+                 enemy_element: Optional[List[str]] = None,
                  enemy_crit_multiplier: float = 1.75,
                  ):
-        self.card_base_atk = card_base_atk
-        self.card_atk = card_base_atk
-        self.card_def = card_def
-        self.enemy_base_atk = enemy_base_atk
-        self.enemy_atk = enemy_base_atk
-        self.enemy_def = enemy_def
-        self.card_element_multiplier = card_element_multiplier
-        self.card_crit_multiplier = card_crit_multiplier
-        self.enemy_element_multiplier = enemy_element_multiplier
-        self.enemy_crit_multiplier = enemy_crit_multiplier
+        if card_element is None:
+            card_element = ["neutral"]
+        if enemy_element is None:
+            enemy_element = ["neutral"]
+        self.card = AnigameCard(card_base_atk, card_def, card_element, card_crit_multiplier)
+        self.enemy_card = AnigameCard(enemy_base_atk, enemy_def, enemy_element, enemy_crit_multiplier)
 
     def damage(self, crit=False):
-        if crit:
-            return ((((self.card_base_atk / self.enemy_def) * (self.card_atk / 2.9)) + 220000 / self.enemy_def) / 3
-                    * self.card_element_multiplier * self.card_crit_multiplier)
-        return ((((self.card_base_atk / self.enemy_def) * (self.card_atk / 2.9)) + 220000 / self.enemy_def) / 3
-                * self.card_element_multiplier)
+        return self.card.damage(self.enemy_card, crit)
 
     def enemy_damage(self, crit=False):
-        if crit:
-            return ((((self.enemy_base_atk / self.card_def) * (self.enemy_atk / 2.9)) + 220000 / self.card_def) / 3
-                    * self.enemy_element_multiplier * self.enemy_crit_multiplier)
-        return ((((self.enemy_base_atk / self.card_def) * (self.enemy_atk / 2.9)) + 220000 / self.card_def) / 3
-                * self.enemy_element_multiplier)
+        return self.enemy_card.damage(self.card, crit)
 
 
-class ModifyStat(discord.ui.Modal, title="Modify stat"):
-    name = discord.ui.TextInput(label="Input new stat. Percentage or number")
+class TalentButton(discord.ui.Button):
+    def __init__(self, card: AnigameCard, **option):
+        super().__init__(**option)
+        self.card = card
 
-    def __init__(self, view, stat):
-        super().__init__()
-        self.view = view
-        self.stat = stat
+    async def callback(self, interaction: discord.Interaction):
+        assert self.view is not None
+        view: AnigameView = self.view
+        if interaction.user.id != self.view.user.id:
+            return await interaction.response.send_message("You are not allowed to do this :c", ephemeral=True)
+        self.card.talent.call_talent()
+        await interaction.response.edit_message(content=f"Called {self.card.talent} talent",
+                                                view=view, embed=view.display())
 
-    async def on_submit(self, interaction: discord.Interaction) -> None:
-        new_stat = self.name.value
-        is_percentage = False
-        if new_stat.endswith('%'):
-            new_stat = new_stat.removesuffix('%')
-            try:
-                new_stat = float(new_stat)/100 + 1
-            except ValueError:
-                return await interaction.response.send_message("Invalid percentage", ephemeral=True)
-            finally:
-                is_percentage = True
-        else:
-            try:
-                new_stat = float(new_stat)
-            except ValueError:
-                return await interaction.response.send_message("Invalid number", ephemeral=True)
-        if self.stat == "self atk":
-            if is_percentage:
-                self.view.anigame.card_atk *= new_stat
-            else:
-                self.view.anigame.card_atk = new_stat
-        elif self.stat == "self def":
-            if is_percentage:
-                self.view.anigame.card_def *= new_stat
-            else:
-                self.view.anigame.card_def = new_stat
-        elif self.stat == "enemy atk":
-            if is_percentage:
-                self.view.anigame.enemy_atk *= new_stat
-            else:
-                self.view.anigame.enemy_atk = new_stat
-        elif self.stat == "enemy def":
-            if is_percentage:
-                self.view.anigame.enemy_def *= new_stat
-            else:
-                self.view.anigame.enemy_def = new_stat
-        elif self.stat == "self crit mult":
-            if is_percentage:
-                self.view.anigame.card_crit_multiplier *= new_stat
-            else:
-                self.view.anigame.card_crit_multiplier = new_stat
-        elif self.stat == "enemy crit mult":
-            if is_percentage:
-                self.view.anigame.enemy_crit_multiplier *= new_stat
-            else:
-                self.view.anigame.enemy_crit_multiplier = new_stat
-        elif self.stat == "self elem mult":
-            if is_percentage:
-                self.view.anigame.card_element_multiplier *= new_stat
-            else:
-                self.view.anigame.card_element_multiplier = new_stat
-        elif self.stat == "enemy elem mult":
-            if is_percentage:
-                self.view.anigame.enemy_element_multiplier *= new_stat
-            else:
-                self.view.anigame.enemy_element_multiplier = new_stat
-        else:
-            await interaction.response.send_message("Not implemented error")
-            self.stop()
-            return
 
-        await interaction.response.edit_message(view=self.view, embed=self.view.display())
-        self.stop()
+class AnigameDropdown(Dropdown):
+    def __init__(self, text: str, select_list, original_view: AnigameView,
+                 card: AnigameCard, enemy: AnigameCard, change_type: str):
+        super().__init__(text, select_list)
+        self.change_type = change_type
+        self.original_view = original_view
+        self.card = card
+        self.enemy = enemy
+
+    async def callback(self, interaction: discord.Interaction):
+        assert self.original_view is not None
+        view: AnigameView = self.original_view
+        if self.change_type == "talent":
+            self.card.talent = AnigameTalent(self.card, self.enemy,
+                                             self.values[0].split(' ')[-1].lower(),
+                                             self.values[0].split(' ')[0].lower())
+            if self.card == view.anigame.card and view.card_talent_button is None:
+                button = TalentButton(self.card, label="Call card talent", style=discord.ButtonStyle.blurple)
+                view.add_item(button)
+                view.card_talent_button = button
+
+            if self.card == view.anigame.enemy_card and view.enemy_talent_button is None:
+                button = TalentButton(self.card, label="Call enemy talent", style=discord.ButtonStyle.blurple)
+                view.add_item(button)
+                view.enemy_talent_button = button
+
+        if self.change_type == "rarity":
+            self.card.rarity = STR_TO_RARITY[self.values[0].lower()]
+        await view.message.delete()
+        await interaction.response.edit_message(content="Done", view=None)
+        message = await interaction.followup.send(view=view, embed=view.display())
+        view.message = message
 
 
 class AnigameView(BaseView):
     def __init__(self, anigame: Anigame):
         super().__init__()
         self.anigame: Anigame = anigame
+        self.message = None
+        self.card_talent_button = None
+        self.enemy_talent_button = None
+
+    async def on_timeout(self) -> None:
+        await super(AnigameView, self).on_timeout()
+        await self.message.edit(content="Simulator timed out", view=None, embed=None)
 
     def display(self) -> discord.Embed:
+        rarity_to_str = dict((v, k) for k, v in STR_TO_RARITY.items())
         custom_embed = discord.Embed(title="Anigame simulator",
                                      description=f"Damage: **{self.anigame.damage()}**\n"
                                                  f"Crit damage: **{self.anigame.damage(True)}**\n"
                                                  f"Enemy damage: **{self.anigame.enemy_damage()}**\n"
                                                  f"Enemy crit damage **{self.anigame.enemy_damage(True)}**",
                                      color=discord.Colour.random())
-        custom_embed.add_field(name="Self stat",
-                               value=f"Base ATK: {self.anigame.card_base_atk}\n"
-                                     f"ATK: {self.anigame.card_atk}\n"
-                                     f"DEF: {self.anigame.card_def}\n"
-                                     f"Element multiplier: {self.anigame.card_element_multiplier}\n"
-                                     f"Crit multiplier: {self.anigame.card_crit_multiplier}")
-        custom_embed.add_field(name="Enemy stat",
-                               value=f"Base ATK: {self.anigame.enemy_base_atk}\n"
-                                     f"ATK: {self.anigame.enemy_atk}\n"
-                                     f"DEF: {self.anigame.enemy_def}\n"
-                                     f"Element multiplier: {self.anigame.enemy_element_multiplier}\n"
-                                     f"Crit multiplier: {self.anigame.enemy_crit_multiplier}")
+        custom_embed.add_field(name=f"Self stat ({' '.join(RENDER_ELEMENT[em] for em in self.anigame.card.element)})",
+                               value=f"Base ATK: {self.anigame.card.base_atk}\n"
+                                     f"ATK: "
+                                     f"{self.anigame.card.atk * self.anigame.card.atk_percentage} "
+                                     f"({self.anigame.card.atk} * {self.anigame.card.atk_percentage * 100}%)\n"
+                                     f"DEF: "
+                                     f"{self.anigame.card.defense * self.anigame.card.defense_percentage} "
+                                     f"({self.anigame.card.atk} * {self.anigame.card.defense_percentage * 100}%)\n"
+                                     f"Element multiplier: "
+                                     f"{self.anigame.card.element_multiplier(self.anigame.enemy_card.element)}\n"
+                                     f"Crit multiplier: {self.anigame.card.crit_multiplier}\n"
+                                     f"Talent: **{self.anigame.card.talent or 'None :c'}**\n"
+                                     f"**{rarity_to_str[self.anigame.card.rarity].capitalize()}**")
+        custom_embed.add_field(name=f"Enemy stat "
+                                    f"({' '.join(RENDER_ELEMENT[em] for em in self.anigame.enemy_card.element)})",
+                               value=f"Base ATK: {self.anigame.enemy_card.base_atk}\n"
+                                     f"ATK: "
+                                     f"{self.anigame.enemy_card.atk * self.anigame.enemy_card.atk_percentage} "
+                                     f"({self.anigame.enemy_card.atk} * "
+                                     f"{self.anigame.enemy_card.atk_percentage * 100}%)\n"
+                                     f"DEF: "
+                                     f"{self.anigame.enemy_card.defense * self.anigame.enemy_card.defense_percentage} "
+                                     f"({self.anigame.enemy_card.defense} * "
+                                     f"{self.anigame.enemy_card.defense_percentage * 100}%)\n"
+                                     f"Element multiplier: "
+                                     f"{self.anigame.enemy_card.element_multiplier(self.anigame.card.element)}\n"
+                                     f"Crit multiplier: {self.anigame.enemy_card.crit_multiplier}\n"
+                                     f"Talent: **{self.anigame.enemy_card.talent or 'None :c'}**\n"
+                                     f"**{rarity_to_str[self.anigame.enemy_card.rarity].capitalize()}**")
         return custom_embed
 
+    @discord.ui.button(label="Change card talent")
+    async def change_card_talent(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
+        another_view = BaseView()
+        another_view.add_item(AnigameDropdown(
+            text="Select talent",
+            select_list=[
+                discord.SelectOption(label=s, value=s) for s in ["Defense Berserker",
+                                                                 "Atk Berserker",
+                                                                 "Defense Overload",
+                                                                 "Atk Overload",
+                                                                 "Defense Breaker",
+                                                                 "Atk Breaker",
+                                                                 "Defense Trick",
+                                                                 "Atk Trick",
+                                                                 "Atk Precision"
+                                                                 ]
+            ],
+            original_view=self,
+            card=self.anigame.card,
+            enemy=self.anigame.enemy_card,
+            change_type="talent",
+        ))
+        await interaction.response.send_message(view=another_view, ephemeral=True)
 
-class AnigameDropdown(Dropdown):
-    async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
-        view: AnigameView = self.view
-        if interaction.user.id != self.view.user.id:
-            return await interaction.response.send_message("You are not allowed to do this :c", ephemeral=True)
-        modify = ModifyStat(view, self.values[0])
-        await interaction.response.send_modal(modify)
+    @discord.ui.button(label="Change enemy talent")
+    async def change_enemy_talent(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
+        another_view = BaseView()
+        another_view.add_item(AnigameDropdown(
+            text="Select talent",
+            select_list=[
+                discord.SelectOption(label=s, value=s) for s in ["Defense Berserker",
+                                                                 "Atk Berserker",
+                                                                 "Defense Overload",
+                                                                 "Atk Overload",
+                                                                 "Defense Breaker",
+                                                                 "Atk Breaker",
+                                                                 "Atk Precision"
+                                                                 ]
+            ],
+            original_view=self,
+            card=self.anigame.enemy_card,
+            enemy=self.anigame.card,
+            change_type="talent"
+        ))
+        await interaction.response.send_message(view=another_view, ephemeral=True)
+
+    @discord.ui.button(label="Change card rarity")
+    async def change_card_rarity(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
+        another_view = BaseView()
+        another_view.add_item(AnigameDropdown(
+            text="Select rarity",
+            select_list=[
+                discord.SelectOption(label=s, value=s) for s in ["Common",
+                                                                 "Uncommon",
+                                                                 "Rare",
+                                                                 "Super Rare",
+                                                                 "Ultra Rare",
+                                                                 "Legendary"]
+            ],
+            original_view=self,
+            card=self.anigame.card,
+            enemy=self.anigame.enemy_card,
+            change_type="rarity"
+        ))
+        await interaction.response.send_message(view=another_view, ephemeral=True)
+
+    @discord.ui.button(label="Change enemy rarity")
+    async def change_enemy_rarity(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
+        another_view = BaseView()
+        another_view.add_item(AnigameDropdown(
+            text="Select rarity",
+            select_list=[
+                discord.SelectOption(label=s, value=s) for s in ["Common",
+                                                                 "Uncommon",
+                                                                 "Rare",
+                                                                 "Super Rare",
+                                                                 "Ultra Rare",
+                                                                 "Legendary"]
+            ],
+            original_view=self,
+            card=self.anigame.enemy_card,
+            enemy=self.anigame.card,
+            change_type="rarity"
+        ))
+        await interaction.response.send_message(view=another_view, ephemeral=True)
+
+    @discord.ui.button(label="Reset all")
+    async def reset_card(self, interaction: discord.Interaction, _: discord.Button):
+        if interaction.user.id != self.user.id:
+            return await interaction.response.send_message(content="You are not allowed to use this >:(",
+                                                           ephemeral=True)
+        self.anigame.card.reset()
+        self.anigame.enemy_card.reset()
+        for child in self.children:
+            if isinstance(child, TalentButton):
+                self.remove_item(child)
+        await interaction.response.edit_message(embed=self.display(), view=self)
 
 
 # noinspection SpellCheckingInspection
@@ -802,39 +892,43 @@ class HelperCommand(commands.Cog):
 
     @commands.command(aliases=["astat"])
     async def anigamestat(self, ctx,
-                          card_base_atk: Optional[int] = None,
-                          card_def: Optional[int] = None,
-                          enemy_base_atk: Optional[int] = None,
-                          enemy_def: Optional[int] = None,
-                          card_element_multiplier: Optional[float] = 1,
+                          card_base_atk: int,
+                          card_def: int,
+                          enemy_base_atk: int,
+                          enemy_def: int,
                           card_crit_multiplier: Optional[float] = 1.75,
-                          enemy_element_multiplier: Optional[float] = 1,
-                          enemy_crit_multiplier: Optional[float] = 1.75
+                          enemy_crit_multiplier: Optional[float] = 1.75,
+                          *, elements: str = "neutral neutral"
                           ):
         card_base_atk *= 10
         card_def *= 10
         enemy_base_atk *= 10
         enemy_def *= 10
+        if '|' in elements:
+            elements = elements.split('|')
+        elif ',' in elements:
+            elements = elements.split(',')
+        else:
+            elements = elements.split(' ')
+
+        elements: List
+        card_element: List
+        enemy_element: List
+
+        if len(elements) > 3:
+            card_element = elements[0:3]
+            enemy_element = elements[3:6]
+        else:
+            card_element = elements[0:-1]
+            enemy_element = elements[-1:0:-1]
 
         anigame = Anigame(card_base_atk, card_def, enemy_base_atk, enemy_def,
-                          card_element_multiplier, card_crit_multiplier,
-                          enemy_element_multiplier, enemy_crit_multiplier)
+                          card_element, card_crit_multiplier, enemy_element, enemy_crit_multiplier)
 
         view = AnigameView(anigame)
         view.user = ctx.author
-        dropdown = AnigameDropdown(text="Select stat to modify",
-                                   select_list=[discord.SelectOption(label=s, value=s) for s in ["self atk",
-                                                                                                 "self def",
-                                                                                                 "enemy atk",
-                                                                                                 "enemy def",
-                                                                                                 "self elem mult",
-                                                                                                 "self crit mult",
-                                                                                                 "enemy elem mult",
-                                                                                                 "enemy crit mult"
-                                                                                                 ]
-                                                ])
-        view.add_item(dropdown)
-        await ctx.send(embed=view.display(), view=view)
+        msg = await ctx.send(embed=view.display(), view=view)
+        view.message = msg
 
 
 async def setup(bot: SewentyBot):
