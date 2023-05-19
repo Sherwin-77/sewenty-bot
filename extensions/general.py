@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 # noinspection SpellCheckingInspection
 class General(commands.Cog):
-    # TODO: Maybe add another action command?
+    # TODO: Separate the action command
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
         self.TOKEN = getenv("ANIME_TOKEN")
@@ -53,11 +53,11 @@ class General(commands.Cog):
         return ret
 
     async def get_gif(self, endpoint: str):
-        if random.random() > 0.5 or endpoint not in self.emoji_cache:
+        if random.random() > 0.3 or endpoint not in self.emoji_cache:
             api = f"https://kawaii.red/api/gif/{endpoint}/token={self.TOKEN}"
             key = "response"
             if endpoint in {"pat", "hug"}:
-                api = f"https://some-random-api.ml/animu/{endpoint}"
+                api = f"https://some-random-api.com/animu/{endpoint}"
                 key = "link"
 
             async with self.bot.session.get(api) as r:
@@ -281,10 +281,10 @@ class General(commands.Cog):
         response = await self.get_gif("slap")
         if response is None:
             return await ctx.send("Something went wrong :c")
-        custom_embed = discord.Embed(title="Slap",
-                                     description=f"{ctx.author.mention} slaps {target.mention}",
+        custom_embed = discord.Embed(description=f"{ctx.author.mention} slaps {target.mention}...",
                                      color=discord.Colour.random())
         custom_embed.set_image(url=response)
+        custom_embed.set_footer(text="Thats ? slaps now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()
@@ -297,10 +297,10 @@ class General(commands.Cog):
         response = await self.get_gif("kiss")
         if response is None:
             return await ctx.send("Something went wrong :c")
-        custom_embed = discord.Embed(title="Kiss",
-                                     description=f"{ctx.author.mention} kisses {target.mention}",
+        custom_embed = discord.Embed(description=f"{ctx.author.mention} kisses {target.mention}...",
                                      color=discord.Colour.random())
         custom_embed.set_image(url=response)
+        custom_embed.set_footer(text="Thats ? kisses now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()
@@ -313,10 +313,10 @@ class General(commands.Cog):
         response = await self.get_gif("hug")
         if response is None:
             return await ctx.send("Something went wrong :c")
-        custom_embed = discord.Embed(title="Hug",
-                                     description=f"{ctx.author.mention} hugs {target.mention}",
+        custom_embed = discord.Embed(description=f"{ctx.author.mention} hugs {target.mention}...",
                                      color=discord.Colour.random())
         custom_embed.set_image(url=response)
+        custom_embed.set_footer(text="Thats ? hugs now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()
@@ -329,10 +329,10 @@ class General(commands.Cog):
         response = await self.get_gif("pat")
         if response is None:
             return await ctx.send("Something went wrong :c")
-        custom_embed = discord.Embed(title="Pat",
-                                     description=f"{ctx.author.mention} pats {target.mention}",
+        custom_embed = discord.Embed(description=f"{ctx.author.mention} pats {target.mention}...",
                                      color=discord.Colour.random())
         custom_embed.set_image(url=response)
+        custom_embed.set_footer(text="That's ? pats now!")
         await ctx.send(embed=custom_embed)
 
 
