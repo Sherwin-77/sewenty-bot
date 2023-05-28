@@ -675,7 +675,7 @@ class LoveSick(commands.Cog):
         if not cursor:
             return await ctx.send("No leaderboard found")
         top = cursor["participants"]
-        top = dict(sorted(top.items(), key=lambda it: it[1]))
+        top = dict(sorted(top.items(), key=lambda it: it[1], reverse=True))
         custom_embed = discord.Embed(title=f"Leaderboard", color=discord.Colour.random())
         i = 1
         for userid, item in top.items():
