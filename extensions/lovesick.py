@@ -280,6 +280,8 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if self.bot.TEST_MODE:
+            return
         if (
                 payload.guild_id == self.GUILD_ID and payload.emoji.name == '📝' and
                 payload.channel_id in {self.lxv_link_channel, self.event_link_channel}

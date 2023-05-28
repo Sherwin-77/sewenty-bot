@@ -25,7 +25,7 @@ USE_PSQL = False
 if USE_PSQL:
     import asyncpg
 
-__version__ = "2.0.3"
+__version__ = "2.1.0"
 
 load_dotenv()  # in case we use .env in future
 
