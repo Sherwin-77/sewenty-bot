@@ -661,13 +661,13 @@ class LoveSick(commands.Cog):
         await ctx.send(f"Total hunt: **{counts}**")
 
     @event.command(aliases=["lb"])
-    async def leaderboard(self, ctx, length=5):
+    async def leaderboard(self, ctx, length=5, page=1):
         """
         Show pet leaderboard
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
-        if length < 1 or length > 10:
+        if length < 1 or length > 25:
             return await ctx.send("Invalid number")
         if not self.focus:
             return await ctx.send("No focus pet currently. Please add by s!focus")
@@ -679,11 +679,14 @@ class LoveSick(commands.Cog):
         custom_embed = discord.Embed(title=f"Leaderboard", color=discord.Colour.random())
         i = 1
         for userid, item in top.items():
+            if i <= length * (page-1):
+                i += 1
+                continue
             custom_embed.add_field(name=f"#{i}: {ctx.guild.get_member(int(userid))}",
                                    value=f"{item} Hunts",
                                    inline=False)
             i += 1
-            if i > length:
+            if i > length * page:
                 break
         await ctx.send(embed=custom_embed)
 
