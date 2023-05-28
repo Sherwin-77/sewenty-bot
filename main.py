@@ -79,7 +79,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help")
         )
 
-        self.TEST_MODE = True
+        self.TEST_MODE = False
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
