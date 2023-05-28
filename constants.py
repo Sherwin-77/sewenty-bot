@@ -76,14 +76,14 @@ OWO_WEAPONS = {
         "total_stat": 1
     },
     "hstaff": {
-        "cost": (125, 200),
+        "cost": (150, 225),
         "stat1": (100.0, 150.0),
         "image": "https://cdn.discordapp.com/emojis/594613521950441481.png?v=1",
         "total_stat": 1
     },
     "axe": {
-        "cost": (120, 220),
-        "stat1": (50.0, 80.0),
+        "cost": (180, 280),
+        "stat1": (20.0, 40.0),
         "image": "https://cdn.discordapp.com/emojis/622681663289294850.png?v=1",
         "total_stat": 1
     },
@@ -109,7 +109,7 @@ OWO_WEAPONS = {
     "scythe": {
         "cost": (100, 200),
         "stat1": (70.0, 100.0),
-        "stat2": (30.0, 60.0),
+        "stat2": (45.0, 75.0),
         "image": "https://cdn.discordapp.com/emojis/622681759401639936.png?v=1",
         "total_stat": 2
     },
@@ -156,6 +156,15 @@ OWO_WEAPONS = {
         "stat3": (60.0, 80.0),
         "image": "https://cdn.discordapp.com/emojis/594613521573216266.png?v=1",
         "total_stat": 3
+    },
+    "lscythe": {
+        "cost": (130, 230),
+        "stat1": (50, 80),
+        "stat2": (40, 60),
+        "stat3": (30, 60),
+        "stat4": (30, 60),
+        "image": "https://cdn.discordapp.com/emojis/1107927033222279268.png?v=1",
+        "total_stat": 4
     }
 }
 

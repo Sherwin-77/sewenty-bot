@@ -17,7 +17,8 @@ if TYPE_CHECKING:
     from main import SewentyBot
 
 
-def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, stat3: float) -> discord.Embed:
+def max_weapon_stat(weapon_type: str, cost: int,
+                    stat1: float, stat2: float, stat3: float, stat4: float) -> discord.Embed:
     certified_detail = [
         [100, ("Fabled", Colour.CYAN, "<a:Fabled:760029464292884503>")],
         [95, ("Legendary", Colour.YELLOW, "<a:Legendary:760029450913316874>")],
@@ -40,15 +41,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
     total_stat = selected_weapon.get("total_stat", 1)
     image_url = selected_weapon.get("image")
 
-    max_ignore_passive = 0
-    min_stat = 0
-    max_with_crit = 0
-    min_with_crit = 0
-    max_stat = -727
-
-    overall_cost = 0
-    overall_stat1 = 0
-    overall_stat2 = 0
+    base_stat = 0
 
     rarity = "Below common"
     colour = None
@@ -63,6 +56,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
         custom_embed.add_field(name="Cost Quality",
                                value=f"{overall_cost}%",
                                inline=False)
+        base_stat += overall_cost
 
     if stat1 is None or stat1 < selected_weapon["stat1"][0] or stat1 > selected_weapon["stat1"][1]:
         custom_embed.add_field(name="Invalid stat 1", value="Please input correct weapon stat or use auto detect",
@@ -73,11 +67,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
         custom_embed.add_field(name="Stat 1 Quality",
                                value=f"{overall_stat1}%",
                                inline=False)
-        max_stat = round((overall_cost + overall_stat1 + 100) / 3, 2)
-        min_stat = round((overall_cost + overall_stat1) / 3, 2)
-        max_ignore_passive = round((overall_cost + overall_stat1) / 2, 2)
-        max_with_crit = round((overall_cost + overall_stat1 + 200) / 4, 2)
-        min_with_crit = round((overall_cost + overall_stat1) / 4, 2)
+        base_stat += overall_stat1
 
     if total_stat >= 2:
         if stat2 is None or stat2 < selected_weapon["stat2"][0] or stat2 > selected_weapon["stat2"][1]:
@@ -89,11 +79,7 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
             custom_embed.add_field(name="Stat 2 Quality",
                                    value=f"{overall_stat2}%",
                                    inline=False)
-            max_stat = round((overall_cost + overall_stat1 + overall_stat2 + 100) / 4, 2)
-            min_stat = round((overall_cost + overall_stat1 + overall_stat2) / 4, 2)
-            max_ignore_passive = round((overall_cost + overall_stat1 + overall_stat2) / 3, 2)
-            max_with_crit = round((overall_cost + overall_stat1 + overall_stat2 + 200) / 5, 2)
-            min_with_crit = round((overall_cost + overall_stat1 + overall_stat2) / 5, 2)
+            base_stat += overall_stat2
 
     if total_stat >= 3:
         if stat3 is None or stat3 < selected_weapon["stat3"][0] or stat3 > selected_weapon["stat3"][1]:
@@ -105,11 +91,25 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
             custom_embed.add_field(name="Stat 3 Quality",
                                    value=f"{overall_stat3}%",
                                    inline=False)
-            max_stat = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3 + 100) / 5, 2)
-            min_stat = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3) / 5, 2)
-            max_ignore_passive = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3) / 4, 2)
-            max_with_crit = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3 + 200) / 6, 2)
-            min_with_crit = round((overall_cost + overall_stat1 + overall_stat2 + overall_stat3) / 6, 2)
+            base_stat += overall_stat3
+
+    if total_stat >= 4:
+        if stat4 is None or stat4 < selected_weapon["stat4"][0] or stat4 > selected_weapon["stat4"][1]:
+            custom_embed.add_field(name="Invalid stat 4", value="Please input correct weapon stat or use auto detect",
+                                   inline=False)
+        else:
+            min_, max_ = selected_weapon["stat4"]
+            overall_stat4 = round((stat4 - min_) / (max_ - min_) * 100, 2)
+            custom_embed.add_field(name="Stat 4 Quality",
+                                   value=f"{overall_stat4}%",
+                                   inline=False)
+            base_stat += overall_stat4
+
+    max_stat = round((base_stat + 100) / (total_stat + 2), 2)
+    min_stat = round(base_stat / (total_stat + 2), 2)
+    max_ignore_passive = round(base_stat / (total_stat + 1), 2)
+    max_with_2stat = round((base_stat + 200) / (total_stat + 3), 2)
+    min_with_2stat = round(base_stat / (total_stat + 3), 2)
 
     for number, data in certified_detail:
         if max_stat >= number:
@@ -121,8 +121,8 @@ def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, sta
     custom_embed.add_field(name="Other info",
                            value=f"Minimum stat: **{min_stat}%**\n"
                                  f"Maximum stat ignoring passive: **{max_ignore_passive}%**\n"
-                                 f"Minimum stat with crit: **{min_with_crit}%**\n"
-                                 f"Maximum stat with crit: **{max_with_crit}%**")
+                                 f"Minimum stat with 2 stat passive: **{min_with_2stat}%**\n"
+                                 f"Maximum stat with 2 stat passive: **{max_with_2stat}%**")
     if colour is not None:
         custom_embed.colour = colour
 
@@ -468,9 +468,10 @@ class HelperCommand(commands.Cog):
                        cost: Optional[int] = None,
                        stat1: Optional[float] = None,
                        stat2: Optional[float] = None,
-                       stat3: Optional[float] = None):
+                       stat3: Optional[float] = None,
+                       stat4: Optional[float] = None):
         if weapon_type is not None:
-            return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3))
+            return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))
 
         ref = ctx.message.reference
         msg = None
@@ -518,7 +519,6 @@ class HelperCommand(commands.Cog):
             weapon_type = "fstaff"
             stat2 = float(new[8].split("**")[3].replace('%', ''))
             stat3 = float(new[8].split("**")[-2].replace('%', ''))
-            await ctx.send(f"{stat1} {stat2} {stat3}")
         elif "spirit" in weapon_type:
             weapon_type = "sstaff"
             stat2 = float(new[8].split("**")[-2].replace('%', ''))
@@ -533,7 +533,7 @@ class HelperCommand(commands.Cog):
             stat1 = float(new[8].split("**")[-2].replace('%', ''))
             stat2 = float(new[9].split("**")[-2].replace('%', ''))
             stat3 = float(new[10].split("**")[-2].replace('%', ''))
-        elif "scythe" in weapon_type:
+        elif "culling" in weapon_type:
             weapon_type = "scythe"
             stat2 = float(new[8].split("**")[-2].replace('%', ''))
         elif "bow" in weapon_type:
@@ -545,8 +545,13 @@ class HelperCommand(commands.Cog):
             weapon_type = "crune"
             stat1 = float(new[8].split("**")[3].replace('%', ''))
             stat2 = float(new[8].split("**")[-2].replace('%', ''))
+        elif "leeching" in weapon_type:
+            weapon_type = "lscythe"
+            stat2 = float(new[6].split("**")[-2].replace('%', ''))
+            stat3 = float(new[8].split("**")[3].replace('%', ''))
+            stat4 = float(new[8].split("**")[-2].replace('%', ''))
 
-        return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3))
+        return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))
 
     @maxwstat.error
     async def maxwstat_on_error(self, ctx, error):
@@ -617,7 +622,7 @@ class HelperCommand(commands.Cog):
                     if ' log' in inventory_dict[z]:
                         log_data.update({inventory_dict[z].lower(): int(
                             inventory_dict[z + 1].replace(': ', '').split('\n')[0].replace(',', ''))})
-                # calculating
+                # calcuating
                 solution = ''
                 solution_crafter = ''
                 hyper_log, mega_log, super_log, epic_log, wooden_log = [0 for _ in range(5)]
