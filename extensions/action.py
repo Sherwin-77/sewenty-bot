@@ -59,7 +59,7 @@ class Action(commands.GroupCog, group_name="action"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.content.lower().startswith('y'):
+        if not message.content.lower().startswith('y') or self.bot.TEST_MODE:
             return
         offset = 1
         if message.content.lower().startswith("yui"):
@@ -184,7 +184,41 @@ class Action(commands.GroupCog, group_name="action"):
                        allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command()
+    async def bite(self, ctx, *, user):
+        """bite"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+        if target.id == ctx.author.id:
+            return await ctx.send("Nu bite self :c")
+
+        counts = await self.update_action(ctx, str(target.id), "bite")
+        custom_embed = discord.Embed(title="You gave a bite!",
+                                     description=f"{ctx.author.mention} bites {target.mention}...",
+                                     url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
+                                         "&permissions=412384349248&scope=bot%20applications.commands",
+                                     color=discord.Colour.random())
+        custom_embed.set_footer(text=f"Thats {counts} bites now!")
+
+    @commands.command()
+    async def cookie(self, ctx, *, user):
+        """Cookie"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+        if target.id == ctx.author.id:
+            return await ctx.send("No >:(")
+
+        counts = await self.update_action(ctx, str(target.id), "cookie")
+        await ctx.send(f"{ctx.author.mention} gave {target.mention} a cookie!\n"
+                       f"That's {counts} cookies now!",
+                       allowed_mentions=discord.AllowedMentions.none())
+
+    @commands.command()
     async def counters(self, ctx: commands.Context, action: str, *, user: Optional[str] = None):
+        action = action.lower()
+        if action.endswith('s'):
+            action = action.removesuffix('s')
         target = ctx.author
         if user is not None:
             target = await self.query_member(ctx, user)
@@ -196,16 +230,20 @@ class Action(commands.GroupCog, group_name="action"):
         res = ""
         i = 1
         total = 0
+        res += '┌' + ('─' * 34) + '┬' + ('─' * 7) + "┐\n"
+        res += "│ Member " + (' ' * 25) + " │ Count │\n"
+        res += '├' + ('─' * 34) + '┼' + ('─' * 7) + "┤\n"
         for userid, counts in top.items():
             if i > 25 and len(top) > 25:
                 total += counts
                 continue
-            member = ctx.guild.get_member(userid)
+            member = ctx.guild.get_member(int(userid))
             display = f"User-{userid}"
             if member is not None:
                 display = member.display_name
-            res += f"{display} - {counts} {action}s\n"
+            res += f"│ {display:<32} │ {counts:<5} │\n"
             i += 1
+        res += '└' + ('─' * 34) + '┴' + ('─' * 7) + "┘\n"
         if total > 0:
             res += f"And {total} more {action}s to {len(top)-25}"
         custom_embed = discord.Embed(description=f"This leaderboard is for given {action}s\n"
