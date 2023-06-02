@@ -3,7 +3,7 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from main import SewentyBot
@@ -59,7 +59,7 @@ class Action(commands.GroupCog, group_name="action"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.content.lower().startswith('y') or self.bot.TEST_MODE:
+        if not message.content.lower().startswith('y') or self.bot.TEST_MODE and message.guild.id != 714152739252338749:
             return
         offset = 1
         if message.content.lower().startswith("yui"):
@@ -144,7 +144,7 @@ class Action(commands.GroupCog, group_name="action"):
 
         counts = await self.update_action(ctx, str(target.id), "hug")
         custom_embed = discord.Embed(title="You gave a hug!",
-                                     description=f"{ctx.author.mention} hugs {target.mention}...",
+                                     description=f"{ctx.author.mention} hugs {target.mention}",
                                      url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
                                          "&permissions=412384349248&scope=bot%20applications.commands",
                                      color=discord.Colour.random())
@@ -194,11 +194,30 @@ class Action(commands.GroupCog, group_name="action"):
 
         counts = await self.update_action(ctx, str(target.id), "bite")
         custom_embed = discord.Embed(title="You gave a bite!",
-                                     description=f"{ctx.author.mention} bites {target.mention}...",
+                                     description=f"{ctx.author.mention} bites {target.mention}",
                                      url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
                                          "&permissions=412384349248&scope=bot%20applications.commands",
                                      color=discord.Colour.random())
         custom_embed.set_footer(text=f"Thats {counts} bites now!")
+        await ctx.send(embed=custom_embed)
+
+    @commands.command()
+    async def cuddle(self, ctx, *, user):
+        """cuddle"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+        if target.id == ctx.author.id:
+            return await ctx.send("Do you need some cuddle :c")
+
+        counts = await self.update_action(ctx, str(target.id), "cuddle")
+        custom_embed = discord.Embed(title="You gave a cuddle!",
+                                     description=f"{ctx.author.mention} cuddles {target.mention}",
+                                     url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
+                                         "&permissions=412384349248&scope=bot%20applications.commands",
+                                     color=discord.Colour.random())
+        custom_embed.set_footer(text=f"Thats {counts} cuddles now!")
+        await ctx.send(embed=custom_embed)
 
     @commands.command()
     async def cookie(self, ctx, *, user):
