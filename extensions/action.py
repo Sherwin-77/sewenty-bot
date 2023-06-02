@@ -230,9 +230,9 @@ class Action(commands.GroupCog, group_name="action"):
         res = ""
         i = 1
         total = 0
-        res += '┌' + ('─' * 34) + '┬' + ('─' * 7) + "┐\n"
-        res += "│ Member " + (' ' * 25) + " │ Count │\n"
-        res += '├' + ('─' * 34) + '┼' + ('─' * 7) + "┤\n"
+        res += '┌' + ('─' * 26) + '┬' + ('─' * 8) + "┐\n"
+        res += "│ Member " + (' ' * 18) + "│ Count  │\n"
+        res += '├' + ('─' * 26) + '┼' + ('─' * 8) + "┤\n"
         for userid, counts in top.items():
             if i > 25 and len(top) > 25:
                 total += counts
@@ -241,9 +241,13 @@ class Action(commands.GroupCog, group_name="action"):
             display = f"User-{userid}"
             if member is not None:
                 display = member.display_name
-            res += f"│ {display:<32} │ {counts:<5} │\n"
+            if len(display) > 24:
+                res += f"│ {display[:24]:<24} │ {counts:<6} │\n"
+                res += f"│ {display[24:]:<24} │ {' ' * 6} │\n"
+            else:
+                res += f"│ {display:<24} │ {counts:<6} │\n"
             i += 1
-        res += '└' + ('─' * 34) + '┴' + ('─' * 7) + "┘\n"
+        res += '└' + ('─' * 26) + '┴' + ('─' * 8) + "┘\n"
         if total > 0:
             res += f"And {total} more {action}s to {len(top)-25}"
         custom_embed = discord.Embed(description=f"This leaderboard is for given {action}s\n"
