@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 # noinspection SpellCheckingInspection
 class General(commands.Cog):
-    # TODO: Separate the action command
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
 
