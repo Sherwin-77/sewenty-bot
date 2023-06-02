@@ -2,13 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, List, Optional
 
-import asyncio
 from copy import deepcopy
 import datetime
-from io import BytesIO
 import logging
-import re
-from traceback import format_exception
 
 import discord
 from discord.ext import commands, tasks

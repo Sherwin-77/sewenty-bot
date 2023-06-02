@@ -10,8 +10,6 @@ import googletrans
 import asyncio
 import base64
 import datetime
-# from functools import partial
-# import io
 from math import ceil, log
 import os
 import random
@@ -143,6 +141,7 @@ class Miscellaneous(commands.Cog):
             "User-Agent": random.choice(USER_AGENTS)
         }
 
+    # TODO: Wikipedia command?
     @commands.command(name="wikipedia", enabled=False)
     @commands.cooldown(rate=1, per=10.0, type=commands.BucketType.user)
     async def check_wiki(self, ctx):
