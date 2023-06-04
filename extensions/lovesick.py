@@ -172,6 +172,7 @@ class LoveSick(commands.Cog):
         self.lxv_link_channel = 0
         self.event_link_channel = 0
         self.event_disabled = False
+        self.lxv_only_event = False
         self.mod_ids = set()
         self.focus = []
         self.ignored = set()
@@ -193,6 +194,7 @@ class LoveSick(commands.Cog):
         self.lxv_member_id = int(setting["lxv_member_id"])
         self.lxv_link_channel = int(setting["lxv_link_channel"])
         self.event_link_channel = int(setting["event_link_channel"])
+        self.lxv_only_event = setting["lxv_only_event"]
         self.mod_ids = set(map(int, setting["mod_ids"]))
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
@@ -333,6 +335,9 @@ class LoveSick(commands.Cog):
             member = guild.get_member(payload.user_id)
             if member is None:  # Fallback
                 member = guild.fetch_member(payload.user_id)
+
+            if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
+                return await message.add_reaction("<:joinlxv:1044554756569432094>")
 
             link_channel = guild.get_channel(self.lxv_link_channel
                                              if member.get_role(self.lxv_member_id) else self.event_link_channel)
@@ -568,6 +573,7 @@ class LoveSick(commands.Cog):
         self.lxv_member_id = int(setting["lxv_member_id"])
         self.lxv_link_channel = int(setting["lxv_link_channel"])
         self.event_link_channel = int(setting["event_link_channel"])
+        self.lxv_only_event = setting["lxv_only_event"]
         self.mod_ids = set(map(int, setting["mod_ids"]))
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
@@ -597,6 +603,7 @@ class LoveSick(commands.Cog):
                        f"||Read the command detail before use 👀||\n"
                        f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
                        f"Event counting currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
+                       f"LXV only event set to **{self.lxv_only_event}**\n"
                        f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>")
 
     @event.command(aliases=["f"])
@@ -641,6 +648,17 @@ class LoveSick(commands.Cog):
         self.event_disabled = not self.event_disabled
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
         await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
+
+    @event.command(aliases=["lxv"])
+    async def lxvonly(self, ctx):
+        """
+        Toggle enable or disable lxv event only
+        """
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        self.lxv_only_event = not self.lxv_only_event
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"lxv_only_event": self.lxv_only_event}})
+        await ctx.send(f"Set to **{self.lxv_only_event}**")
 
     @event.command(aliases=['s'])
     async def stat(self, ctx, user: Optional[discord.User] = None):
