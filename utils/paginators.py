@@ -62,16 +62,17 @@ class SimplePages(discord.ui.View, menus.MenuPages):
 
 # https://github.com/Rapptz/discord-ext-menus#pagination
 class EmbedSource(menus.ListPageSource):
-    def __init__(self, entries, per_page=4, title=None):
+    def __init__(self, entries, per_page=4, title=None, format_caller: Callable = None):
         super().__init__(entries, per_page=per_page)
         self.title = title
+        self.format_caller = format_caller
 
-    async def format_page(self, menu: menus, page, description_setter: Callable = None):
+    async def format_page(self, menu: menus, page):
         offset = menu.current_page * self.per_page  # type: ignore
         embed = discord.Embed(color=discord.Colour.random())
         embed.description = '\n'.join(f"{i+1}. {v}" for i, v in enumerate(page, start=offset))
         if self.title is not None:
             embed.title = self.title
-        if description_setter is not None:
-            embed.description = description_setter(page)
+        if self.format_caller is not None:
+            embed.description = self.format_caller(page)
         return embed

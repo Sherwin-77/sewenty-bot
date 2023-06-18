@@ -20,12 +20,14 @@ import motor.motor_asyncio
 import psutil
 from psutil._common import bytes2human
 
+from utils.paginators import SimplePages, EmbedSource
+
 USE_PSQL = False
 
 if USE_PSQL:
     import asyncpg
 
-__version__ = "2.2.2"
+__version__ = "2.2.3"
 
 load_dotenv()  # in case we use .env in future
 
@@ -39,11 +41,17 @@ class NewHelpCommand(commands.MinimalHelpCommand):
         super().__init__(**options)
         self.no_category = "Other Command"
 
+    # TODO: Add send_bot_help overriding
+
     async def send_pages(self):
-        destination = self.get_destination()
-        for page in self.paginator.pages:
-            help_embed = discord.Embed(title="Help", description=page, color=discord.Colour.random())
-            await destination.send(embed=help_embed)
+        if len(self.paginator.pages) < 2:
+            destination = self.get_destination()
+            await destination.send(embed=discord.Embed(title="Help", description=self.paginator.pages[0],
+                                                       color=discord.Colour.random()))
+        else:
+            ctx = self.context
+            menu = SimplePages(source=EmbedSource(self.paginator.pages, 1, "Help", lambda pg: pg))
+            await menu.start(ctx)
 
 
 # noinspection SpellCheckingInspection
