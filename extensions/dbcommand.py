@@ -644,11 +644,11 @@ class OwO(commands.Cog):
         last_year, this_year, last_month, this_month, last_week, this_week = 0, 0, 0, 0, 0, 0
         yesterday = 0
         today = 0
-        async for i in result:
-            day_id = i["_id"]["dayId"]
+        async for row in result:
+            day_id = row["_id"]["dayId"]
             owo_count = 0
-            if "owoCount" in day_id:
-                owo_count = i["owoCount"]
+            if "owoCount" in row:
+                owo_count = row["owoCount"]
             if first < 0:
                 first = owo_count
             if day_id == date_id-1:
