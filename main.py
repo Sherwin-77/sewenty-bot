@@ -530,9 +530,9 @@ def main():
                                  f"command `{interaction.command}`",
                                  file=file)
         else:
-            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{interaction.channel.id}> "
-                                               f"command {interaction.command}",
-                                         description=f"```py\n{output}```",
+            custom_embed = discord.Embed(description=f"Uncaught error in channel <#{interaction.channel.id}> "
+                                                     f"command {interaction.command}\n"
+                                                     f"```py\n{output}\n```",
                                          color=discord.Colour.red())
             await bot.send_owner(embed=custom_embed)
 
@@ -564,8 +564,9 @@ def main():
             file = discord.File(buffer, filename="log.txt")
             await bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
         else:
-            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                                         description=f"```py\n{output}```",
+            custom_embed = discord.Embed(description=f"Uncaught error in channel <#{ctx.channel.id}> "
+                                                     f"command {ctx.command}\n"
+                                                     f"```py\n{output}\n```",
                                          color=discord.Colour.red())
             await bot.send_owner(embed=custom_embed)
 
