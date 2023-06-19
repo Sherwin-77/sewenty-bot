@@ -300,18 +300,23 @@ def main():
 
     @bot.command(hidden=True)
     @commands.is_owner()
-    async def catch(ctx):
+    async def catch(ctx: commands.Context):
         ref = ctx.message.reference
-        if ref is not None and isinstance(ref.resolved, discord.Message):
-            message = ref.resolved
-        else:
+        if ref is None or not isinstance(ref.resolved, discord.Message):
             return await ctx.reply("Where message", mention_author=False)
-        embed = message.embeds
-        if len(embed) < 1:
-            return await ctx.reply("No embed", mention_author=False)
-        custom_embed = discord.Embed(description=str(json.dumps(embed[0].to_dict(), indent='\u2800')),
-                                     color=discord.Colour.random())
-        await ctx.send(embed=custom_embed)
+        message = ref.resolved
+        if message.embeds:
+            output = json.dumps(message.embeds[0].to_dict(), indent='\t')
+            custom_embed = discord.Embed(description=f"```{output}\n```",
+                                         color=discord.Colour.random())
+            await ctx.send(embed=custom_embed)
+        elif message.stickers:
+            custom_embed = discord.Embed(description='\n'.join([f"{i}. {v.id} - {v.name}.{v.format.file_extension} "
+                                                                f"({v.url})"
+                                                                for i, v in enumerate(message.stickers, start=1)]))
+            await ctx.send(embed=custom_embed)
+        else:
+            await ctx.send("Unable to catch fish")
 
     # noinspection SpellCheckingInspection
     @bot.command(hidden=True)
