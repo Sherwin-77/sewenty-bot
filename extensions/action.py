@@ -134,24 +134,6 @@ class Action(commands.GroupCog, group_name="action"):
         await ctx.send(f"You broomed {target.mention}! 🧹", allowed_mentions=discord.AllowedMentions.none())
 
     @commands.command()
-    async def hug(self, ctx: commands.Context, *, user):
-        """Hugs someone"""
-        target = await self.query_member(ctx, user)
-        if target is None:
-            return await ctx.send("User ded")
-        if target.id == ctx.author.id:
-            return await ctx.send("Do you need a some hug...?")
-
-        counts = await self.update_action(ctx, str(target.id), "hug")
-        custom_embed = discord.Embed(title="You gave a hug!",
-                                     description=f"{ctx.author.mention} hugs {target.mention}",
-                                     url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
-                                         "&permissions=412384349248&scope=bot%20applications.commands",
-                                     color=discord.Colour.random())
-        custom_embed.set_footer(text=f"Thats {counts} hugs now!")
-        await ctx.send(embed=custom_embed)
-
-    @commands.command()
     async def sleep(self, ctx, *, user: Optional[str] = None):
         """Sleep with someone"""
         if user is None:
