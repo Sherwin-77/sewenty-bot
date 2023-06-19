@@ -462,10 +462,10 @@ def main():
         if guild_id == 714152739252338749:
             low_msg = message.content.lower()
 
-            if low_msg in {"<@436376194166816770>", "<@!436376194166816770>"} and random.random() < 0.69:
-                counts = random.randint(1, 3)
+            if "<@436376194166816770>" in low_msg or "<@!436376194166816770>" in low_msg and random.random() < 0.5:
+                counts = random.randint(1, 2)
                 sticker_ids = {949065213540458526, 900116218160242818, 961046798821126214,
-                               948695509130944523, 1058020894783578232}
+                               948695509130944523, 1058020894783578232, 881949030236712990}
                 used_sticker_ids = random.choices(list(sticker_ids), k=counts)
                 get_sticker = [discord.utils.get(message.guild.stickers, id=i) for i in used_sticker_ids]
                 if None not in get_sticker:
@@ -473,7 +473,7 @@ def main():
                 else:
                     pass
 
-            if low_msg == "osana":
+            if low_msg in {"osana", "mira"}:
                 if userid in {436376194166816770, 532912006114836482}:
                     await message.channel.send("<a:bun:743740123094450217>")
                 else:
