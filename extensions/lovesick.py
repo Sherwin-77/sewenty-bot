@@ -110,8 +110,11 @@ class EditCount(BaseView):
         participants = cursor["participants"]
         if self.userid not in participants:
             return await interaction.followup.send("User not found", ephemeral=True)
-
-        participants.update({self.userid: participants[self.userid]-self.original})
+        res = participants[self.userid]-self.original
+        if res <= 0:
+            participants.pop(self.userid)
+        else:
+            participants.update({self.userid: res})
         await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query,
                                                        {"$set": {"participants": participants}})
 
@@ -265,7 +268,7 @@ class LoveSick(commands.Cog):
     def pet_query(self) -> dict:
         return {"_id": f"pet|{'|'.join(self.focus)}"}
 
-    def mod_only(self, ctx):
+    def mod_only(self, ctx) -> bool:
         allowed = False
         if self.bot.owner == ctx.author:
             allowed = True
@@ -342,9 +345,9 @@ class LoveSick(commands.Cog):
             link_channel = guild.get_channel(self.lxv_link_channel
                                              if member.get_role(self.lxv_member_id) else self.event_link_channel)
 
-            content = message.content.lower() if not message.embeds else message.embeds[0].description.lower()
+            content = message.content if not message.embeds else message.embeds[0].description
 
-            if member.name.lower() not in content:
+            if member.display_name not in content:
                 await message.reply("Username doesn't match/found in hunting message. "
                                     "If you believe this is yours, contact staff")
                 self.ignored.add((payload.user_id, payload.message_id))
@@ -585,14 +588,6 @@ class LoveSick(commands.Cog):
 
     @commands.command(hidden=True)
     @commands.is_owner()
-    async def lxvlog(self, ctx, *, message):
-        guild = self.bot.get_guild(self.GUILD_ID)
-        channel = guild.get_channel(self.logging_channel_id)
-        await channel.send(f"LOGGING from {ctx.author}: {message}")
-        await ctx.message.add_reaction('👍')
-
-    @commands.command(hidden=True)
-    @commands.is_owner()
     async def lxveval(self, ctx, var):
         return await ctx.send(eval(var))
 
@@ -705,6 +700,82 @@ class LoveSick(commands.Cog):
             if i > length * page:
                 break
         await ctx.send(embed=custom_embed)
+
+    @event.command()
+    async def forcesend(self, ctx: commands.Context, member: discord.Member):
+        """
+        Force sending hunt message to channel. This only bypass username check
+        """
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        if ctx.message.reference is None or not isinstance(ctx.message.reference.resolved, discord.Message):
+            return await ctx.reply("Reply to OwO message then run this command again")
+        if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
+            return await ctx.reply("<:joinlxv:1044554756569432094>")
+
+        message = ctx.message.reference.resolved
+        link_channel = ctx.guild.get_channel(self.lxv_link_channel
+                                             if member.get_role(self.lxv_member_id) else self.event_link_channel)
+        userid = str(member.id)
+
+        content = message.content if not message.embeds else message.embeds[0].description
+        default = 1
+        counts = 0
+        """
+            Normal content would be
+            x | name hunt   [0]
+            y | caught pets [1]
+            z | team xp     [2]
+            """
+        check = content.split('\n')
+        for i, line in enumerate(check):
+            for pet in self.focus:
+                if pet in line:
+                    if i == default:
+                        counts += line.count(pet)
+
+                    if i != default and not line.endswith("**!"):  # default message for xp team
+                        default = i
+                        counts = line.count(pet)
+
+        participants = {}
+        if counts == 0:
+            return await message.reply("No event pet found")
+        detected = counts
+        cursor = await self.LXV_COLLECTION.find_one(self.pet_query)
+        if cursor:
+            participants = cursor["participants"]
+        if userid in participants:
+            counts += participants[userid]
+        participants.update({userid: counts})
+
+        link_embed = discord.Embed(title=f"Hunt from {member}", description=content,
+                                   color=discord.Colour.green())
+        link_embed.add_field(name="Detail",
+                             value=f"Detected count: **{detected}**\n"
+                                   f"User id: {userid}\n"
+                                   f"Channel: {ctx.channel.mention}\n"
+                                   f"Jump url: [Link]({message.jump_url})\n"
+                                   f"In case other wondering, "
+                                   f"react your event hunt message with <:newlxv:1046848826050359368>\n"
+                                   f"If anything wrong, for staff react the emoji below")
+        msg = await link_channel.send(embed=link_embed)
+        await msg.add_reaction('📝')
+
+        if not cursor:
+            await self.LXV_COLLECTION.insert_one(
+                {"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
+        else:
+            await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
+
+        self.verified.add(ctx.message.id)
+        verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
+        if not verified:
+            await self.LXV_COLLECTION.insert_one({"_id": "verified_msg", "msg_ids": list(self.verified)})
+        else:
+            await self.LXV_COLLECTION.update_one({"_id": "verified_msg"},
+                                                 {"$set": {"msg_ids": list(self.verified)}})
+        await ctx.reply(f"Sent to {link_channel.mention}")
 
     @event.command(aliases=["acu"])
     async def addcountuser(self, ctx, user: discord.User, amount: Optional[int] = 1):
