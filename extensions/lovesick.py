@@ -122,7 +122,7 @@ class ConfirmEdit(BaseView):
         await interaction.followup.send(view=view, ephemeral=True)
         self.stop()
 
-    @discord.ui.button(emoji='❎', style=discord.ButtonStyle.red)
+    @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)
     async def cancel(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.staff.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
