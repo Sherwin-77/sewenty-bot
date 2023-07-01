@@ -1,68 +1,36 @@
+from dataclasses import dataclass
 import random
+from typing import List, TYPE_CHECKING
 
-weaponry = {":bow_and_arrow:": {"attack": 37, "speed": 6, "range": 26, "defense": 16,
-                                "passive": ":dart:",
-                                "description": "**Archery**: Deal 50% more damage in ranged mode"},
-            ":dagger:": {"attack": 46, "speed": 20, "range": 1, "defense": 18,
-                         "passive": ":dash:",
-                         "description": "**Dodge**: Gain 130% of speed as dodge chance"},
-            ":axe:": {"attack": 52, "speed": 2, "range": 2, "defense": 24,
-                      "passive": ":drop_of_blood:",
-                      "description": "**Lifestyle**: heal you 50% of damage"},
-            ":pick:": {"attack": 32, "speed": 5, "range": 1, "defense": 54,
-                       "passive": ":tools:",
-                       "description": "**Baccstab**: Decreasing enemy def by 70% and your def by 10%"},
-            ":magic_wand:": {"attack": 36, "speed": 4, "range": 10, "defense": 36,
-                             "passive": ":radioactive:",
-                             "description": "**Chemical**: Deal 9% of enemy\"s current HP "
-                                            "and heal by the damage dealt"},
-            ":broom:": {"attack": 35, "speed": 7, "range": 2, "defense": 41,
-                        "passive": ":trident:",
-                        "description": "**Theft**: Steal 30% of enemy defense and attack. additionally,"
-                                       " 20% chance to trigger again"},
-            ":door:": {"attack": 26, "speed": 2, "range": 4, "defense": 52,
-                       "passive": ":shield:",
-                       "description": "**Thicc door**: Increase 85% defense. If your hp below enemy,"
-                                      "Increase def by 6%"},
-            ":bomb:": {"attack": 50, "speed": 4, "range": 17, "defense": 14,
-                       "passive": ":boom:",
-                       "description": "**Eksplosion**: Deal 80% of your attack as True Damage to enemy "
-                                      "and decrease def by 10% every 5 rounds"},
-            ":game_die:": {"attack": 30, "speed": 5, "range": 1, "defense": 30,
-                           "passive": "<:lucc:796732732113682442>",
-                           "description": "**Lucc Dice**: Roll 6 sided dice and increase hp atk and def by "
-                                          "8.5x of rolled dice"},
-            ":gun:": {"attack": 30, "speed": 6, "range": 23, "defense": 16,
-                      "passive": ":microscope:",
-                      "description": "**Precision**: Increase 3% crit chance and 5% crit dmg based on round"},
-            ":satellite:": {"attack": 33, "speed": 2, "range": 4, "defense": 45,
-                            "passive": ":satellite_orbital:",
-                            "description": "**Radar**: Decrease incoming attack by 45% for every odd round"},
-            ":loudspeaker:": {"attack": 46, "speed": 4, "range": 1, "defense": 32,
-                              "passive": ":beginner:",
-                              "description": "**Motivesien**: While your hp is lower than enemy, increase atk by 18%"},
-            ":firecracker:": {"attack": 68, "speed": 3, "range": 3, "defense": 10,
-                              "passive": ":fireworks:",
-                              "description": "**Fataliti**: Every round, 30% chance to deal fatality "
-                                             "(45% if your hp is below enemy), Sacrifice your 5% def and "
-                                             "dealing 25-40% (40-55% if your hp below enemy)"
-                                             " of your atk as well as "
-                                             "decreasing enemy def by 25-40% of your atk "
-                                             "(enemy def can\"t be lower than your def).\n"
-                                             "If this fails, decrease your atk by 8% and increase def by 8%"},
-            # ":school:": {"attack": 48, "speed": 2, "range": 3, "defense": 30,
-            #              "passive": ":scales:",
-            #              "description": "**Learn**: Every round, apply stun and permanently decrease def by 10% "
-            #                             "and activate one of following:\n"
-            #                             "1. Increase attack by 200%\n"
-            #                             "2. Decrease def by 50%\n"
-            #                             "3. Increase range by 100% and speed by 100%\n"
-            #                             "4. Immune to next attack"}
-            }
+
+if TYPE_CHECKING:
+    from .hero import Hero
+
+
+@dataclass
+class State:
+    """
+    Represent battle state:
+
+    0: Setup
+
+    1: Pre attack
+
+    2: During attack
+
+    3: Counterattack
+
+    4: Post attack
+    """
+    state_at: int
+    buffs: List
+    debuffs: List
+    distance: int
+    rounds: int
 
 
 class Battle:
-    def __init__(self, allies, enemy):
+    def __init__(self, allies: Hero, enemy: Hero):
         self.allies = allies
         self.enemy = enemy
         self.distance = allies.ranges + enemy.ranges + allies.speed + enemy.speed
@@ -160,7 +128,7 @@ class Battle:
         self.enemy.set_power(self.allies)
 
         while self.distance > self.allies.ranges and self.distance > self.enemy.ranges:
-            # both out of range so we move position of both side by their speed
+            # both out of range, so we move position of both side by their speed
             self.distance -= self.allies.speed + self.enemy.speed
         if self.allies.ranges >= self.distance and self.enemy.ranges >= self.distance:
             # in melee mode

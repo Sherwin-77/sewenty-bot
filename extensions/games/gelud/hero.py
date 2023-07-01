@@ -1,9 +1,18 @@
+from __future__ import annotations
+
 import random
 import math
+from typing import TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from .game_system import State
+    from .weapon import HeroWeapon, Effect
 
 
 class Hero:
-    def __init__(self, name, char, weapon, hp, attack, speed, defense, ranges, passive, description):
+    def __init__(self, name: str, char: str,
+                 weapon: HeroWeapon, hp: int, attack: int, speed: int, defense: int, ranges: int):
         self.name = name
         self.char = char
         self.weapon = weapon
@@ -12,17 +21,27 @@ class Hero:
         self.speed = speed
         self.defense = defense
         self.ranges = ranges
-        self.passive = passive
-        self.description = description
         self.power = 0
         self.is_ranged = False
 
-    def set_power(self, target):
+    def set_power(self, target: Hero):
         if not isinstance(target, Hero):
             raise TypeError("Unexpected Type to attack")
         self.power = round(self.attack * math.exp(-target.defense / (self.attack + target.defense * 0.5)))
 
-    def attacks(self, target, rounds, distance):
+    def default_attack(self, target: Hero, state: State, target_state: State):
+        if not isinstance(target, Hero):
+            raise TypeError("Unexpected Type to attack")
+        critical = False
+        if self.chance(0.01):
+            self.power *= 2
+            critical = True
+
+        return ((f"{self.name} have enough range at **{state.distance}** hyper meter and" if self.is_ranged
+                 else self.name) + f" deal **{self.power}** damage to {target.name}"
+                + "**CRITICAL HIT**" if critical else '')
+
+    def attacks(self, target: Hero, rounds: int, distance: int):
         if not isinstance(target, Hero):
             raise TypeError("Unexpected Type to attack")
         log = ""
@@ -40,7 +59,7 @@ class Hero:
 
         # endurance
         if ":satellite:" in target.weapon and rounds % 2 == 1:
-            self.power -= round(self.power * 0.450)
+            self.power -= round(self.power * 0.45)
 
         # fatality
         if ":firecracker:" in self.weapon:

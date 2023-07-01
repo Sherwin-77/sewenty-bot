@@ -12,7 +12,7 @@ from traceback import format_exception
 from typing import Optional, Union, TYPE_CHECKING
 
 from extensions.games.gelud import Hero, Battle
-from extensions.games.gelud.game_system import weaponry
+from extensions.games.gelud.items import WEAPONRY
 from extensions.games import minesweeper
 
 from constants import CHARACTER_NAMES, CHAR_LIST
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 # mango_url = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
 
-list_weapon = list(weaponry.keys())
+list_weapon = list(WEAPONRY.keys())
 
 commandCooldown, battleCooldown, teamCooldown = {}, {}, {}
 
@@ -143,12 +143,12 @@ def generate_enemy(stat, name, multiplier: float = 1):
     attack = random.randrange(30, 51 + (100 - hp))
     speed = random.randrange(1, 6)
     defense = max_stat - hp - attack - speed
-    ranges = weaponry[weapon]['range']
+    ranges = WEAPONRY[weapon]['range']
     hp = round(((hp + stat) * 8) * multiplier)
-    attack = round((attack + weaponry[weapon]['attack'] + stat) * multiplier)
-    defense = round((defense + weaponry[weapon]['defense'] + stat) * multiplier)
-    speed += weaponry[weapon]['speed']
-    return Hero(name, char, weapon, hp, attack, speed, defense, ranges, weaponry[weapon]['passive'], None)
+    attack = round((attack + WEAPONRY[weapon]['attack'] + stat) * multiplier)
+    defense = round((defense + WEAPONRY[weapon]['defense'] + stat) * multiplier)
+    speed += WEAPONRY[weapon]['speed']
+    return Hero(name, char, weapon, hp, attack, speed, defense, ranges, WEAPONRY[weapon]['passive'], None)
 
 
 class User(Hero):
@@ -332,12 +332,12 @@ class CustomGame(app_commands.Group, name="custombattle"):
                       char=random.choice(CHAR_LIST),
                       weapon=weapon.value,
                       hp=hp * 8,
-                      attack=attack + weaponry[weapon.value]["attack"],
-                      speed=speed + weaponry[weapon.value]["speed"],
-                      defense=defense + weaponry[weapon.value]["defense"],
-                      ranges=weaponry[weapon.value]["range"],
-                      passive=weaponry[weapon.value]['passive'],
-                      description=weaponry[weapon.value]['description'])
+                      attack=attack + WEAPONRY[weapon.value]["attack"],
+                      speed=speed + WEAPONRY[weapon.value]["speed"],
+                      defense=defense + WEAPONRY[weapon.value]["defense"],
+                      ranges=WEAPONRY[weapon.value]["range"],
+                      passive=WEAPONRY[weapon.value]['passive'],
+                      description=WEAPONRY[weapon.value]['description'])
         enemy = generate_enemy(0, random.choice(CHARACTER_NAMES), 1)
         system = Battle(player, enemy)
         log = 'Battle Started'
@@ -436,12 +436,12 @@ class Game(commands.Cog):
             attack = random.randrange(30, 51 + (100 - hp))
             speed = random.randrange(1, 6)
             defense = max_stat - hp - attack - speed
-            attack1 = weaponry[weapon]['attack']
-            speed1 = weaponry[weapon]['speed']
-            ranges = weaponry[weapon]['range']
-            defense1 = weaponry[weapon]['defense']
-            passive = weaponry[weapon]['passive']
-            description = weaponry[weapon]['description']
+            attack1 = WEAPONRY[weapon]['attack']
+            speed1 = WEAPONRY[weapon]['speed']
+            ranges = WEAPONRY[weapon]['range']
+            defense1 = WEAPONRY[weapon]['defense']
+            passive = WEAPONRY[weapon]['passive']
+            description = WEAPONRY[weapon]['description']
             custom_embed = discord.Embed(title='Game started',
                                          description=f'You get character: {char}\n'
                                                      f'HP: {hp}\n'
@@ -562,12 +562,12 @@ class Game(commands.Cog):
         weapon = f":{weapon}:"
         if weapon not in list_weapon:
             return await ctx.send("Input valid weapon name `s!wdesc`", delete_after=3)
-        attack1 = weaponry[weapon]['attack']
-        speed1 = weaponry[weapon]['speed']
-        ranges = weaponry[weapon]['range']
-        defense1 = weaponry[weapon]['defense']
-        passive = weaponry[weapon]['passive']
-        description = weaponry[weapon]['description']
+        attack1 = WEAPONRY[weapon]['attack']
+        speed1 = WEAPONRY[weapon]['speed']
+        ranges = WEAPONRY[weapon]['range']
+        defense1 = WEAPONRY[weapon]['defense']
+        passive = WEAPONRY[weapon]['passive']
+        description = WEAPONRY[weapon]['description']
         await self.bot.GAME_COLLECTION.update_one({"_id": str(ctx.author.id)}, {"$set": {"weapon": weapon,
                                                                                          "attack1": attack1,
                                                                                          "speed1": speed1,
@@ -718,11 +718,11 @@ class Game(commands.Cog):
                 team[x]['defense'] = max_stat - team[x]['hp'] - team[x]['attack'] - team[x]['speed']
                 team[x]['weapon'] = random.choice(list_weapon)
                 weapon = team[x]['weapon']
-                team[x]['attack1'] = weaponry[weapon]['attack']
-                team[x]['speed1'] = weaponry[weapon]['speed']
-                team[x]['ranges'] = weaponry[weapon]['range']
-                team[x]['defense1'] = weaponry[weapon]['defense']
-                team[x]['passive'] = weaponry[weapon]['passive']
+                team[x]['attack1'] = WEAPONRY[weapon]['attack']
+                team[x]['speed1'] = WEAPONRY[weapon]['speed']
+                team[x]['ranges'] = WEAPONRY[weapon]['range']
+                team[x]['defense1'] = WEAPONRY[weapon]['defense']
+                team[x]['passive'] = WEAPONRY[weapon]['passive']
             await self.bot.GAME_COLLECTION.insert_one({"_id": f"team{ctx.author.id}", "team": team})
         team = await self.bot.GAME_COLLECTION.find_one(query)
         team_embed = discord.Embed(title=f'{ctx.author.name}\'s Team',
@@ -792,11 +792,11 @@ class Game(commands.Cog):
                                       - team['team'][x]['speed'])
         team['team'][x]['weapon'] = random.choice(list_weapon)
         weapon = team['team'][x]['weapon']
-        team['team'][x]['attack1'] = weaponry[weapon]['attack']
-        team['team'][x]['speed1'] = weaponry[weapon]['speed']
-        team['team'][x]['ranges'] = weaponry[weapon]['range']
-        team['team'][x]['defense1'] = weaponry[weapon]['defense']
-        team['team'][x]['passive'] = weaponry[weapon]['passive']
+        team['team'][x]['attack1'] = WEAPONRY[weapon]['attack']
+        team['team'][x]['speed1'] = WEAPONRY[weapon]['speed']
+        team['team'][x]['ranges'] = WEAPONRY[weapon]['range']
+        team['team'][x]['defense1'] = WEAPONRY[weapon]['defense']
+        team['team'][x]['passive'] = WEAPONRY[weapon]['passive']
         await self.bot.GAME_COLLECTION.update_one(query, {"$set": {"team": team['team']}})
         for x in range(1, 4):
             team_hp = team_hp + team['team'][x]['hp']
@@ -1011,15 +1011,15 @@ class Game(commands.Cog):
             await ctx.send(embed=custom_embed)
             return
         name = f":{name}:"
-        if name not in weaponry:
+        if name not in WEAPONRY:
             await ctx.send("Input weapon name when", delete_after=5)
             return
-        attack = weaponry[name]["attack"]
-        speed = weaponry[name]["speed"]
-        ranges = weaponry[name]["range"]
-        defense = weaponry[name]["defense"]
-        passive = weaponry[name]["passive"]
-        description = weaponry[name]['description']
+        attack = WEAPONRY[name]["attack"]
+        speed = WEAPONRY[name]["speed"]
+        ranges = WEAPONRY[name]["range"]
+        defense = WEAPONRY[name]["defense"]
+        passive = WEAPONRY[name]["passive"]
+        description = WEAPONRY[name]['description']
         dexed = discord.Embed(title=name, description=f"Attac: {attack}\n"
                                                       f"Difens: {defense}\n"
                                                       f"Range: {ranges}\n"
