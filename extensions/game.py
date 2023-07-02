@@ -720,7 +720,7 @@ class Game(commands.Cog):
             speed1 = team["team"][x]['speed1']
             ranges = team["team"][x]['ranges']
             defense1 = team["team"][x]['defense1']
-            passive = team["team"][x]['passive']
+            passive = WEAPONRY[weapon]["passive"]
 
             team_embed.add_field(name=f'[{x}]', value=f'{char}\n'
                                                       f'Hp: {hp}\n'
@@ -778,13 +778,7 @@ class Game(commands.Cog):
         team["team"][x]['ranges'] = WEAPONRY[weapon]['range']
         team["team"][x]['defense1'] = WEAPONRY[weapon]['defense']
         await self.bot.GAME_COLLECTION.update_one(query, {"$set": {"team": team["team"]}})
-        for x in range(1, 4):
-            team_hp = team_hp + team["team"][x]['hp']
-            team_attack = team_attack + team["team"][x]['attack'] + team["team"][x]['attack1']
-            team_defense = team_defense + team["team"][x]['defense'] + team["team"][x]['defense1']
-            team_speed = team_speed + team["team"][x]['speed'] + team["team"][x]['speed1']
-            team_ranges = team_ranges + team["team"][x]['ranges']
-        await ctx.message.add_reaction('✅')
+        await ctx.invoke(self.teamgame)
 
     @team_re_roll.error
     async def team_re_roll_error(self, ctx, error):
