@@ -77,7 +77,7 @@ class SewentyBot(commands.Bot):
         intents = discord.Intents.all()  # ah yes
         super().__init__(
             case_insensitive=True,
-            command_prefix=commands.when_mentioned_or("s!"),
+            command_prefix=commands.when_mentioned_or("s!"),  # type: ignore
             description="Sewenty bot written in python",
             intents=intents,
             status=discord.Status.idle,
@@ -92,6 +92,7 @@ class SewentyBot(commands.Bot):
         self.banned_user = set()
         self.last_stack = []
         self.last_date = None
+        self.afk_message = "Ded or work or college >:("
 
         self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
                                            "<:hikanoplsOwO:804522598289375232>"],
@@ -192,17 +193,7 @@ class SewentyBot(commands.Bot):
         await super().close()
 
     async def main(self) -> None:
-        if USE_PSQL:
-            pool = await asyncpg.create_pool(
-                database=self.PSQL_USER,
-                user=self.PSQL_USER,
-                password=self.PSQL_PASSWORD
-            )
-            async with self, pool:
-                self.pool: asyncpg.Pool = pool
-                await self.start(self.TOKEN)
-        else:
-            await self.start(self.TOKEN)
+        await self.start(self.TOKEN)
 
     async def send_owner(self, message=None, **kwargs) -> None:
         channel = await self.owner.create_dm()
@@ -320,8 +311,7 @@ def main():
     @commands.is_owner()
     async def ban(ctx, user: discord.User):
         """
-        Not to be confused with guild ban
-        Ban user from bot
+        Not to be confused with guild ban, this bans user from bot
         """
 
         if user.id in bot.banned_user:
@@ -459,16 +449,16 @@ def main():
         if guild_id == 714152739252338749:
             low_msg = message.content.lower()
 
-            if "<@436376194166816770>" in low_msg or "<@!436376194166816770>" in low_msg and random.random() < 0.5:
-                counts = random.randint(1, 2)
-                sticker_ids = {949065213540458526, 900116218160242818, 961046798821126214,
-                               948695509130944523, 1058020894783578232, 881949030236712990}
-                used_sticker_ids = random.choices(list(sticker_ids), k=counts)
-                get_sticker = [discord.utils.get(message.guild.stickers, id=i) for i in used_sticker_ids]
-                if None not in get_sticker:
-                    await message.reply(stickers=get_sticker, mention_author=False)
-                else:
-                    pass
+            for u in message.mentions:
+                if (
+                        u.id == bot.owner.id
+                        and (u.status == discord.Status.idle
+                             or u.status == discord.Status.dnd
+                             or u.status == discord.Status.offline)
+                        and bot.afk_message is not None
+                ):
+                    await message.reply(f"<a:running:791350508375900190> **Owner AFK:** {bot.afk_message}",
+                                        mention_author=False, allowed_mentions=discord.AllowedMentions.none())
 
             if low_msg in {"osana", "mira"}:
                 if userid in {436376194166816770, 532912006114836482}:
@@ -516,6 +506,7 @@ def main():
                 custom_embed = discord.Embed(title=message.split('[')[1].split(']')[0],
                                              description=message.split('\n')[1] + '\n' + message.split('\n')[2],
                                              color=discord.Colour.blue())
+                custom_embed.set_footer(text="psst. If you want this tracker, DM/tell invaliduser77")
                 await after.channel.send(embed=custom_embed)
 
     @bot.tree.error
