@@ -71,7 +71,7 @@ class TeamWeapon(HeroWeapon):
 # Weapon list here?
 class Bow(HeroWeapon):
     """
-    **Archery**: Deal 50% more damage in ranged mode
+    **Archery**: Deal 50% more damage in ranged mode. Increase range by 2 per round
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -90,7 +90,8 @@ class Bow(HeroWeapon):
 
 class Dagger(HeroWeapon):
     """
-    **Dodge**: Gain 130% of speed as dodge chance
+    **Dodge**: Gain 125% of speed as chance to stack dodge buff (different from base dodge)
+    If this fails, increase speed by 1
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -113,7 +114,7 @@ class Dagger(HeroWeapon):
 
 class Axe(HeroWeapon):
     """
-    **Lifestyle**: heal you 50% of damage
+    **Lifestyle**: heal you 60% of damage
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -136,7 +137,8 @@ class Axe(HeroWeapon):
 
 class Pickaxe(HeroWeapon):
     """
-    **Baccstab**: Decreasing enemy def by 70% and your def by 10%
+    **Baccstab**: Decreasing enemy def by 70% and your def by 10% at start
+    Has 5% chance to trigger again
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -155,7 +157,8 @@ class Pickaxe(HeroWeapon):
 
 class MagicWand(HeroWeapon):
     """
-    **Chemical**: Deal 9% of enemy's current HP and heal by the damage dealt
+    **Chemical**: Deal 10% (8% if your hp is higher) of enemy's current HP
+    and heal by 100% (115% if your hp is lower) of damage dealt
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -176,14 +179,14 @@ class MagicWand(HeroWeapon):
 
 class Broom(HeroWeapon):
     """
-    **Theft**: Steal 20% of enemy defense and attack. additionally, 20% chance to trigger again
+    **Theft**: Steal 15% of enemy defense and attack. additionally, 15% chance to trigger again
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":trident:"
 
     def check(self, enemy: Hero, state: State, enemy_state: State) -> Optional[str]:
-        if state.state_at == 0 or (state.state_at == 1 and self.wielder.chance(0.01)):
+        if state.state_at == 0 or (state.state_at == 1 and self.wielder.chance(0.015)):
             self.wielder.attack += round(enemy.attack * 0.15)
             enemy.attack -= round(enemy.attack * 0.15)
             self.wielder.defense += round(enemy.defense * 0.15)
@@ -196,7 +199,7 @@ class Broom(HeroWeapon):
 
 class Door(HeroWeapon):
     """
-    **Thicc door**: Increase 85% defense. If your hp below enemy, Increase def by 6%
+    **Thicc door**: Increase defense by 65%. If your hp below enemy, Increase def by 6.5%
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -216,7 +219,7 @@ class Door(HeroWeapon):
 
 class Bomb(HeroWeapon):
     """
-    **Eksplosion**: Deal 80% of your attack as True Damage to enemy and decrease def by 10% every 5 rounds
+    **Eksplosion**: Deal 80% of your attack as True Damage to enemy and decrease def by 10% every 4 rounds
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -237,14 +240,15 @@ class Bomb(HeroWeapon):
 
 class Dice(HeroWeapon):
     """
-    **Lucc Dice**: Roll 6 sided dice and increase hp atk and def by 8.5x of rolled dice
+    **Lucc Dice**: Roll 20 sided dice and increase hp atk and def by 5x of rolled dice
+    Additionally, 10% chance to trigger again
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = "<:lucc:796732732113682442>"
 
     def check(self, enemy: Hero, state: State, enemy_state: State) -> Optional[str]:
-        if state.state_at == 0 or (state.state_at == 1 and self.wielder.chance(0.15)):
+        if state.state_at == 0 or (state.state_at == 1 and self.wielder.chance(0.10)):
             rolled_number = random.randint(1, 20)
             self.wielder.attack += round(0.005 * rolled_number)
             self.wielder.hp += round(self.wielder.hp * 0.005 * rolled_number)
@@ -258,7 +262,8 @@ class Dice(HeroWeapon):
 
 class Gun(HeroWeapon):
     """
-    **Precision**: Increase 3% crit chance and 5% crit dmg based on round
+    **Precision**: Has (1 + (3 x current round))% chance to increase damage dealt by (200 + (5 x current round)%
+    If this fails, reduce damage dealt to (69 - (1 x current round))% instead
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -284,6 +289,7 @@ class Gun(HeroWeapon):
 class Satellite(HeroWeapon):
     """
     **Radar**: Decrease incoming attack by 45% for every odd round
+    Additionally, has 25% chance to reduce damage dealt by 30%
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -310,7 +316,7 @@ class Satellite(HeroWeapon):
 
 class Loudspeaker(HeroWeapon):
     """
-    **Motivesien**: While your hp is lower than enemy, increase atk by 18%
+    **Motivesien**: While your hp is lower than enemy, increase atk by 20%
     """
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
@@ -330,11 +336,10 @@ class Loudspeaker(HeroWeapon):
 
 class Firecracker(HeroWeapon):
     """
-    **Fataliti**: Every round, 30% chance to deal fatality (45% if your hp is below enemy),
+    **Fataliti**: Every round, 30% chance to deal fatality (45% if your hp is below enemy)
 
     Sacrifice your 5% def and dealing 25-40% (40-55% if your hp below enemy) of your atk as well as
     decreasing enemy def by 25-40% of your atk (enemy def can't be lower than your def).
-
 
     If this fails, decrease your atk by 8% and increase def by 8%
     """
