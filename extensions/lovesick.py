@@ -321,7 +321,7 @@ class LoveSick(commands.Cog):
                 Normal content would be
                 x | name hunt   [0]
                 y | caught pets [1]
-                z | team xp     [2]
+                z | _team xp     [2]
                 """
             check = content.split('\n')
             for i, line in enumerate(check):
@@ -330,7 +330,7 @@ class LoveSick(commands.Cog):
                         if i == default:
                             counts += line.count(pet)
 
-                        if i != default and not line.endswith("**!"):  # default message for xp team
+                        if i != default and not line.endswith("**!"):  # default message for xp _team
                             default = i
                             counts = line.count(pet)
 
@@ -507,7 +507,7 @@ class LoveSick(commands.Cog):
             Normal content would be
             x | name hunt   [0]
             y | caught pets [1]
-            z | team xp     [2]
+            z | _team xp     [2]
             """
         check = content.split('\n')
         for i, line in enumerate(check):
@@ -516,7 +516,7 @@ class LoveSick(commands.Cog):
                     if i == default:
                         counts += line.count(pet)
 
-                    if i != default and not line.endswith("**!"):  # default message for xp team
+                    if i != default and not line.endswith("**!"):  # default message for xp _team
                         default = i
                         counts = line.count(pet)
 
