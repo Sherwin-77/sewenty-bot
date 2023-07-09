@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING, List, Optional
 
 from copy import deepcopy
@@ -9,7 +10,7 @@ import logging
 import discord
 from discord.ext import commands, tasks
 
-from utils import paginators
+from utils.paginators import SimplePages, EmbedSource
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 
 if TYPE_CHECKING:
@@ -155,7 +156,7 @@ class LoveSick(commands.Cog):
         self.focus = []
         self.ignored = set()
         self.verified = set()
-        self.last_checked = None
+        self.logs = []
 
     def cog_check(self, ctx) -> bool:
         return ctx.guild.id == self.GUILD_ID
@@ -296,6 +297,18 @@ class LoveSick(commands.Cog):
                 self.ignored.add(payload.message_id)
                 return
 
+            if not message.content and not message.embeds:
+                warning = await message.reply("WARNING: Content is empty. Retrying in 3 seconds "
+                                              "<a:discordloading:792012369168957450>")
+                for i in range(3):
+                    await asyncio.sleep(3)
+                    message = await channel.fetch_message(payload.message_id)
+                    await warning.edit(content=f"WARNING: Content is empty. Retrying in 3 seconds "
+                                               f"<a:discordloading:792012369168957450> (Attempt {i+1})")
+                    if message.content or message.embeds:
+                        self.logs.append(f"Empty content attempted {i+1} times")
+                        await warning.delete()
+
             userid = str(payload.user_id)
             member = guild.get_member(payload.user_id)
             if member is None:  # Fallback
@@ -310,6 +323,11 @@ class LoveSick(commands.Cog):
             content = message.content if not message.embeds else message.embeds[0].description
 
             if member.display_name not in content:
+                self.logs.append(f"Username mismatch\n"
+                                 f"```"
+                                 f"{member.display_name}\n"
+                                 f"==========\n"
+                                 f"{content}")
                 await message.reply("Username doesn't match/found in hunting message. "
                                     "If you believe this is yours, contact staff")
                 self.ignored.add((payload.user_id, payload.message_id))
@@ -321,7 +339,7 @@ class LoveSick(commands.Cog):
                 Normal content would be
                 x | name hunt   [0]
                 y | caught pets [1]
-                z | _team xp     [2]
+                z | team xp     [2]
                 """
             check = content.split('\n')
             for i, line in enumerate(check):
@@ -330,7 +348,7 @@ class LoveSick(commands.Cog):
                         if i == default:
                             counts += line.count(pet)
 
-                        if i != default and not line.endswith("**!"):  # default message for xp _team
+                        if i != default and not line.endswith("**!"):  # default message for xp team
                             default = i
                             counts = line.count(pet)
 
@@ -372,6 +390,12 @@ class LoveSick(commands.Cog):
                 await self.LXV_COLLECTION.update_one({"_id": "verified_msg"},
                                                      {"$set": {"msg_ids": list(self.verified)}})
             await message.reply(f"Sent to {link_channel.mention}")
+
+    @commands.command()
+    @commands.is_owner()
+    async def lxvlog(self, ctx):
+        menu = SimplePages(source=EmbedSource(self.logs[::-1], 1, "Logs", lambda pg: pg))
+        await menu.start(ctx)
 
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
@@ -507,7 +531,7 @@ class LoveSick(commands.Cog):
             Normal content would be
             x | name hunt   [0]
             y | caught pets [1]
-            z | _team xp     [2]
+            z | team xp     [2]
             """
         check = content.split('\n')
         for i, line in enumerate(check):
@@ -516,7 +540,7 @@ class LoveSick(commands.Cog):
                     if i == default:
                         counts += line.count(pet)
 
-                    if i != default and not line.endswith("**!"):  # default message for xp _team
+                    if i != default and not line.endswith("**!"):  # default message for xp team
                         default = i
                         counts = line.count(pet)
 
