@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, List, Optional
 
-from copy import deepcopy
-import datetime
 import logging
 
 import discord
@@ -158,14 +156,15 @@ class LoveSick(commands.Cog):
         self.verified = set()
         self.logs = []
 
-    def cog_check(self, ctx) -> bool:
-        return ctx.guild.id == self.GUILD_ID
-
-    async def cog_load(self) -> None:
+    async def get_setting(self, unload_on_error=True):
         setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
         if not setting:
-            logger.error("No setting for lovesick found. Unloading cog...")
-            await self.bot.remove_cog("extensions.lovesick")
+            if unload_on_error:
+                logger.error("No setting for lovesick found. Unloading cog...")
+                await self.bot.remove_cog("extensions.lovesick")
+            else:
+                logger.warning("No setting for lovesick found. Skipping setting check")
+            return -1
         # Note that id always stored in str due to big number
         self.lxv_member_id = int(setting["lxv_member_id"])
         self.lxv_link_channel = int(setting["lxv_link_channel"])
@@ -178,6 +177,13 @@ class LoveSick(commands.Cog):
         self.event_disabled = setting["event_disabled"]
         self.focus = setting["focus"]
         self.focus.sort()
+        return 0
+
+    def cog_check(self, ctx) -> bool:
+        return ctx.guild.id == self.GUILD_ID
+
+    async def cog_load(self) -> None:
+        await self.get_setting()
         self.ping_lxv_db.start()
 
     async def cog_unload(self) -> None:
@@ -211,14 +217,18 @@ class LoveSick(commands.Cog):
             dt = x["localTime"]
         guild = self.bot.get_guild(self.GUILD_ID)
         ch = guild.get_channel(765818685922213948)
+        total_read = total_read or 1
+        total_write = total_write or 1
+        total_command = total_command or 1
+        total_transaction = total_transaction or 1
         await ch.send(f"# Data reporting\n"
-                      f"Read Latency: Average **{sum(read_latency)//(len(read_latency)*1000)} ms** "
+                      f"Read Latency: Average **{sum(read_latency)/(total_read*1000):.2f} ms** "
                       f"in {total_read} operations\n"
-                      f"Write Latency: Average **{sum(write_latency)//(len(write_latency)*1000)} ms** "
+                      f"Write Latency: Average **{sum(write_latency)/(total_write*1000):.2f} ms** "
                       f"in {total_write} operations\n"
-                      f"Command Latency: Average **{sum(command_latency)//(len(command_latency)*1000)} ms** "
+                      f"Command Latency: Average **{sum(command_latency)/(total_command*1000):.2f} ms** "
                       f"in {total_command} operations\n"
-                      f"Transaction Latency: Average **{sum(transaction_latency)//(len(transaction_latency)*1000)} ms**"
+                      f"Transaction Latency: Average **{sum(transaction_latency)/(total_transaction*1000):.2f} ms**"
                       f" in {total_transaction} operations\n"
                       f"{discord.utils.format_dt(dt, 'F')}")
 
