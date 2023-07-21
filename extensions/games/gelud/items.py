@@ -52,12 +52,12 @@ WEAPONRY = {":bow_and_arrow:": {"attack": 37, "speed": 6, "range": 26, "defense"
                               "passive": ":fireworks:",
                               "description": Firecracker.__doc__,
                               "weapon": Firecracker},
-            ":school:": {"attack": 48, "speed": 2, "range": 3, "defense": 30,
-                         "passive": ":scales:",
-                         "description": "**Learn**: Every round, apply stun and permanently decrease def by 10% "
-                                        "and activate one of following:\n"
-                                        "1. Increase attack by 200%\n"
-                                        "2. Decrease def by 50%\n"
-                                        "3. Increase range by 100% and speed by 100%\n"
-                                        "4. Immune to next attack"}
+            # ":school:": {"attack": 48, "speed": 2, "range": 3, "defense": 30,
+            #              "passive": ":scales:",
+            #              "description": "**Learn**: Every round, apply stun and permanently decrease def by 10% "
+            #                             "and activate one of following:\n"
+            #                             "1. Increase attack by 200%\n"
+            #                             "2. Decrease def by 50%\n"
+            #                             "3. Increase range by 100% and speed by 100%\n"
+            #                             "4. Immune to next attack"}
             }
