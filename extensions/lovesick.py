@@ -404,6 +404,8 @@ class LoveSick(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def lxvlog(self, ctx):
+        if len(self.logs) <= 0:
+            return await ctx.send("No logs")
         menu = SimplePages(source=EmbedSource(self.logs[::-1], 1, "Logs", lambda pg: pg))
         await menu.start(ctx)
 
