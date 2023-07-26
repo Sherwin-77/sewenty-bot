@@ -151,6 +151,7 @@ class LoveSick(commands.Cog):
         self.event_disabled = False
         self.lxv_only_event = False
         self.mod_ids = set()
+        self.required_role_ids = set()
         self.focus = []
         self.ignored = set()
         self.verified = set()
@@ -171,6 +172,7 @@ class LoveSick(commands.Cog):
         self.event_link_channel = int(setting["event_link_channel"])
         self.lxv_only_event = setting["lxv_only_event"]
         self.mod_ids = set(map(int, setting["mod_ids"]))
+        self.required_role_ids = list(set(map(int, setting["required_role_ids"])))
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
             self.verified = set(map(int, verified["msg_ids"]))
@@ -254,8 +256,8 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        if self.bot.TEST_MODE:
-            return
+        # if self.bot.TEST_MODE:
+        #     return
         if (
                 payload.guild_id == self.GUILD_ID and payload.emoji.name == '📝' and
                 payload.channel_id in {self.lxv_link_channel, self.event_link_channel}
@@ -329,6 +331,13 @@ class LoveSick(commands.Cog):
 
             link_channel = guild.get_channel(self.lxv_link_channel
                                              if member.get_role(self.lxv_member_id) else self.event_link_channel)
+
+            allowed = all([member.get_role(roleid) for roleid in self.required_role_ids])
+            if self.bot.TEST_MODE:
+                if allowed:
+                    return await message.reply("Success")
+                else:
+                    return await message.reply("Missing")
 
             content = message.content if not message.embeds else message.embeds[0].description
 
@@ -411,13 +420,19 @@ class LoveSick(commands.Cog):
 
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
+        roles = [f"<@&{x}>" for x in self.required_role_ids]
+        custom_embed = discord.Embed(title="Super stat for event",
+                                     description=f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
+                                                 f"Event counting "
+                                                 f"currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
+                                                 f"LXV only event set to **{self.lxv_only_event}**\n",
+                                     colour=discord.Colour.random())
+        custom_embed.add_field(name="Required role", value=", ".join(roles))
         await ctx.send(f"Hi event\n"
                        f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
                        f"||Read the command detail before use 👀||\n"
-                       f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
-                       f"Event counting currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
-                       f"LXV only event set to **{self.lxv_only_event}**\n"
-                       f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>")
+                       f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>",
+                       embed=custom_embed)
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
@@ -451,6 +466,24 @@ class LoveSick(commands.Cog):
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res),
                                                                            "event_disabled": self.event_disabled}})
 
+    @event.command(aliases=["role"])
+    async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        roles = list(set(roles))
+        custom_embed = discord.Embed(title="Focus index",
+                                     description=f"Are you sure want to set role requirement "
+                                                 f"to {', '.join([r.mention for r in roles])}?",
+                                     color=discord.Colour.green())
+        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
+        await confirm.send(ctx)
+        await confirm.wait()
+        if not confirm.value:
+            return
+        res = [r.id for r in roles]
+        self.required_role_ids = res
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"required_role_ids": [str(x) for x in res]}})
+
     @event.command(aliases=['d', 'e', "enable"])
     async def disable(self, ctx):
         """
@@ -458,9 +491,9 @@ class LoveSick(commands.Cog):
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
-        self.event_disabled = not self.event_disabled
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
         await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
+
 
     @event.command(aliases=["lxv"])
     async def lxvonly(self, ctx):
