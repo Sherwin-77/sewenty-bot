@@ -3,8 +3,6 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, List, Optional
 
-from copy import deepcopy
-import datetime
 import logging
 
 import discord
@@ -153,31 +151,41 @@ class LoveSick(commands.Cog):
         self.event_disabled = False
         self.lxv_only_event = False
         self.mod_ids = set()
+        self.required_role_ids = set()
         self.focus = []
         self.ignored = set()
         self.verified = set()
         self.logs = []
 
-    def cog_check(self, ctx) -> bool:
-        return ctx.guild.id == self.GUILD_ID
-
-    async def cog_load(self) -> None:
+    async def get_setting(self, unload_on_error=True):
         setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
         if not setting:
-            logger.error("No setting for lovesick found. Unloading cog...")
-            await self.bot.remove_cog("extensions.lovesick")
+            if unload_on_error:
+                logger.error("No setting for lovesick found. Unloading cog...")
+                await self.bot.remove_cog("extensions.lovesick")
+            else:
+                logger.warning("No setting for lovesick found. Skipping setting check")
+            return -1
         # Note that id always stored in str due to big number
         self.lxv_member_id = int(setting["lxv_member_id"])
         self.lxv_link_channel = int(setting["lxv_link_channel"])
         self.event_link_channel = int(setting["event_link_channel"])
         self.lxv_only_event = setting["lxv_only_event"]
         self.mod_ids = set(map(int, setting["mod_ids"]))
+        self.required_role_ids = list(set(map(int, setting["required_role_ids"])))
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
             self.verified = set(map(int, verified["msg_ids"]))
         self.event_disabled = setting["event_disabled"]
         self.focus = setting["focus"]
         self.focus.sort()
+        return 0
+
+    def cog_check(self, ctx) -> bool:
+        return ctx.guild.id == self.GUILD_ID
+
+    async def cog_load(self) -> None:
+        await self.get_setting()
         self.ping_lxv_db.start()
 
     async def cog_unload(self) -> None:
@@ -211,14 +219,18 @@ class LoveSick(commands.Cog):
             dt = x["localTime"]
         guild = self.bot.get_guild(self.GUILD_ID)
         ch = guild.get_channel(765818685922213948)
+        total_read = total_read or 1
+        total_write = total_write or 1
+        total_command = total_command or 1
+        total_transaction = total_transaction or 1
         await ch.send(f"# Data reporting\n"
-                      f"Read Latency: Average **{sum(read_latency)//(len(read_latency)*1000)} ms** "
+                      f"Read Latency: Average **{sum(read_latency)/(total_read*1000):.2f} ms** "
                       f"in {total_read} operations\n"
-                      f"Write Latency: Average **{sum(write_latency)//(len(write_latency)*1000)} ms** "
+                      f"Write Latency: Average **{sum(write_latency)/(total_write*1000):.2f} ms** "
                       f"in {total_write} operations\n"
-                      f"Command Latency: Average **{sum(command_latency)//(len(command_latency)*1000)} ms** "
+                      f"Command Latency: Average **{sum(command_latency)/(total_command*1000):.2f} ms** "
                       f"in {total_command} operations\n"
-                      f"Transaction Latency: Average **{sum(transaction_latency)//(len(transaction_latency)*1000)} ms**"
+                      f"Transaction Latency: Average **{sum(transaction_latency)/(total_transaction*1000):.2f} ms**"
                       f" in {total_transaction} operations\n"
                       f"{discord.utils.format_dt(dt, 'F')}")
 
@@ -244,8 +256,8 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        if self.bot.TEST_MODE:
-            return
+        # if self.bot.TEST_MODE:
+        #     return
         if (
                 payload.guild_id == self.GUILD_ID and payload.emoji.name == '📝' and
                 payload.channel_id in {self.lxv_link_channel, self.event_link_channel}
@@ -319,6 +331,13 @@ class LoveSick(commands.Cog):
 
             link_channel = guild.get_channel(self.lxv_link_channel
                                              if member.get_role(self.lxv_member_id) else self.event_link_channel)
+
+            allowed = all([member.get_role(roleid) for roleid in self.required_role_ids])
+            if self.bot.TEST_MODE:
+                if allowed:
+                    return await message.reply("Success")
+                else:
+                    return await message.reply("Missing")
 
             content = message.content if not message.embeds else message.embeds[0].description
 
@@ -394,18 +413,26 @@ class LoveSick(commands.Cog):
     @commands.command()
     @commands.is_owner()
     async def lxvlog(self, ctx):
+        if len(self.logs) <= 0:
+            return await ctx.send("No logs")
         menu = SimplePages(source=EmbedSource(self.logs[::-1], 1, "Logs", lambda pg: pg))
         await menu.start(ctx)
 
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
+        roles = [f"<@&{x}>" for x in self.required_role_ids]
+        custom_embed = discord.Embed(title="Super stat for event",
+                                     description=f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
+                                                 f"Event counting "
+                                                 f"currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
+                                                 f"LXV only event set to **{self.lxv_only_event}**\n",
+                                     colour=discord.Colour.random())
+        custom_embed.add_field(name="Required role", value=", ".join(roles))
         await ctx.send(f"Hi event\n"
                        f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
                        f"||Read the command detail before use 👀||\n"
-                       f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
-                       f"Event counting currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
-                       f"LXV only event set to **{self.lxv_only_event}**\n"
-                       f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>")
+                       f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>",
+                       embed=custom_embed)
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
@@ -439,6 +466,24 @@ class LoveSick(commands.Cog):
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res),
                                                                            "event_disabled": self.event_disabled}})
 
+    @event.command(aliases=["role"])
+    async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        roles = list(set(roles))
+        custom_embed = discord.Embed(title="Focus index",
+                                     description=f"Are you sure want to set role requirement "
+                                                 f"to {', '.join([r.mention for r in roles])}?",
+                                     color=discord.Colour.green())
+        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
+        await confirm.send(ctx)
+        await confirm.wait()
+        if not confirm.value:
+            return
+        res = [r.id for r in roles]
+        self.required_role_ids = res
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"required_role_ids": [str(x) for x in res]}})
+
     @event.command(aliases=['d', 'e', "enable"])
     async def disable(self, ctx):
         """
@@ -446,9 +491,9 @@ class LoveSick(commands.Cog):
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
-        self.event_disabled = not self.event_disabled
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
         await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
+
 
     @event.command(aliases=["lxv"])
     async def lxvonly(self, ctx):
