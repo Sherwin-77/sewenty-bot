@@ -15,6 +15,8 @@ class BaseView(discord.ui.View):
 
     async def on_timeout(self) -> None:
         for child in self.children:
+            if child.view is None:
+                continue
             child.view.stop()
         self.stop()
 
@@ -36,7 +38,7 @@ class ConfirmEmbed(BaseView):
         self.userid = userid
         self.embed = embed
 
-    @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)
+    @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)  # type: ignore
     async def confirm(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.userid:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -45,7 +47,7 @@ class ConfirmEmbed(BaseView):
         await interaction.response.edit_message(content="Success", view=None, embed=None)
         self.stop()
 
-    @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)
+    @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)  # type: ignore
     async def cancel(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.userid:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",

@@ -152,6 +152,8 @@ class User(Hero):
         self.battle_point = battle_point
         if "battlepoint" in self.profile and self.battle_point == 0:
             self.battle_point = self.profile["battlepoint"]
+        if name is None:
+            name = "User"
         char = self.profile['char']
         weapon = self.profile['weapon']
         hp = round(self.profile['hp'] * 8 * (1 + self.battle_point * 0.05))
@@ -159,7 +161,7 @@ class User(Hero):
         speed = self.profile['speed'] + self.profile['speed1']
         defense = round((self.profile['defense'] + self.profile['defense1']) * (1 + 0.05 * self.battle_point))
         ranges = self.profile['range']
-        super().__init__(name, char, weapon, hp, attack, speed, defense, ranges)
+        super().__init__(name, char, weapon, hp, attack, speed, defense, ranges) 
 
     def show(self):
         profile = self.profile
@@ -235,9 +237,9 @@ class MineCellButton(discord.ui.Button):
         if not view.started:
             view.start(row_position=self.row, column_position=self.col)
             view.started = True
-            self.label = view.game.data[self.col][self.row]
+            self.label = view.game.data[self.col][self.row]  # type: ignore
         else:
-            dead = view.game.open(row_position=self.row, column_position=self.col)
+            dead = view.game.open(row_position=self.row, column_position=self.col)  # type: ignore
             if dead:
                 content = "You step on bomb :c"
                 self.style = discord.ButtonStyle.danger
@@ -252,35 +254,35 @@ class MineCellButton(discord.ui.Button):
 
 
 class MineBoard(discord.ui.View):
+    message: discord.Message
+    player: discord.Member
 
     def __init__(self):
         super().__init__()
         self.started = False
         self.game = minesweeper.Minesweeper(5, 5)
-        self.message = None
-        self.player = None
         for i in range(5):
             for j in range(5):
                 self.add_item(MineCellButton(i, j))
 
     def show_all(self):
-        for button in self.children:
+        for button in self.children:  # type: ignore
             button: MineCellButton
             col = button.col
             row = button.row
-            if self.game.data[col][row] <= minesweeper.MINE_VALUE:
+            if self.game.data[col][row] <= minesweeper.MINE_VALUE:  # type: ignore
                 button.emoji = "<:rekt:835656364864438282>"
             else:
-                button.label = str(self.game.data[col][row] or '\u200b')
+                button.label = str(self.game.data[col][row] or '\u200b')  # type: ignore
             button.disabled = True
         running_game.remove(str(self.player.id))
         self.stop()
 
     async def on_timeout(self) -> None:
-        for button in self.children:
+        for button in self.children:  # type: ignore
             button: MineCellButton
             button.disabled = True
-        running_game.remove(str(self.player.id))
+        running_game.remove(str(self.player.id))  
         await self.message.edit(view=self)
 
     def start(self, row_position, column_position):
@@ -288,12 +290,12 @@ class MineBoard(discord.ui.View):
         self.show_opened()
 
     def show_opened(self):
-        for button in self.children:
+        for button in self.children:  # type: ignore
             button: MineCellButton
             col = button.col
             row = button.row
-            if self.game.visited[col][row] and self.game.data[col][row] >= 0:
-                button.label = str(self.game.data[col][row] or '\u200b')
+            if self.game.visited[col][row] and self.game.data[col][row] >= 0:  # type: ignore
+                button.label = str(self.game.data[col][row] or '\u200b')  # type: ignore
                 button.disabled = True
 
 
@@ -367,7 +369,7 @@ class CustomGame(app_commands.Group, name="custombattle"):
                                                        f'Weapon: {enemy.weapon}\n')
             custom_embed.add_field(name='Log', value=f'{log}', inline=False)
             await asyncio.sleep(SLEEP_TIME)
-            await message.edit(embed=custom_embed)
+            await message.edit(embed=custom_embed)  # type: ignore
 
             if enemy.hp <= 0 or player.hp <= 0 or system.rounds > 20:
                 if enemy.hp <= 0 or player.hp > enemy.hp:
@@ -392,7 +394,7 @@ class SlashCommandGame(app_commands.Group, name="game"):
         game = MineBoard()
         await interaction.response.send_message("Game started", view=game)
         game.message = await interaction.original_response()
-        game.player = interaction.user
+        game.player = interaction.user  # type: ignore
         running_game.add(str(interaction.user.id))
 
 
@@ -596,11 +598,10 @@ class Game(commands.Cog):
                 add_streak = 5
             enemy = generate_enemy(stat, random.choice(CHARACTER_NAMES),
                                    1 + 0.5 * random.random() + 0.05 * battle_point)
-
         else:
             enemy_user = opponent
             if not isinstance(enemy_user, discord.User):
-                enemy_user = await converter.convert(ctx, opponent)
+                enemy_user = await converter.convert(ctx, opponent)  # type: ignore
             enemy_counts = await self.bot.GAME_COLLECTION.count_documents({"_id": str(enemy_user.id)})
 
             if enemy_counts != 0:
@@ -755,7 +756,6 @@ class Game(commands.Cog):
         if position < 1 or position > 3:
             return await ctx.reply("Position must be between 1 and 3", mention_author=False, delete_after=5)
         max_stat = 200
-        team_hp, team_attack, team_speed, team_defense, team_ranges = [x for x in repeat(0, 5)]
         query = {"_id": f"team{ctx.author.id}"}
         counts = await self.bot.GAME_COLLECTION.count_documents(query)
         if counts == 0:

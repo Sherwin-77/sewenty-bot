@@ -18,8 +18,8 @@ class AnigameCard:
         self.defense = defense
         self.element = [em if em in ELEMENT else "neutral" for em in element]
         self.crit_multiplier = crit_multiplier
-        self.atk_percentage = 1
-        self.defense_percentage = 1
+        self.atk_percentage = 1.0
+        self.defense_percentage = 1.0
         self.rarity = rarity
         self.talent: Optional[AnigameTalent] = None
 

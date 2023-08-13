@@ -38,9 +38,10 @@ def is_draw(player_pos):
     return False
 
 
-def render_spotify_embed(user: discord.Member, spotify: Optional[discord.Spotify] = None) -> Union[str, discord.Embed]:
+def render_spotify_embed(member: discord.Member, spotify: Optional[discord.Spotify] = None) -> Union[str, discord.Embed]:  # type: ignore
     # In most cases the filtered list consist only 1 element unless there are breaking changes
-    spotify = spotify or list(filter(lambda a: isinstance(a, discord.Spotify), user.activities))
+    spotify: discord.Spotify
+    spotify = spotify or list(filter(lambda a: isinstance(a, discord.Spotify), member.activities))  # type: ignore
     if not spotify:
         return "Not listening ):<"
     if isinstance(spotify, list):
@@ -54,7 +55,7 @@ def render_spotify_embed(user: discord.Member, spotify: Optional[discord.Spotify
             f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage / 10), 0))}" \
             f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
     artist = spotify.artist if len(spotify.artists) > 1 else ', '.join(spotify.artists)
-    custom_embed = discord.Embed(title=f"{user.name} is listening to a song",
+    custom_embed = discord.Embed(title=f"{member.name} is listening to a song",
                                  description=f"Title: [{spotify.title}]({spotify.track_url})\n"
                                              f"Artist: {artist}\n"
                                              f"Album: {spotify.album}\n"
@@ -349,7 +350,7 @@ class Miscellaneous(commands.Cog):
         if last_token is not None and expired is not None and current + 100 < expired:
             return last_token
         data = {
-            "client_id": int(self.CLIENT_ID),
+            "client_id": int(self.CLIENT_ID),  # type: ignore
             "client_secret": self.CLIENT_SECRET,
             "grant_type": "client_credentials",
             "scope": "public"
@@ -642,24 +643,25 @@ class Miscellaneous(commands.Cog):
         if not member:
             member = ctx.author
 
-        try_embed = render_spotify_embed(member)
+        try_embed = render_spotify_embed(member)  # type: ignore
         if isinstance(try_embed, str):
             return await ctx.send(try_embed)
         await ctx.send(embed=try_embed)
 
     @commands.command(aliases=["a", "act"])
-    async def activity(self, ctx, user: Optional[discord.Member] = None):
-        if not user:
-            user = ctx.author
-        filtered_activities = list(filter(lambda x: not isinstance(x, discord.CustomActivity), user.activities))
+    async def activity(self, ctx, member: Optional[discord.Member] = None):  # type: ignore
+        member: discord.Member
+        if not member:
+            member = ctx.author
+        filtered_activities = list(filter(lambda x: not isinstance(x, discord.CustomActivity), member.activities)) 
         if len(filtered_activities) < 1:
             return await ctx.send("No activities")
         dropdown = ActivityDropdown(text="Select activities",
                                     select_list=[
-                                        discord.SelectOption(label=a.name) for a in filtered_activities
+                                        discord.SelectOption(label=a.name) for a in filtered_activities  # type: ignore
                                     ])
         dropdown.activities = {a.name: a for a in filtered_activities}
-        view = ActivityView(ctx.author, user)
+        view = ActivityView(ctx.author, member)
         view.add_item(dropdown)
         await ctx.send(view=view)
 

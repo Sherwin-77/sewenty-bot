@@ -14,13 +14,16 @@ if TYPE_CHECKING:
 
 
 class Hero:
+    _weapon: HeroWeapon
+
     def __init__(self, name: str, char: str,
                  weapon: Union[str, HeroWeapon], hp: int, attack: int, speed: int, defense: int, ranges: int):
         self.name = name
         self.char = char
-        self._weapon: HeroWeapon = weapon
         if isinstance(weapon, str):
-            self._weapon = WEAPONRY[self._weapon]["weapon"](self)
+            self._weapon = WEAPONRY[weapon]["weapon"](self)
+        else:
+            self._weapon = weapon
         self.hp = hp
         self.attack = attack
         self.speed = speed

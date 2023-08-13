@@ -19,7 +19,9 @@ class Action(commands.GroupCog, group_name="action"):
         if ctx.invoked_with is not None and ctx.invoked_with == "help":
             return True
         bucket = self._cd.get_bucket(ctx.message)
-        retry_after = bucket.update_rate_limit()
+        if bucket is None:
+            return
+        retry_after = bucket.update_rate_limit()  
         if retry_after:
             raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
         return True
@@ -32,7 +34,7 @@ class Action(commands.GroupCog, group_name="action"):
         except commands.errors.MemberNotFound:
             user = user.lower()
 
-        if ret is None:
+        if ret is None and ctx.guild is not None:
             for member in ctx.guild.members:
                 if user in member.name.lower() or (member.nick is not None and user in member.nick.lower()):
                     if ret is None or ret.id > member.id:
@@ -59,7 +61,9 @@ class Action(commands.GroupCog, group_name="action"):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if not message.content.lower().startswith('y') or self.bot.TEST_MODE and message.guild.id != 714152739252338749:
+        if (not message.content.lower().startswith('y')
+                or self.bot.TEST_MODE and message.guild is not None
+                and message.guild.id != 714152739252338749):
             return
         offset = 1
         if message.content.lower().startswith("yui"):
@@ -221,8 +225,12 @@ class Action(commands.GroupCog, group_name="action"):
         if action.endswith('s'):
             action = action.removesuffix('s')
         target = ctx.author
+        if ctx.guild is None:
+            return
         if user is not None:
             target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("Unable to find user")
         query = {"_id": f"{target.id}{action}"}
         cursor = await self.action_collection.find_one(query)
         if not cursor:
@@ -238,7 +246,7 @@ class Action(commands.GroupCog, group_name="action"):
             if i > 25 and len(top) > 25:
                 total += counts
                 continue
-            member = ctx.guild.get_member(int(userid))
+            member = ctx.guild.get_member(int(userid))  
             display = f"User-{userid}"
             if member is not None:
                 display = member.display_name

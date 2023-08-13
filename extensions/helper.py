@@ -252,7 +252,7 @@ class TalentButton(discord.ui.Button):
         self.card = card
 
     async def callback(self, interaction: discord.Interaction):
-        assert self.view is not None
+        assert self.view is not None and self.card.talent is not None
         view: AnigameView = self.view
         if interaction.user.id != self.view.user.id:
             return await interaction.response.send_message("You are not allowed to do this :c", ephemeral=True)
@@ -292,16 +292,18 @@ class AnigameDropdown(Dropdown):
         await view.message.delete()
         await interaction.response.edit_message(content="Done", view=None)
         message = await interaction.followup.send(view=view, embed=view.display())
-        view.message = message
+        view.message = message  # type: ignore
 
 
 class AnigameView(BaseView):
+    card_talent_button: TalentButton
+    enemy_talent_button: TalentButton
+    message: discord.Message
+    user: discord.User
+
     def __init__(self, anigame: Anigame):
         super().__init__()
         self.anigame: Anigame = anigame
-        self.message = None
-        self.card_talent_button = None
-        self.enemy_talent_button = None
 
     async def on_timeout(self) -> None:
         await super(AnigameView, self).on_timeout()
@@ -346,7 +348,7 @@ class AnigameView(BaseView):
                                      f"**{rarity_to_str[self.anigame.enemy_card.rarity].capitalize()}**")
         return custom_embed
 
-    @discord.ui.button(label="Change card talent")
+    @discord.ui.button(label="Change card talent")  # type: ignore
     async def change_card_talent(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -373,7 +375,7 @@ class AnigameView(BaseView):
         ))
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
-    @discord.ui.button(label="Change enemy talent")
+    @discord.ui.button(label="Change enemy talent")  # type: ignore
     async def change_enemy_talent(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -398,7 +400,7 @@ class AnigameView(BaseView):
         ))
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
-    @discord.ui.button(label="Change card rarity")
+    @discord.ui.button(label="Change card rarity")  # type: ignore
     async def change_card_rarity(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -421,7 +423,7 @@ class AnigameView(BaseView):
         ))
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
-    @discord.ui.button(label="Change enemy rarity")
+    @discord.ui.button(label="Change enemy rarity")  # type: ignore
     async def change_enemy_rarity(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -444,7 +446,7 @@ class AnigameView(BaseView):
         ))
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
-    @discord.ui.button(label="Reset all")
+    @discord.ui.button(label="Reset all")  # type: ignore
     async def reset_card(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -471,7 +473,7 @@ class HelperCommand(commands.Cog):
                        stat3: Optional[float] = None,
                        stat4: Optional[float] = None):
         if weapon_type is not None:
-            return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))
+            return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))  # type: ignore
 
         ref = ctx.message.reference
         msg = None
@@ -493,6 +495,8 @@ class HelperCommand(commands.Cog):
             return await ctx.reply("Please input weapon type. You can either reply to embed "
                                    "or check for 5 messages before you", mention_author=False)
         last: discord.Embed = embeds[-1]
+        if last.description is None:
+            return
         new = last.description.split('\n')
         weapon_type = new[0].split("**")[2].lower()
         cost = int(new[5].split("**")[2].split(' ')[1])
@@ -551,7 +555,7 @@ class HelperCommand(commands.Cog):
             stat3 = float(new[8].split("**")[3].replace('%', ''))
             stat4 = float(new[8].split("**")[-2].replace('%', ''))
 
-        return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))
+        return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))  # type: ignore
 
     @maxwstat.error
     async def maxwstat_on_error(self, ctx, error):
@@ -569,7 +573,7 @@ class HelperCommand(commands.Cog):
         """
         Visualize pet stat in cettin level
         """
-        if level.isdigit():
+        if level is not None and level.isdigit():
             level = int(level)
             if hp and strength and pr and wp and mag and mr:
                 await visual_stat(ctx, level, hp, strength, pr, wp, mag, mr)
@@ -824,7 +828,7 @@ class HelperCommand(commands.Cog):
                                 i += 1
                                 continue
                             if length > 5:
-                                sub_string = await reduce(sub_string)
+                                sub_string = await reduce(sub_string)  # type: ignore
                             if length > 5:
                                 sub_string = f"----- S T A R T ----- \n" \
                                              f"{sub_string}\n" \
@@ -850,8 +854,8 @@ class HelperCommand(commands.Cog):
                                     while string[s1] != '\n':
                                         s1 += 1
                                         s2 += 1
-                                    await divide_string(string[:s1])
-                                    await divide_string(string[s2:])
+                                    await divide_string(string[:s1])  # type: ignore
+                                    await divide_string(string[s2:])  # type: ignore
                                 else:
                                     await ctx.send(string)
 
@@ -903,7 +907,7 @@ class HelperCommand(commands.Cog):
                           enemy_def: int,
                           card_crit_multiplier: Optional[float] = 1.75,
                           enemy_crit_multiplier: Optional[float] = 1.75,
-                          *, elements: str = "neutral neutral"
+                          *, elements: str = "neutral neutral"  # type: ignore
                           ):
         card_base_atk *= 10
         card_def *= 10
@@ -928,7 +932,7 @@ class HelperCommand(commands.Cog):
             enemy_element = elements[-1:0:-1]
 
         anigame = Anigame(card_base_atk, card_def, enemy_base_atk, enemy_def,
-                          card_element, card_crit_multiplier, enemy_element, enemy_crit_multiplier)
+                          card_element, card_crit_multiplier, enemy_element, enemy_crit_multiplier)  # type: ignore
 
         view = AnigameView(anigame)
         view.user = ctx.author

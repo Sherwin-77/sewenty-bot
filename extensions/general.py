@@ -27,6 +27,8 @@ class General(commands.Cog):
         if ctx.invoked_with is not None and ctx.invoked_with == "help":
             return True
         bucket = self._cd.get_bucket(ctx.message)
+        if bucket is None:
+            return
         retry_after = bucket.update_rate_limit()
         if retry_after:
             raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
@@ -38,7 +40,7 @@ class General(commands.Cog):
         channel = self.bot.get_channel(759728217069191209)
         username = await self.bot.fetch_user(ctx.author.id)
         custom_embed = discord.Embed(title=f"{username}\'s Suggestion", description=suggestion, color=blue)
-        await channel.send(embed=custom_embed)
+        await channel.send(embed=custom_embed)  # type: ignore
         await ctx.message.add_reaction('👍')
 
     @commands.hybrid_command()
@@ -57,12 +59,13 @@ class General(commands.Cog):
                     f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
 
     @commands.hybrid_command()
-    async def whois(self, ctx: commands.Context, user: Optional[discord.User] = None):
+    async def whois(self, ctx: commands.Context, user: Optional[discord.User] = None):  # type: ignore
         """
         Show detail of user
         """
-        if not user:
-            user = ctx.author
+        user: discord.User
+        if user is None:
+            user = ctx.author  # type: ignore
         async with ctx.typing():
             flags = map(dirty_filter, user.public_flags.all()) if user.public_flags.value != 0 else ["None"]
             custom_embed = discord.Embed(title="User Data", description=f"Created at: "
@@ -74,7 +77,7 @@ class General(commands.Cog):
                                          color=user.accent_color or discord.Colour.random())
             custom_embed.set_author(name=str(user), icon_url=user.avatar)
             custom_embed.set_footer(text=user.id)
-            member = ctx.guild.get_member(user.id)
+            member = ctx.guild.get_member(user.id)  # type: ignore
             if member:
                 member: discord.Member
                 boost = member.premium_since
@@ -90,7 +93,7 @@ class General(commands.Cog):
                                              f"Desktop:\u2800 {EMOJI_STATUS[str(member.desktop_status)]}\n"
                                              f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[str(member.web_status)]}\n"
                                              f"Pending verification: **{member.pending}**\n"
-                                             f"Joined at: {discord.utils.format_dt(member.joined_at)}\n"
+                                             f"Joined at: {discord.utils.format_dt(member.joined_at)}\n"  # type: ignore
                                              f"Boosting since: {boost}\n"
                                              f"Nick: {member.nick}",
                                        inline=False)   # no spaces? fine I'll do it myself
@@ -105,11 +108,12 @@ class General(commands.Cog):
             await ctx.send(embed=custom_embed)
 
     @commands.hybrid_command(aliases=["av"])
-    async def avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):
+    async def avatar(self, ctx, user: Optional[Union[discord.Member, discord.User]] = None):  # type: ignore
         """
         Just avatar
         """
-        if not user:
+        user: discord.User
+        if user is None:
             user = ctx.author
         embed = discord.Embed(title="Avatar", color=user.accent_color or discord.Colour.random())
         embed.set_author(name=user.display_name, icon_url=user.avatar)
@@ -117,13 +121,14 @@ class General(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(aliases=['b'])
-    async def banner(self, ctx, user: Optional[discord.User] = None):
+    async def banner(self, ctx, user: Optional[discord.User] = None):  # type: ignore
         """
         Returns a user's Discord banner
         """
-        if not user:
+        user: discord.User
+        if user is None:
             user = ctx.author
-        user = await self.bot.fetch_user(user.id)
+        user = await self.bot.fetch_user(user.id) 
         banner_url = user.banner or self.DEFAULT_BANNER_URL
         custom_embed = discord.Embed()
         custom_embed.set_author(name=f"{user.display_name}'s banner", icon_url=user.display_avatar)
@@ -159,13 +164,15 @@ class General(commands.Cog):
         await ctx.send(embed=custom_embed)
 
     @commands.command()
-    async def prefix(self, ctx: commands.Context, new_prefix: commands.clean_content = None):
+    async def prefix(self, ctx: commands.Context, new_prefix: commands.clean_content = None):  # type: ignore
+        if ctx.guild is None:
+            return
         if new_prefix is None:
             if f"guild{ctx.guild.id}" not in self.bot.guild_prefix:
                 return await ctx.send("My prefix is `s!`")
             return await ctx.send(f"My prefix is `{self.bot.guild_prefix[f'guild{ctx.guild.id}']}`")
         is_owner = await self.bot.is_owner(ctx.author)
-        if not is_owner and not ctx.author.guild_permissions.administrator:
+        if not is_owner and not ctx.author.guild_permissions.administrator:  # type: ignore
             return await ctx.send("Git admin >:(")
         collection = self.bot.DB["bot"]
         form = {"_id": "prefix"}

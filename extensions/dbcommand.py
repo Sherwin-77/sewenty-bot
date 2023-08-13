@@ -116,8 +116,8 @@ class Taco(commands.Cog):
         Get taco upgrade from embed. Returns None if error happened or not matching location_locked
         """
         try:
-            new = embed.description.split('\n')
-            title = embed.title.split("| ")[-1]
+            new = embed.description.split('\n')  # type: ignore
+            title = embed.title.split("| ")[-1]  # type: ignore
             is_shack = False
             if "Shack" in title:
                 is_shack = True
@@ -297,7 +297,7 @@ class Taco(commands.Cog):
         bought = {}
         cost = 0
         while cost <= budget:
-            t = max(taco, key=taco.get)
+            t = max(taco, key=taco.get)  # type: ignore
             if taco[t] == 0:
                 await ctx.send("Upgrade maxed")
                 break
@@ -319,10 +319,10 @@ class Taco(commands.Cog):
         for k in sorted(bought):
             v = bought[k]
             action = "hire" if k in self.HIRE else "buy"
-            custom_embed.description += f"{action} {k} ({v} times)\n"
+            custom_embed.description += f"{action} {k} ({v} times)\n"  # type: ignore
         custom_embed.set_footer(text=f"Used {int(cost)} total of {budget} budget")
         if auto_update:
-            await self.update_taco({query: taco}, {query: taco_data})
+            await self.update_taco({query: taco}, {query: taco_data})  # type: ignore
         await ctx.send(embed=custom_embed)
         self.taco_recommend.add(str(ctx.author.id))
         await asyncio.sleep(4)
@@ -379,7 +379,7 @@ class Taco(commands.Cog):
         self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name="tsclearcart", aliases=['tcc'])
-    async def delete_stand(self, ctx):
+    async def delete_cart(self, ctx):
         if str(ctx.author.id) in self.taco_set:
             await ctx.send("Chill down <:blobsob:809721186966831105>", delete_after=2)
             return
@@ -533,7 +533,7 @@ class Taco(commands.Cog):
                 if len(taco) < 1:
                     await ctx.send("No more data to recommend. Aborting")
                     break
-                t = max(taco, key=taco.get)
+                t = max(taco, key=taco.get)  # type: ignore
                 v = format(taco[t], '.3e')
                 if taco[t] == 0:
                     await ctx.send(f"Upgrade already maxed. Aborting")
@@ -556,6 +556,9 @@ class Taco(commands.Cog):
                     await asyncio.sleep(1)
                     if len(message.embeds) < 1:
                         await ctx.send("No embed", delete_after=3)
+                        continue
+
+                    if message.embeds[0] is None or message.embeds[0].description is None:
                         continue
 
                     # check interaction origin
@@ -622,7 +625,7 @@ class OwO(commands.Cog):
         self.bot: SewentyBot = bot
 
     @commands.command(aliases=["owostats", "statowo", " statsowo", "ostat"])
-    async def owostat(self, ctx, users: discord.User = None):
+    async def owostat(self, ctx, users: discord.User = None):  # type: ignore
         """
         Show owo stat (with *very new* haki db)
         """

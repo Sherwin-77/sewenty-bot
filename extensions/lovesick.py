@@ -21,10 +21,11 @@ logger = logging.getLogger("extension.lovesick")
 
 # TODO: Move this to view_util, Fix inconsistent self var
 class QueryDropdown(Dropdown):
+    ctx: commands.Context
+
     def __init__(self, text: str, select_list: List[discord.SelectOption]):
         super().__init__(text, select_list)
         self.selected = None
-        self.ctx = None
 
     async def callback(self, interaction: discord.Interaction):
         assert self.view is not None
@@ -41,24 +42,24 @@ class EditCount(BaseView):
         super().__init__()
         self.parentcls = parentcls
         self.message = message
-        self.lines = message.embeds[0].fields[0].value.split('\n')
+        self.lines = message.embeds[0].fields[0].value.split('\n')  # type: ignore
         self.original = int(self.lines[0].split("**")[1])
         self.value = self.original
         self.userid = self.lines[1].split(':')[1].strip()
         self.staff = staff
 
-    @discord.ui.button(emoji='🔼', style=discord.ButtonStyle.blurple)
+    @discord.ui.button(emoji='🔼', style=discord.ButtonStyle.blurple)  # type: ignore
     async def incre_number(self, interaction: discord.Interaction, _: discord.Button):
         self.value += 1
         await interaction.response.edit_message(content=f"Current value: **{self.value}**")
 
-    @discord.ui.button(emoji='🔽', style=discord.ButtonStyle.blurple)
+    @discord.ui.button(emoji='🔽', style=discord.ButtonStyle.blurple)  # type: ignore
     async def decre_number(self, interaction: discord.Interaction, _: discord.Button):
         self.value -= 1
         self.value = max(0, self.value)
         await interaction.response.edit_message(content=f"Current value: **{self.value}**")
 
-    @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)
+    @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)  # type: ignore
     async def confirm(self, interaction: discord.Interaction, _: discord.Button):
         difference = self.value - self.original
         cursor = await self.parentcls.LXV_COLLECTION.find_one(self.parentcls.pet_query)
@@ -80,7 +81,7 @@ class EditCount(BaseView):
         custom_embed.set_field_at(0, name="Detail", value='\n'.join(self.lines))
         await self.message.edit(content=f"Corrected by {self.staff}", embed=custom_embed)
 
-    @discord.ui.button(label="Delete hunt", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Delete hunt", style=discord.ButtonStyle.red)  # type: ignore
     async def delete_hunt(self, interaction: discord.Interaction, _: discord.Button):
         cursor = await self.parentcls.LXV_COLLECTION.find_one(self.parentcls.pet_query)
         await interaction.response.defer()
@@ -110,7 +111,7 @@ class ConfirmEdit(BaseView):
         self.staff = staff
         self.view_msg = None
 
-    @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)
+    @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)  # type: ignore
     async def confirm(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.staff.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -121,7 +122,7 @@ class ConfirmEdit(BaseView):
         await interaction.followup.send(view=view, ephemeral=True)
         self.stop()
 
-    @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)
+    @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)  # type: ignore
     async def cancel(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.staff.id:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
@@ -182,7 +183,7 @@ class LoveSick(commands.Cog):
         return 0
 
     def cog_check(self, ctx) -> bool:
-        return ctx.guild.id == self.GUILD_ID
+        return ctx.guild is not None and ctx.guild.id == self.GUILD_ID
 
     async def cog_load(self) -> None:
         await self.get_setting()
@@ -217,13 +218,13 @@ class LoveSick(commands.Cog):
             transaction_latency.append(ts["latency"])
             total_transaction += ts["ops"]
             dt = x["localTime"]
-        guild = self.bot.get_guild(self.GUILD_ID)
-        ch = guild.get_channel(765818685922213948)
+        guild = self.bot.get_guild(self.GUILD_ID) 
+        ch = guild.get_channel(765818685922213948)  # type: ignore
         total_read = total_read or 1
         total_write = total_write or 1
         total_command = total_command or 1
         total_transaction = total_transaction or 1
-        await ch.send(f"# Data reporting\n"
+        await ch.send(f"# Data reporting\n"  # type: ignore
                       f"Read Latency: Average **{sum(read_latency)/(total_read*1000):.2f} ms** "
                       f"in {total_read} operations\n"
                       f"Write Latency: Average **{sum(write_latency)/(total_write*1000):.2f} ms** "
@@ -232,7 +233,7 @@ class LoveSick(commands.Cog):
                       f"in {total_command} operations\n"
                       f"Transaction Latency: Average **{sum(transaction_latency)/(total_transaction*1000):.2f} ms**"
                       f" in {total_transaction} operations\n"
-                      f"{discord.utils.format_dt(dt, 'F')}")
+                      f"{discord.utils.format_dt(dt, 'F')}")  # type: ignore
 
     @ping_lxv_db.before_loop
     async def check_connected(self):
@@ -258,23 +259,27 @@ class LoveSick(commands.Cog):
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         # if self.bot.TEST_MODE:
         #     return
+        guild: discord.Guild
+        member: discord.Member
         if (
                 payload.guild_id == self.GUILD_ID and payload.emoji.name == '📝' and
                 payload.channel_id in {self.lxv_link_channel, self.event_link_channel}
                 and payload.message_id not in self.ignored
                 and payload.user_id not in self.ignored
         ):
-            guild = self.bot.get_guild(self.GUILD_ID)
+            guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
             channel = guild.get_channel(payload.channel_id)
-            message = await channel.fetch_message(payload.message_id)
+            if not isinstance(channel, discord.TextChannel):
+                return
+            message = await channel.fetch_message(payload.message_id)  
 
-            if message.author.id != self.bot.user.id:
+            if message.author.id != self.bot.user.id:  # type: ignore
                 self.ignored.add(payload.message_id)
                 return
 
-            member = guild.get_member(payload.user_id)
+            member = guild.get_member(payload.user_id)  # type: ignore
             if member is None:  # Fallback
-                member = guild.fetch_member(payload.user_id)
+                member = guild.fetch_member(payload.user_id)  # type: ignore
 
             allowed = False
             if self.bot.owner == member:
@@ -289,7 +294,7 @@ class LoveSick(commands.Cog):
                 self.ignored.add(payload.user_id)
                 return
 
-            view = ConfirmEdit(self, message, member)
+            view = ConfirmEdit(self, message, member)  # type: ignore
             await view.send()
 
         if (
@@ -300,8 +305,10 @@ class LoveSick(commands.Cog):
                 and (payload.user_id, payload.message_id) not in self.ignored
                 and not self.event_disabled
         ):
-            guild = self.bot.get_guild(self.GUILD_ID)
+            guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
             channel = guild.get_channel(payload.channel_id)
+            if not isinstance(channel, discord.TextChannel):
+                return
             message = await channel.fetch_message(payload.message_id)
 
             # Check if its from owo
@@ -322,9 +329,9 @@ class LoveSick(commands.Cog):
                         await warning.delete()
 
             userid = str(payload.user_id)
-            member = guild.get_member(payload.user_id)
+            member = guild.get_member(payload.user_id)  # type: ignore
             if member is None:  # Fallback
-                member = guild.fetch_member(payload.user_id)
+                member = guild.fetch_member(payload.user_id)  # type: ignore
 
             if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
                 return await message.add_reaction("<:joinlxv:1044554756569432094>")
@@ -340,6 +347,8 @@ class LoveSick(commands.Cog):
                     return await message.reply("Missing")
 
             content = message.content if not message.embeds else message.embeds[0].description
+            if content is None:
+                return await message.reply("Invalid message type")
 
             if member.display_name not in content:
                 self.logs.append(f"Username mismatch\n"
@@ -392,7 +401,7 @@ class LoveSick(commands.Cog):
                                        f"In case other wondering, "
                                        f"react your event hunt message with <:newlxv:1046848826050359368>\n"
                                        f"If anything wrong, for staff react the emoji below")
-            msg = await link_channel.send(embed=link_embed)
+            msg = await link_channel.send(embed=link_embed)  # type: ignore
             await msg.add_reaction('📝')
 
             if not cursor:
@@ -408,7 +417,7 @@ class LoveSick(commands.Cog):
             else:
                 await self.LXV_COLLECTION.update_one({"_id": "verified_msg"},
                                                      {"$set": {"msg_ids": list(self.verified)}})
-            await message.reply(f"Sent to {link_channel.mention}")
+            await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
     @commands.command()
     @commands.is_owner()
@@ -467,10 +476,10 @@ class LoveSick(commands.Cog):
                                                                            "event_disabled": self.event_disabled}})
 
     @event.command(aliases=["role"])
-    async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):
+    async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):  # type: ignore
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
-        roles = list(set(roles))
+        roles: List = list(set(roles))
         custom_embed = discord.Embed(title="Focus index",
                                      description=f"Are you sure want to set role requirement "
                                                  f"to {', '.join([r.mention for r in roles])}?",
@@ -494,7 +503,6 @@ class LoveSick(commands.Cog):
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
         await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
 
-
     @event.command(aliases=["lxv"])
     async def lxvonly(self, ctx):
         """
@@ -513,7 +521,7 @@ class LoveSick(commands.Cog):
         """
         if user is None:
             user = ctx.author
-        userid = str(user.id)
+        userid = str(user.id)  # type: ignore
         cursor = await self.LXV_COLLECTION.find_one(self.pet_query)
         if not self.focus:
             return await ctx.send("No focus pet currently")
@@ -565,11 +573,13 @@ class LoveSick(commands.Cog):
             return await ctx.reply("<:joinlxv:1044554756569432094>")
 
         message = ctx.message.reference.resolved
-        link_channel = ctx.guild.get_channel(self.lxv_link_channel
+        link_channel = ctx.guild.get_channel(self.lxv_link_channel  # type: ignore
                                              if member.get_role(self.lxv_member_id) else self.event_link_channel)
         userid = str(member.id)
 
         content = message.content if not message.embeds else message.embeds[0].description
+        if content is None:
+            return await ctx.reply("Invalid message")
         default = 1
         counts = 0
         """
@@ -605,12 +615,12 @@ class LoveSick(commands.Cog):
         link_embed.add_field(name="Detail",
                              value=f"Detected count: **{detected}**\n"
                                    f"User id: {userid}\n"
-                                   f"Channel: {ctx.channel.mention}\n"
+                                   f"Channel: {ctx.channel.mention}\n"  # type: ignore
                                    f"Jump url: [Link]({message.jump_url})\n"
                                    f"In case other wondering, "
                                    f"react your event hunt message with <:newlxv:1046848826050359368>\n"
                                    f"If anything wrong, for staff react the emoji below")
-        msg = await link_channel.send(embed=link_embed)
+        msg = await link_channel.send(embed=link_embed)  # type: ignore
         await msg.add_reaction('📝')
 
         if not cursor:
@@ -626,13 +636,14 @@ class LoveSick(commands.Cog):
         else:
             await self.LXV_COLLECTION.update_one({"_id": "verified_msg"},
                                                  {"$set": {"msg_ids": list(self.verified)}})
-        await ctx.reply(f"Sent to {link_channel.mention}")
+        await ctx.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
     @event.command(aliases=["acu"])
-    async def addcountuser(self, ctx, user: discord.User, amount: Optional[int] = 1):
+    async def addcountuser(self, ctx, user: discord.User, amount: Optional[int] = 1):  # type: ignore
         """
         Manual add count for user
         """
+        amount: int = amount  # type: ignore
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         if amount < 0 or amount > 2147483647:
@@ -661,10 +672,11 @@ class LoveSick(commands.Cog):
         await ctx.send(f"Succesfully add count pet of user {user} by {amount}")
 
     @event.command(aliases=["sc"])
-    async def setcount(self, ctx, user: discord.User, amount: Optional[int] = 0):
+    async def setcount(self, ctx, user: discord.User, amount: Optional[int] = 0):  # type: ignore
         """
         Set pet count of user. Amount 0 to delete the entry
         """
+        amount: int = amount  # type: ignore
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         if amount < 0 or amount > 2147483647:

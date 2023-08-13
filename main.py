@@ -13,7 +13,6 @@ from typing import Union
 
 import aiohttp
 import discord
-from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 import motor.motor_asyncio
@@ -55,6 +54,14 @@ class NewHelpCommand(commands.MinimalHelpCommand):
 class SewentyBot(commands.Bot):
     # TODO: Implement psql
 
+    # Lint
+    owner: discord.User
+    session: aiohttp.ClientSession
+    DB: motor.motor_asyncio.AsyncIOMotorDatabase
+    CP_DB: motor.motor_asyncio.AsyncIOMotorDatabase
+    LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase
+    GAME_COLLECTION: motor.motor_asyncio.AsyncIOMotorCollection
+
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train",
                             "kingdom collect", "kingdom attack"}
 
@@ -88,7 +95,6 @@ class SewentyBot(commands.Bot):
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
-        self.owner = None
         self.banned_user = set()
         self.last_stack = []
         self.last_date = None
@@ -111,15 +117,8 @@ class SewentyBot(commands.Bot):
                                  "thonk": "<:PaulThink:770782702973878283>"}
 
         # we define this later
-        self.pool = None
-        self.session = None
-        self.DB = None
-        self.CP_DB = None
-        self.LXV_DB = None
-        self.GAME_COLLECTION = None
         self.guild_prefix = dict()
         self.allowed_track_channel = dict()
-        self.cached_soldier_data = []
 
     async def setup_hook(self) -> None:
         if self.TEST_MODE:
@@ -140,7 +139,6 @@ class SewentyBot(commands.Bot):
         for file in glob(r"extensions/*.py"):
             module_name = relpath(file).replace("\\", '.').replace('/', '.')[:-3]
             await self.load_extension(module_name)
-        await self.get_soldier_cache()
         form = {"_id": "prefix"}
         result = await self.DB["bot"].find_one(form)
         if result:
@@ -184,7 +182,9 @@ class SewentyBot(commands.Bot):
         if self.TEST_MODE:
             return ["test!"]
         ret = await super().get_prefix(message)
-        if f"guild{message.guild.id}" in self.guild_prefix:
+        if isinstance(ret, str): 
+            return ret
+        if message.guild is not None and f"guild{message.guild.id}" in self.guild_prefix:
             ret.append(self.guild_prefix[f"guild{message.guild.id}"])
         return ret
 
@@ -193,18 +193,11 @@ class SewentyBot(commands.Bot):
         await super().close()
 
     async def main(self) -> None:
-        await self.start(self.TOKEN)
+        await self.start(self.TOKEN)  # type: ignore
 
     async def send_owner(self, message=None, **kwargs) -> None:
         channel = await self.owner.create_dm()
         await channel.send(message, **kwargs)
-
-    async def get_soldier_cache(self) -> None:
-        if not USE_PSQL:
-            return
-        async with self.pool.acquire() as conn:
-            async with conn.transaction():
-                self.cached_soldier_data = await conn.fetch("SELECT * FROM soldier_info")
 
     def blocking_stack(self, traceback) -> None:
         logger.warning("Blocking code detected. You also can check from s!laststack")
@@ -214,8 +207,10 @@ class SewentyBot(commands.Bot):
 
 def slash_is_enabled():
     def wrapper(interaction: discord.Interaction):
+        if interaction.command is None: 
+            return False
         return interaction.command.qualified_name not in SewentyBot.disabled_app_command
-    return app_commands.check(wrapper)
+    return discord.app_commands.check(wrapper)
 
 
 def main():
@@ -227,15 +222,15 @@ def main():
 
     @bot.event
     async def on_ready():
-        print(f"{bot.user.name} has connected to discord!")
+        print(f"{bot.user.name} has connected to discord!") # type: ignore
 
     @bot.tree.context_menu(name="Banner")
     async def search_banner(interaction: discord.Interaction, member: discord.Member):
-        member = await bot.fetch_user(member.id)
-        banner_url = member.banner or default_banner_url
+        user = await bot.fetch_user(member.id) 
+        banner_url = user.banner or default_banner_url
 
         custom_embed = discord.Embed()
-        custom_embed.set_author(name=f"{member.display_name}'s banner", icon_url=member.display_avatar)
+        custom_embed.set_author(name=f"{user.display_name}'s banner", icon_url=user.display_avatar)
         custom_embed.set_image(url=banner_url)
         await interaction.response.send_message(embed=custom_embed)
 
@@ -265,26 +260,8 @@ def main():
         Nothing Special
         """
         original = await ctx.send("Refreshing <a:discordloading:792012369168957450>")
-        await bot.get_soldier_cache()
+        # Do smth here
         await original.edit(content="Done <:wurk:858721776770744320>")
-
-    @bot.command(hidden=True)
-    @commands.is_owner()
-    async def sql(ctx, *, query):
-        if not USE_PSQL:
-            return await ctx.reply("Psql disabled", mention_author=False)
-        async with bot.pool.acquire() as conn:
-            async with conn.transaction():
-                value = await conn.execute(query)
-        await ctx.send(embed=discord.Embed(title="Result",
-                                           description=value,
-                                           color=discord.Colour.random()))
-
-    @sql.error
-    async def sql_on_error(ctx, error):
-        if isinstance(error, commands.CommandInvokeError):
-            return await ctx.reply(f"Failed to fetch: {type(error.original)} {error.original}", mention_author=False)
-        await ctx.reply(f"Failed to fetch: {type(error)} {error}", mention_author=False)
 
     @bot.command(hidden=True)
     @commands.is_owner()
@@ -334,7 +311,7 @@ def main():
 
     @bot.command(hidden=True)
     @commands.is_owner()
-    async def switch(ctx: commands.Context, command: bot.get_command):
+    async def switch(ctx: commands.Context, command: bot.get_command): # type: ignore
         """
         Disable command-
         """
@@ -360,7 +337,7 @@ def main():
     # Note that channel id in dict always str
     @bot.command(name="allowchannel", hidden=True)
     @commands.is_owner()
-    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False):
+    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False): 
         """
         Allow tracking anigame rng
         Work for owner only
@@ -368,7 +345,7 @@ def main():
         collection = bot.DB["bot"]
         if isinstance(channel_id, discord.TextChannel):
             channel_id = channel_id.id
-        channel_id = str(channel_id)
+        channel_id = str(channel_id)  # type: ignore
         form = {"_id": "allowed_channel"}
         result = await collection.find_one(form)
         if not result:
@@ -433,7 +410,7 @@ def main():
             dm_embed = discord.Embed(description=message.content)
             dm_embed.set_author(name=message.author.name, icon_url=message.author.avatar)
             dm_embed.set_footer(text=message.author.id)
-            return await channel.send(embed=dm_embed)
+            return await channel.send(embed=dm_embed)  # type: ignore
 
         if bot.TEST_MODE:
             return await bot.process_commands(message)
@@ -450,6 +427,8 @@ def main():
             low_msg = message.content.lower()
 
             for u in message.mentions:
+                if not isinstance(u, discord.Member):
+                    continue
                 if (
                         u.id == bot.owner.id
                         and (u.status == discord.Status.idle
@@ -510,12 +489,14 @@ def main():
                 await after.channel.send(embed=custom_embed)
 
     @bot.tree.error
-    async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, app_commands.errors.CommandNotFound):
+    async def on_app_command_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        if isinstance(error, discord.app_commands.errors.CommandNotFound):
             return
-        if isinstance(error, app_commands.errors.CheckFailure):
+        if isinstance(error, discord.app_commands.errors.CheckFailure):
             return await interaction.response.send_message("You can't use this command or command on maintenance")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if interaction.channel is None:
+            return
         if len(output) > 1500:
             buffer = BytesIO(output.encode("utf-8"))
             file = discord.File(buffer, filename="log.txt")

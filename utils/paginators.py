@@ -1,17 +1,17 @@
 import discord
-from discord.ext import menus
+from discord.ext import menus, commands
 
 from typing import Callable
 
 
 class SimplePages(discord.ui.View, menus.MenuPages):
     """Pagination with ui button"""
+    ctx: commands.Context
+    message: discord.Message
     def __init__(self, source: menus.PageSource, *, delete_message_after=True):
         super().__init__(timeout=60)
         self._source = source
         self.current_page = 0
-        self.ctx = None
-        self.message = None
         self.delete_message_after = delete_message_after
 
     async def start(self, ctx, *, channel=None, wait=False):
@@ -21,6 +21,8 @@ class SimplePages(discord.ui.View, menus.MenuPages):
 
     async def _get_kwargs_from_page(self, page):
         value = await super()._get_kwargs_from_page(page)
+        if value is None:
+            return value
         if "view" not in value:
             value.update({"view": self})
         return value
@@ -41,7 +43,7 @@ class SimplePages(discord.ui.View, menus.MenuPages):
     @discord.ui.button(emoji='⏹', style=discord.ButtonStyle.blurple)
     async def stop_page(self, interaction, _):
         for child in self.children:
-            child.disabled = True
+            child.disabled = True  # type: ignore
         self.stop()
         if self.delete_message_after:
             await self.message.delete()
@@ -56,13 +58,13 @@ class SimplePages(discord.ui.View, menus.MenuPages):
 
     @discord.ui.button(emoji='⏩', style=discord.ButtonStyle.blurple)
     async def skip_to_last(self, interaction, _):
-        await self.show_page(self._source.get_max_pages()-1)
+        await self.show_page(self._source.get_max_pages()-1)  # type: ignore
         await interaction.response.edit_message(view=self)
 
 
 # https://github.com/Rapptz/discord-ext-menus#pagination
 class EmbedSource(menus.ListPageSource):
-    def __init__(self, entries, per_page=4, title=None, format_caller: Callable = None):
+    def __init__(self, entries, per_page=4, title=None, format_caller: Callable = None):  # type: ignore
         super().__init__(entries, per_page=per_page)
         self.title = title
         self.format_caller = format_caller
