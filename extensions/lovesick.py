@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from os import name
 from typing import TYPE_CHECKING, List, Optional
 
 import logging
@@ -8,6 +9,7 @@ import logging
 import discord
 from discord.ext import commands, tasks
 
+from utils.cache import MessageCache
 from utils.paginators import SimplePages, EmbedSource
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 
@@ -167,6 +169,10 @@ class LoveSick(commands.Cog):
             else:
                 logger.warning("No setting for lovesick found. Skipping setting check")
             return -1
+
+        self.message_cache = MessageCache()
+        self.mod_cache = set()
+        
         # Note that id always stored in str due to big number
         self.lxv_member_id = int(setting["lxv_member_id"])
         self.lxv_link_channel = int(setting["lxv_link_channel"])
@@ -194,6 +200,7 @@ class LoveSick(commands.Cog):
 
     @tasks.loop(hours=12)
     async def ping_lxv_db(self):
+        self.mod_cache.clear()
         stats = self.LXV_COLLECTION.aggregate([{"$collStats": {"latencyStats": {"histograms": False}}}])
         read_latency = []
         total_read = 0
@@ -244,23 +251,74 @@ class LoveSick(commands.Cog):
     def pet_query(self) -> dict:
         return {"_id": f"pet|{'|'.join(self.focus)}"}
 
-    def mod_only(self, ctx) -> bool:
+    def is_mod(self, member: discord.Member):
+        if member.id in self.mod_cache:
+            return True
         allowed = False
-        if self.bot.owner == ctx.author:
+        if self.bot.owner.id == member.id or member.guild_permissions.administrator:
             allowed = True
+            self.mod_cache.add(member.id)
         else:
-            for x in ctx.author.roles:
-                if x.id in self.mod_ids:
+            for r in member.roles:
+                if r.id in self.mod_ids:
                     allowed = True
+                    self.mod_cache.add(member.id)
                     break
         return allowed
 
+    def mod_only(self, ctx) -> bool:
+        return self.is_mod(ctx.author)
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if self.bot.TEST_MODE:
+            return
+        if message.author.bot:
+            return
+        if (
+                message.guild is not None
+                and message.guild.id == self.GUILD_ID 
+                and message.mentions 
+                and not self.mod_only(message)
+        ):
+            for x in set(message.mentions): # type: ignore
+                x: discord.Member
+                if self.is_mod(x):
+                    self.message_cache.add_message(message, f"ping-{message.id}")
+                    break
+
+
+    @commands.Cog.listener()
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        if self.bot.TEST_MODE:
+            return
+        if payload.guild_id != self.GUILD_ID:
+            return
+        message = self.message_cache.remove_message(f"ping-{payload.message_id}")
+        if message is None:
+            return
+
+        # Do smth here
+
+        # Hardcoded channel id, will move the feature later
+        await message.channel.send(f"{message.author.mention} y why ping")
+        channel = guild.get_channel(789154199186702408)  # type: ignore
+        custom_embed = discord.Embed(title="Mod ping deleted",
+                              description=f"Message from **{message.author.mention}**",
+                              color=discord.Colour.random())
+        custom_embed.add_field(name="Original message",
+                        value=message.content)
+        custom_embed.set_thumbnail(url=message.author.display_avatar)
+        custom_embed.set_footer(text=f"userid: {message.author.id}")
+        await channel.send(embed=custom_embed)
+
+
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        # if self.bot.TEST_MODE:
-        #     return
         guild: discord.Guild
         member: discord.Member
+        if self.bot.TEST_MODE:
+            return
         if (
                 payload.guild_id == self.GUILD_ID and payload.emoji.name == '📝' and
                 payload.channel_id in {self.lxv_link_channel, self.event_link_channel}
