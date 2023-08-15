@@ -19,11 +19,12 @@ import motor.motor_asyncio
 import psutil
 from psutil._common import bytes2human
 
+from utils.cache import MessageCache
 from utils.paginators import SimplePages, EmbedSource
 
 USE_PSQL = False
 
-__version__ = "2.2.3"
+__version__ = "2.2.4"
 
 load_dotenv()  # in case we use .env in future
 
@@ -95,9 +96,14 @@ class SewentyBot(commands.Bot):
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = int(datetime.now().timestamp())
+
         self.banned_user = set()
+        self.message_cache = MessageCache()  # Might be useful later so leaving it here
+
+        # TODO: Better logging
         self.last_stack = []
         self.last_date = None
+
         self.afk_message = "Ded or work or college >:("
 
         self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
