@@ -17,8 +17,7 @@ if TYPE_CHECKING:
     from main import SewentyBot
 
 
-def max_weapon_stat(weapon_type: str, cost: int,
-                    stat1: float, stat2: float, stat3: float, stat4: float) -> discord.Embed:
+def max_weapon_stat(weapon_type: str, cost: int, stat1: float, stat2: float, stat3: float, stat4: float) -> discord.Embed:
     certified_detail = [
         [100, ("Fabled", Colour.CYAN, "<a:Fabled:760029464292884503>")],
         [95, ("Legendary", Colour.YELLOW, "<a:Legendary:760029450913316874>")],
@@ -26,12 +25,10 @@ def max_weapon_stat(weapon_type: str, cost: int,
         [61, ("Epic", Colour.BLUE, "<:epic:760029607755513886>")],
         [41, ("Rare", Colour.ORANGE, "<:rare:760029595365539850>")],
         [21, ("Uncommon", Colour.GRAY, "<:uncommon:760029577635692545>")],
-        [0, ("Common", Colour.RED, "<:common:760029564649865267>")]
+        [0, ("Common", Colour.RED, "<:common:760029564649865267>")],
     ]
 
-    custom_embed = discord.Embed(title="Stat",
-                                 description=f"Type: {weapon_type.title()}",
-                                 color=discord.Colour.random())
+    custom_embed = discord.Embed(title="Stat", description=f"Type: {weapon_type.title()}", color=discord.Colour.random())
 
     if weapon_type is None or weapon_type.lower() not in OWO_WEAPONS:
         custom_embed.add_field(name="Invalid weapon type", value="Please input correct weapon type or use auto detect")
@@ -48,61 +45,56 @@ def max_weapon_stat(weapon_type: str, cost: int,
     emoji = "<:blobsobOwO:843962665549692938>"
 
     if cost is None or cost < selected_weapon["cost"][0] or cost > selected_weapon["cost"][1]:
-        custom_embed.add_field(name="Invalid weapon cost", value="Please input correct weapon cost or use auto detect",
-                               inline=False)
+        custom_embed.add_field(
+            name="Invalid weapon cost", value="Please input correct weapon cost or use auto detect", inline=False
+        )
     else:
         min_, max_ = selected_weapon["cost"]
         overall_cost = round((max_ - cost) / (max_ - min_) * 100, 2)
-        custom_embed.add_field(name="Cost Quality",
-                               value=f"{overall_cost}%",
-                               inline=False)
+        custom_embed.add_field(name="Cost Quality", value=f"{overall_cost}%", inline=False)
         base_stat += overall_cost
 
     if stat1 is None or stat1 < selected_weapon["stat1"][0] or stat1 > selected_weapon["stat1"][1]:
-        custom_embed.add_field(name="Invalid stat 1", value="Please input correct weapon stat or use auto detect",
-                               inline=False)
+        custom_embed.add_field(
+            name="Invalid stat 1", value="Please input correct weapon stat or use auto detect", inline=False
+        )
     else:
         min_, max_ = selected_weapon["stat1"]
         overall_stat1 = round((stat1 - min_) / (max_ - min_) * 100, 2)
-        custom_embed.add_field(name="Stat 1 Quality",
-                               value=f"{overall_stat1}%",
-                               inline=False)
+        custom_embed.add_field(name="Stat 1 Quality", value=f"{overall_stat1}%", inline=False)
         base_stat += overall_stat1
 
     if total_stat >= 2:
         if stat2 is None or stat2 < selected_weapon["stat2"][0] or stat2 > selected_weapon["stat2"][1]:
-            custom_embed.add_field(name="Invalid stat 2", value="Please input correct weapon stat or use auto detect",
-                                   inline=False)
+            custom_embed.add_field(
+                name="Invalid stat 2", value="Please input correct weapon stat or use auto detect", inline=False
+            )
         else:
             min_, max_ = selected_weapon["stat2"]
             overall_stat2 = round((stat2 - min_) / (max_ - min_) * 100, 2)
-            custom_embed.add_field(name="Stat 2 Quality",
-                                   value=f"{overall_stat2}%",
-                                   inline=False)
+            custom_embed.add_field(name="Stat 2 Quality", value=f"{overall_stat2}%", inline=False)
             base_stat += overall_stat2
 
     if total_stat >= 3:
         if stat3 is None or stat3 < selected_weapon["stat3"][0] or stat3 > selected_weapon["stat3"][1]:
-            custom_embed.add_field(name="Invalid stat 3", value="Please input correct weapon stat or use auto detect",
-                                   inline=False)
+            custom_embed.add_field(
+                name="Invalid stat 3", value="Please input correct weapon stat or use auto detect", inline=False
+            )
         else:
             min_, max_ = selected_weapon["stat3"]
             overall_stat3 = round((stat3 - min_) / (max_ - min_) * 100, 2)
-            custom_embed.add_field(name="Stat 3 Quality",
-                                   value=f"{overall_stat3}%",
-                                   inline=False)
+            custom_embed.add_field(name="Stat 3 Quality", value=f"{overall_stat3}%", inline=False)
             base_stat += overall_stat3
 
     if total_stat >= 4:
         if stat4 is None or stat4 < selected_weapon["stat4"][0] or stat4 > selected_weapon["stat4"][1]:
-            custom_embed.add_field(name="Invalid stat 4", value="Please input correct weapon stat or use auto detect",
-                                   inline=False)
+            custom_embed.add_field(
+                name="Invalid stat 4", value="Please input correct weapon stat or use auto detect", inline=False
+            )
         else:
             min_, max_ = selected_weapon["stat4"]
             overall_stat4 = round((stat4 - min_) / (max_ - min_) * 100, 2)
-            custom_embed.add_field(name="Stat 4 Quality",
-                                   value=f"{overall_stat4}%",
-                                   inline=False)
+            custom_embed.add_field(name="Stat 4 Quality", value=f"{overall_stat4}%", inline=False)
             base_stat += overall_stat4
 
     max_stat = round((base_stat + 100) / (total_stat + 2), 2)
@@ -118,11 +110,13 @@ def max_weapon_stat(weapon_type: str, cost: int,
 
     custom_embed.add_field(name="Max stat", value=f"**{max_stat}%**", inline=False)
     custom_embed.add_field(name="Rarity", value=f"**{rarity}** {emoji}", inline=False)
-    custom_embed.add_field(name="Other info",
-                           value=f"Minimum stat: **{min_stat}%**\n"
-                                 f"Maximum stat ignoring passive: **{max_ignore_passive}%**\n"
-                                 f"Minimum stat with 2 stat passive: **{min_with_2stat}%**\n"
-                                 f"Maximum stat with 2 stat passive: **{max_with_2stat}%**")
+    custom_embed.add_field(
+        name="Other info",
+        value=f"Minimum stat: **{min_stat}%**\n"
+        f"Maximum stat ignoring passive: **{max_ignore_passive}%**\n"
+        f"Minimum stat with 2 stat passive: **{min_with_2stat}%**\n"
+        f"Maximum stat with 2 stat passive: **{max_with_2stat}%**",
+    )
     if colour is not None:
         custom_embed.colour = colour
 
@@ -133,7 +127,7 @@ def max_weapon_stat(weapon_type: str, cost: int,
 
 
 async def visual_stat(ctx, level, hp, strength, pr, wp, mag, mr):
-    blue = 0x00ffff
+    blue = 0x00FFFF
     ehp, eatt, epr = '<:hp:759752326973227029>', '<:att:759752341678194708>', '<:pr:759752354467414056>'
     ewp, emag, emr = '<:wp:759752292713889833>', '<:mag:759752304080715786>', '<:mr:759752315904196618>'
     if hp == '.':
@@ -155,10 +149,10 @@ async def visual_stat(ctx, level, hp, strength, pr, wp, mag, mr):
         return
 
     if pr == '.':
-        pr_stat = round((25 + (2 * level)) / (125 + (2 * level)) * .8 * 100)
+        pr_stat = round((25 + (2 * level)) / (125 + (2 * level)) * 0.8 * 100)
     elif pr.isdigit():
         pr = int(pr)
-        pr_stat = round((25 + (2 * pr * level)) / (125 + (2 * pr * level)) * .8 * 100)
+        pr_stat = round((25 + (2 * pr * level)) / (125 + (2 * pr * level)) * 0.8 * 100)
     else:
         await ctx.send('Please input correct pr, use \'.\' as 1 stat ')
         return
@@ -182,10 +176,10 @@ async def visual_stat(ctx, level, hp, strength, pr, wp, mag, mr):
         return
 
     if mr == '.':
-        mr_stat = round((25 + (2 * level)) / (125 + (2 * level)) * .8 * 100)
+        mr_stat = round((25 + (2 * level)) / (125 + (2 * level)) * 0.8 * 100)
     elif mr.isdigit():
         mr = int(mr)
-        mr_stat = round((25 + (2 * mr * level)) / (125 + (2 * mr * level)) * .8 * 100)
+        mr_stat = round((25 + (2 * mr * level)) / (125 + (2 * mr * level)) * 0.8 * 100)
     else:
         await ctx.send('Please input correct mr, use \'.\' as 1 stat ')
         return
@@ -216,22 +210,28 @@ async def visual_stat(ctx, level, hp, strength, pr, wp, mag, mr):
             category1 = 'Bad'
     else:
         category, category1 = '-', '-'
-    custom_embed = discord.Embed(title=' Pet Stats',
-                                 description=f'{ehp} `{hp_stat}`  {eatt} `{str_stat}`  {epr} `{pr_stat}%`\n'
-                                             f'{ewp} `{wp_stat}`  {emag} `{mag_stat}`  {emr} `{mr_stat}%`',
-                                 color=blue)
+    custom_embed = discord.Embed(
+        title=' Pet Stats',
+        description=f'{ehp} `{hp_stat}`  {eatt} `{str_stat}`  {epr} `{pr_stat}%`\n'
+        f'{ewp} `{wp_stat}`  {emag} `{mag_stat}`  {emr} `{mr_stat}%`',
+        color=blue,
+    )
     custom_embed.add_field(name='Category', value=f'{category} {category1}', inline=False)
     await ctx.send(embed=custom_embed)
 
 
 class Anigame:
-    def __init__(self, card_base_atk: int, card_def: int,
-                 enemy_base_atk: int, enemy_def: int,
-                 card_element: Optional[List[str]] = None,
-                 card_crit_multiplier: float = 1.75,
-                 enemy_element: Optional[List[str]] = None,
-                 enemy_crit_multiplier: float = 1.75,
-                 ):
+    def __init__(
+        self,
+        card_base_atk: int,
+        card_def: int,
+        enemy_base_atk: int,
+        enemy_def: int,
+        card_element: Optional[List[str]] = None,
+        card_crit_multiplier: float = 1.75,
+        enemy_element: Optional[List[str]] = None,
+        enemy_crit_multiplier: float = 1.75,
+    ):
         if card_element is None:
             card_element = ["neutral"]
         if enemy_element is None:
@@ -257,13 +257,13 @@ class TalentButton(discord.ui.Button):
         if interaction.user.id != self.view.user.id:
             return await interaction.response.send_message("You are not allowed to do this :c", ephemeral=True)
         self.card.talent.call_talent()
-        await interaction.response.edit_message(content=f"Called {self.card.talent} talent",
-                                                view=view, embed=view.display())
+        await interaction.response.edit_message(content=f"Called {self.card.talent} talent", view=view, embed=view.display())
 
 
 class AnigameDropdown(Dropdown):
-    def __init__(self, text: str, select_list, original_view: AnigameView,
-                 card: AnigameCard, enemy: AnigameCard, change_type: str):
+    def __init__(
+        self, text: str, select_list, original_view: AnigameView, card: AnigameCard, enemy: AnigameCard, change_type: str
+    ):
         super().__init__(text, select_list)
         self.change_type = change_type
         self.original_view = original_view
@@ -274,9 +274,9 @@ class AnigameDropdown(Dropdown):
         assert self.original_view is not None
         view: AnigameView = self.original_view
         if self.change_type == "talent":
-            self.card.talent = AnigameTalent(self.card, self.enemy,
-                                             self.values[0].split(' ')[-1].lower(),
-                                             self.values[0].split(' ')[0].lower())
+            self.card.talent = AnigameTalent(
+                self.card, self.enemy, self.values[0].split(' ')[-1].lower(), self.values[0].split(' ')[0].lower()
+            )
             if self.card == view.anigame.card and view.card_talent_button is None:
                 button = TalentButton(self.card, label="Call card talent", style=discord.ButtonStyle.blurple)
                 view.add_item(button)
@@ -311,146 +311,150 @@ class AnigameView(BaseView):
 
     def display(self) -> discord.Embed:
         rarity_to_str = dict((v, k) for k, v in STR_TO_RARITY.items())
-        custom_embed = discord.Embed(title="Anigame simulator",
-                                     description=f"Damage: **{self.anigame.damage()}**\n"
-                                                 f"Crit damage: **{self.anigame.damage(True)}**\n"
-                                                 f"Enemy damage: **{self.anigame.enemy_damage()}**\n"
-                                                 f"Enemy crit damage **{self.anigame.enemy_damage(True)}**",
-                                     color=discord.Colour.random())
-        custom_embed.add_field(name=f"Self stat ({' '.join(RENDER_ELEMENT[em] for em in self.anigame.card.element)})",
-                               value=f"Base ATK: {self.anigame.card.base_atk}\n"
-                                     f"ATK: "
-                                     f"{self.anigame.card.atk * self.anigame.card.atk_percentage} "
-                                     f"({self.anigame.card.atk} * {self.anigame.card.atk_percentage * 100}%)\n"
-                                     f"DEF: "
-                                     f"{self.anigame.card.defense * self.anigame.card.defense_percentage} "
-                                     f"({self.anigame.card.atk} * {self.anigame.card.defense_percentage * 100}%)\n"
-                                     f"Element multiplier: "
-                                     f"{self.anigame.card.element_multiplier(self.anigame.enemy_card.element)}\n"
-                                     f"Crit multiplier: {self.anigame.card.crit_multiplier}\n"
-                                     f"Talent: **{self.anigame.card.talent or 'None :c'}**\n"
-                                     f"**{rarity_to_str[self.anigame.card.rarity].capitalize()}**")
-        custom_embed.add_field(name=f"Enemy stat "
-                                    f"({' '.join(RENDER_ELEMENT[em] for em in self.anigame.enemy_card.element)})",
-                               value=f"Base ATK: {self.anigame.enemy_card.base_atk}\n"
-                                     f"ATK: "
-                                     f"{self.anigame.enemy_card.atk * self.anigame.enemy_card.atk_percentage} "
-                                     f"({self.anigame.enemy_card.atk} * "
-                                     f"{self.anigame.enemy_card.atk_percentage * 100}%)\n"
-                                     f"DEF: "
-                                     f"{self.anigame.enemy_card.defense * self.anigame.enemy_card.defense_percentage} "
-                                     f"({self.anigame.enemy_card.defense} * "
-                                     f"{self.anigame.enemy_card.defense_percentage * 100}%)\n"
-                                     f"Element multiplier: "
-                                     f"{self.anigame.enemy_card.element_multiplier(self.anigame.card.element)}\n"
-                                     f"Crit multiplier: {self.anigame.enemy_card.crit_multiplier}\n"
-                                     f"Talent: **{self.anigame.enemy_card.talent or 'None :c'}**\n"
-                                     f"**{rarity_to_str[self.anigame.enemy_card.rarity].capitalize()}**")
+        custom_embed = discord.Embed(
+            title="Anigame simulator",
+            description=f"Damage: **{self.anigame.damage()}**\n"
+            f"Crit damage: **{self.anigame.damage(True)}**\n"
+            f"Enemy damage: **{self.anigame.enemy_damage()}**\n"
+            f"Enemy crit damage **{self.anigame.enemy_damage(True)}**",
+            color=discord.Colour.random(),
+        )
+        custom_embed.add_field(
+            name=f"Self stat ({' '.join(RENDER_ELEMENT[em] for em in self.anigame.card.element)})",
+            value=f"Base ATK: {self.anigame.card.base_atk}\n"
+            f"ATK: "
+            f"{self.anigame.card.atk * self.anigame.card.atk_percentage} "
+            f"({self.anigame.card.atk} * {self.anigame.card.atk_percentage * 100}%)\n"
+            f"DEF: "
+            f"{self.anigame.card.defense * self.anigame.card.defense_percentage} "
+            f"({self.anigame.card.atk} * {self.anigame.card.defense_percentage * 100}%)\n"
+            f"Element multiplier: "
+            f"{self.anigame.card.element_multiplier(self.anigame.enemy_card.element)}\n"
+            f"Crit multiplier: {self.anigame.card.crit_multiplier}\n"
+            f"Talent: **{self.anigame.card.talent or 'None :c'}**\n"
+            f"**{rarity_to_str[self.anigame.card.rarity].capitalize()}**",
+        )
+        custom_embed.add_field(
+            name=f"Enemy stat " f"({' '.join(RENDER_ELEMENT[em] for em in self.anigame.enemy_card.element)})",
+            value=f"Base ATK: {self.anigame.enemy_card.base_atk}\n"
+            f"ATK: "
+            f"{self.anigame.enemy_card.atk * self.anigame.enemy_card.atk_percentage} "
+            f"({self.anigame.enemy_card.atk} * "
+            f"{self.anigame.enemy_card.atk_percentage * 100}%)\n"
+            f"DEF: "
+            f"{self.anigame.enemy_card.defense * self.anigame.enemy_card.defense_percentage} "
+            f"({self.anigame.enemy_card.defense} * "
+            f"{self.anigame.enemy_card.defense_percentage * 100}%)\n"
+            f"Element multiplier: "
+            f"{self.anigame.enemy_card.element_multiplier(self.anigame.card.element)}\n"
+            f"Crit multiplier: {self.anigame.enemy_card.crit_multiplier}\n"
+            f"Talent: **{self.anigame.enemy_card.talent or 'None :c'}**\n"
+            f"**{rarity_to_str[self.anigame.enemy_card.rarity].capitalize()}**",
+        )
         return custom_embed
 
     @discord.ui.button(label="Change card talent")  # type: ignore
     async def change_card_talent(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         another_view = BaseView()
-        another_view.add_item(AnigameDropdown(
-            text="Select talent",
-            select_list=[
-                discord.SelectOption(label=s, value=s) for s in ["Defense Berserker",
-                                                                 "Atk Berserker",
-                                                                 "Defense Overload",
-                                                                 "Atk Overload",
-                                                                 "Defense Breaker",
-                                                                 "Atk Breaker",
-                                                                 "Defense Trick",
-                                                                 "Atk Trick",
-                                                                 "Atk Precision"
-                                                                 ]
-            ],
-            original_view=self,
-            card=self.anigame.card,
-            enemy=self.anigame.enemy_card,
-            change_type="talent",
-        ))
+        another_view.add_item(
+            AnigameDropdown(
+                text="Select talent",
+                select_list=[
+                    discord.SelectOption(label=s, value=s)
+                    for s in [
+                        "Defense Berserker",
+                        "Atk Berserker",
+                        "Defense Overload",
+                        "Atk Overload",
+                        "Defense Breaker",
+                        "Atk Breaker",
+                        "Defense Trick",
+                        "Atk Trick",
+                        "Atk Precision",
+                    ]
+                ],
+                original_view=self,
+                card=self.anigame.card,
+                enemy=self.anigame.enemy_card,
+                change_type="talent",
+            )
+        )
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
     @discord.ui.button(label="Change enemy talent")  # type: ignore
     async def change_enemy_talent(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         another_view = BaseView()
-        another_view.add_item(AnigameDropdown(
-            text="Select talent",
-            select_list=[
-                discord.SelectOption(label=s, value=s) for s in ["Defense Berserker",
-                                                                 "Atk Berserker",
-                                                                 "Defense Overload",
-                                                                 "Atk Overload",
-                                                                 "Defense Breaker",
-                                                                 "Atk Breaker",
-                                                                 "Atk Precision"
-                                                                 ]
-            ],
-            original_view=self,
-            card=self.anigame.enemy_card,
-            enemy=self.anigame.card,
-            change_type="talent"
-        ))
+        another_view.add_item(
+            AnigameDropdown(
+                text="Select talent",
+                select_list=[
+                    discord.SelectOption(label=s, value=s)
+                    for s in [
+                        "Defense Berserker",
+                        "Atk Berserker",
+                        "Defense Overload",
+                        "Atk Overload",
+                        "Defense Breaker",
+                        "Atk Breaker",
+                        "Atk Precision",
+                    ]
+                ],
+                original_view=self,
+                card=self.anigame.enemy_card,
+                enemy=self.anigame.card,
+                change_type="talent",
+            )
+        )
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
     @discord.ui.button(label="Change card rarity")  # type: ignore
     async def change_card_rarity(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         another_view = BaseView()
-        another_view.add_item(AnigameDropdown(
-            text="Select rarity",
-            select_list=[
-                discord.SelectOption(label=s, value=s) for s in ["Common",
-                                                                 "Uncommon",
-                                                                 "Rare",
-                                                                 "Super Rare",
-                                                                 "Ultra Rare",
-                                                                 "Legendary"]
-            ],
-            original_view=self,
-            card=self.anigame.card,
-            enemy=self.anigame.enemy_card,
-            change_type="rarity"
-        ))
+        another_view.add_item(
+            AnigameDropdown(
+                text="Select rarity",
+                select_list=[
+                    discord.SelectOption(label=s, value=s)
+                    for s in ["Common", "Uncommon", "Rare", "Super Rare", "Ultra Rare", "Legendary"]
+                ],
+                original_view=self,
+                card=self.anigame.card,
+                enemy=self.anigame.enemy_card,
+                change_type="rarity",
+            )
+        )
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
     @discord.ui.button(label="Change enemy rarity")  # type: ignore
     async def change_enemy_rarity(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         another_view = BaseView()
-        another_view.add_item(AnigameDropdown(
-            text="Select rarity",
-            select_list=[
-                discord.SelectOption(label=s, value=s) for s in ["Common",
-                                                                 "Uncommon",
-                                                                 "Rare",
-                                                                 "Super Rare",
-                                                                 "Ultra Rare",
-                                                                 "Legendary"]
-            ],
-            original_view=self,
-            card=self.anigame.enemy_card,
-            enemy=self.anigame.card,
-            change_type="rarity"
-        ))
+        another_view.add_item(
+            AnigameDropdown(
+                text="Select rarity",
+                select_list=[
+                    discord.SelectOption(label=s, value=s)
+                    for s in ["Common", "Uncommon", "Rare", "Super Rare", "Ultra Rare", "Legendary"]
+                ],
+                original_view=self,
+                card=self.anigame.enemy_card,
+                enemy=self.anigame.card,
+                change_type="rarity",
+            )
+        )
         await interaction.response.send_message(view=another_view, ephemeral=True)
 
     @discord.ui.button(label="Reset all")  # type: ignore
     async def reset_card(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.user.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         self.anigame.card.reset()
         self.anigame.enemy_card.reset()
         for child in self.children:
@@ -465,23 +469,26 @@ class HelperCommand(commands.Cog):
         self.bot: SewentyBot = bot
 
     @commands.command(aliases=["wstat", "statw", "wcheck"])
-    async def maxwstat(self, ctx: commands.Context,
-                       weapon_type: Optional[str] = None,
-                       cost: Optional[int] = None,
-                       stat1: Optional[float] = None,
-                       stat2: Optional[float] = None,
-                       stat3: Optional[float] = None,
-                       stat4: Optional[float] = None):
+    async def maxwstat(
+        self,
+        ctx: commands.Context,
+        weapon_type: Optional[str] = None,
+        cost: Optional[int] = None,
+        stat1: Optional[float] = None,
+        stat2: Optional[float] = None,
+        stat3: Optional[float] = None,
+        stat4: Optional[float] = None,
+    ):
         if weapon_type is not None:
             return await ctx.send(embed=max_weapon_stat(weapon_type, cost, stat1, stat2, stat3, stat4))  # type: ignore
 
         ref = ctx.message.reference
         msg = None
         if (
-                ref is not None
-                and isinstance(ref.resolved, discord.Message)
-                and ref.resolved.author.id == 408785106942164992
-                and ref.resolved.embeds
+            ref is not None
+            and isinstance(ref.resolved, discord.Message)
+            and ref.resolved.author.id == 408785106942164992
+            and ref.resolved.embeds
         ):
             msg = ref.resolved
 
@@ -492,8 +499,10 @@ class HelperCommand(commands.Cog):
                     break
         embeds = msg.embeds if msg is not None else []
         if len(embeds) < 1:
-            return await ctx.reply("Please input weapon type. You can either reply to embed "
-                                   "or check for 5 messages before you", mention_author=False)
+            return await ctx.reply(
+                "Please input weapon type. You can either reply to embed " "or check for 5 messages before you",
+                mention_author=False,
+            )
         last: discord.Embed = embeds[-1]
         if last.description is None:
             return
@@ -561,8 +570,9 @@ class HelperCommand(commands.Cog):
     async def maxwstat_on_error(self, ctx, error):
         if isinstance(error, commands.errors.CommandInvokeError):
             if isinstance(error.original, IndexError):
-                return await ctx.send("Failed to parse stat. "
-                                      "Perhaps you replied wrong embed or detected wrong last embed")
+                return await ctx.send(
+                    "Failed to parse stat. " "Perhaps you replied wrong embed or detected wrong last embed"
+                )
             return await ctx.send(f"Failed to parse stat: `{error.original}`")
         if isinstance(error, commands.errors.DisabledCommand):
             return
@@ -604,7 +614,8 @@ class HelperCommand(commands.Cog):
             else:
                 await ctx.reply(
                     'Please input complete stat `<level> <hp> <str> <pr> <wp> <mag> <mr>` , use \'.\' as 1 stat',
-                    mention_author=False)
+                    mention_author=False,
+                )
         else:
             await ctx.reply('Invalid argument :c', mention_author=False)
 
@@ -624,8 +635,13 @@ class HelperCommand(commands.Cog):
                 log_data = {}
                 for z in range(len(inventory_dict)):
                     if ' log' in inventory_dict[z]:
-                        log_data.update({inventory_dict[z].lower(): int(
-                            inventory_dict[z + 1].replace(': ', '').split('\n')[0].replace(',', ''))})
+                        log_data.update(
+                            {
+                                inventory_dict[z].lower(): int(
+                                    inventory_dict[z + 1].replace(': ', '').split('\n')[0].replace(',', '')
+                                )
+                            }
+                        )
                 # calcuating
                 solution = ''
                 solution_crafter = ''
@@ -642,61 +658,68 @@ class HelperCommand(commands.Cog):
                     if not solution:
                         required_log = 10 - hyper_log
                         if mega_log >= required_log * 10:
-                            solution = f'rpg craft hyper log {required_log}\n' \
-                                       f'rpg craft ultra log'
+                            solution = f'rpg craft hyper log {required_log}\n' f'rpg craft ultra log'
                             solution_crafter = solution
                 if 'super log' in log_data:
                     super_log = log_data['super log']
                     if not solution:
                         required_log = (10 - hyper_log) * 10 - mega_log
                         if super_log >= required_log * 10:
-                            solution = f'rpg craft mega log {required_log}\n' \
-                                       f'rpg craft hyper log all\n' \
-                                       f'rpg craft ultra log'
+                            solution = (
+                                f'rpg craft mega log {required_log}\n' f'rpg craft hyper log all\n' f'rpg craft ultra log'
+                            )
                 if 'epic log' in log_data:
                     epic_log = log_data['epic log']
                     if not solution:
                         required_log = (10 - hyper_log) * 100 - mega_log * 10 - super_log
                         if epic_log >= required_log * 10:
-                            solution = f'rpg craft super log {required_log}\n' \
-                                       f'rpg craft mega log all\n' \
-                                       f'rpg craft hyper log all\n' \
-                                       f'rpg craft ultra log'
+                            solution = (
+                                f'rpg craft super log {required_log}\n'
+                                f'rpg craft mega log all\n'
+                                f'rpg craft hyper log all\n'
+                                f'rpg craft ultra log'
+                            )
                 if 'wooden log' in log_data:
                     wooden_log = log_data['wooden log']
                     if not solution:
                         required_log = (10 - hyper_log) * 1000 - mega_log * 100 - super_log * 10 - epic_log
                         if wooden_log >= required_log * 25:
-                            solution = f'rpg craft epic log {required_log}\n' \
-                                       f'rpg craft super log all\n' \
-                                       f'rpg craft mega log all\n' \
-                                       f'rpg craft hyper log all\n' \
-                                       f'rpg craft ultra log'
+                            solution = (
+                                f'rpg craft epic log {required_log}\n'
+                                f'rpg craft super log all\n'
+                                f'rpg craft mega log all\n'
+                                f'rpg craft hyper log all\n'
+                                f'rpg craft ultra log'
+                            )
                         else:
-                            await ctx.send(
-                                f'You need at least {required_log * 25 - wooden_log} wooden log to do this')
+                            await ctx.send(f'You need at least {required_log * 25 - wooden_log} wooden log to do this')
                             break
                 elif not solution:
                     await ctx.send("No solution found")
                     break
-                calculator = discord.Embed(title='Efficiency Calculation',
-                                           description='**Crafter Solution still on test so it maybe wrong** '
-                                                       'Feel free to suggest efficient way for crafter',
-                                           color=7864132)
+                calculator = discord.Embed(
+                    title='Efficiency Calculation',
+                    description='**Crafter Solution still on test so it maybe wrong** '
+                    'Feel free to suggest efficient way for crafter',
+                    color=7864132,
+                )
                 calculator.add_field(name='Non crafter', value=solution)
                 await ctx.send(embed=calculator)
 
                 if not solution_crafter:
+
                     def verify(m):
-                        if (m.author == ctx.author and m.content.lower() in ["y", "n", "yes", "no"]
-                                and m.channel.id == ctx.channel.id):
+                        if (
+                            m.author == ctx.author
+                            and m.content.lower() in ["y", "n", "yes", "no"]
+                            and m.channel.id == ctx.channel.id
+                        ):
                             if m.content.lower() in ["no", "n"]:
                                 raise asyncio.TimeoutError
                             return True
                         return False
 
-                    await ctx.send("Would you like to calculate for crafter solution? (y/n)\n"
-                                   "Aborting in 10 seconds")
+                    await ctx.send("Would you like to calculate for crafter solution? (y/n)\n" "Aborting in 10 seconds")
                     try:
                         await self.bot.wait_for("message", check=verify, timeout=10)
                     except asyncio.TimeoutError:
@@ -759,8 +782,9 @@ class HelperCommand(commands.Cog):
                             if super_log >= (100 - 10 * hyper_log - mega_log) * 10:
                                 dump = 2
                                 amount += 100 - 10 * hyper_log - mega_log
-                                super_log -= ((100 - 10 * hyper_log - mega_log) * 10
-                                              - floor((100 - 10 * hyper_log - mega_log) * 10 * returned_item))
+                                super_log -= (100 - 10 * hyper_log - mega_log) * 10 - floor(
+                                    (100 - 10 * hyper_log - mega_log) * 10 * returned_item
+                                )
                                 mega_log = 100 - 10 * hyper_log
 
                             else:
@@ -774,8 +798,9 @@ class HelperCommand(commands.Cog):
                             if epic_log >= (100 - 10 * mega_log - super_log) * 10:
                                 dump = 3
                                 amount += 100 - 10 * mega_log - super_log
-                                epic_log -= ((100 - 10 * mega_log - super_log) * 10
-                                             - floor((100 - 10 * mega_log - super_log) * 10 * returned_item))
+                                epic_log -= (100 - 10 * mega_log - super_log) * 10 - floor(
+                                    (100 - 10 * mega_log - super_log) * 10 * returned_item
+                                )
                                 super_log = 100 - 10 * mega_log
                             else:
                                 solution_crafter += f"\nsuper log all"
@@ -787,8 +812,9 @@ class HelperCommand(commands.Cog):
                                 dump, amount = 0, 0
                             dump = 4
                             if wooden_log >= (100 - 10 * super_log - epic_log) * 25:
-                                wooden_log -= (100 - 10 * super_log - epic_log) * 25 - \
-                                              floor((100 - 10 * super_log - epic_log) * 25 * returned_item)
+                                wooden_log -= (100 - 10 * super_log - epic_log) * 25 - floor(
+                                    (100 - 10 * super_log - epic_log) * 25 * returned_item
+                                )
                                 amount += 100 - 10 * super_log - epic_log
                                 epic_log = 100 - 10 * super_log
                             elif wooden_log >= 25:
@@ -808,7 +834,7 @@ class HelperCommand(commands.Cog):
                             count = 1
                             sub_string = None
 
-                            for j in range(i+1, len(arr)):
+                            for j in range(i + 1, len(arr)):
                                 end = arr[j]
                                 if start == end:
                                     length = j - i
@@ -821,7 +847,7 @@ class HelperCommand(commands.Cog):
 
                             # continue capture substring
                             check = i + length
-                            while len(arr) >= check + length and arr[check:check+length] == sub_string:
+                            while len(arr) >= check + length and arr[check : check + length] == sub_string:
                                 count += 1
                                 check += length
                             if count == 1:
@@ -830,12 +856,14 @@ class HelperCommand(commands.Cog):
                             if length > 5:
                                 sub_string = await reduce(sub_string)  # type: ignore
                             if length > 5:
-                                sub_string = f"----- S T A R T ----- \n" \
-                                             f"{sub_string}\n" \
-                                             f"----- E N D ----- **(Repeat {count} times)**"
+                                sub_string = (
+                                    f"----- S T A R T ----- \n"
+                                    f"{sub_string}\n"
+                                    f"----- E N D ----- **(Repeat {count} times)**"
+                                )
                             else:
                                 sub_string = f"({' >> '.join(sub_string)})-> **{count} times**"
-                            arr = arr[0:i] + [sub_string] + arr[check:len(arr)]
+                            arr = arr[0:i] + [sub_string] + arr[check : len(arr)]
                             i += 1
 
                         reduced = '\n'.join(arr)
@@ -847,6 +875,7 @@ class HelperCommand(commands.Cog):
 
                     try:
                         if len(solution_crafter) > 2000:
+
                             async def divide_string(string):
                                 if len(string) > 2000:
                                     s1 = len(string) // 2
@@ -872,7 +901,7 @@ class HelperCommand(commands.Cog):
         """
         Count xp bonus based on streaks
         """
-        yellow = 0xfff00
+        yellow = 0xFFF00
         if streak is None:
             streak = random.randint(1, 100000)
         if streak % 1000 == 0:
@@ -892,23 +921,29 @@ class HelperCommand(commands.Cog):
             bonus = 100000
         decoration = random.randint(1, 20)
         name = ctx.author.name
-        custom_embed = discord.Embed(title=f'{name} goes into battle!', description=f'You won in {decoration} '
-                                                                                    f'turns! your team gained '
-                                                                                    f'**200 + {bonus}** xp! '
-                                                                                    f'streak: {streak}',
-                                     color=yellow)
+        custom_embed = discord.Embed(
+            title=f'{name} goes into battle!',
+            description=f'You won in {decoration} '
+            f'turns! your team gained '
+            f'**200 + {bonus}** xp! '
+            f'streak: {streak}',
+            color=yellow,
+        )
         await ctx.send(embed=custom_embed)
 
     @commands.command(aliases=["astat"])
-    async def anigamestat(self, ctx,
-                          card_base_atk: int,
-                          card_def: int,
-                          enemy_base_atk: int,
-                          enemy_def: int,
-                          card_crit_multiplier: Optional[float] = 1.75,
-                          enemy_crit_multiplier: Optional[float] = 1.75,
-                          *, elements: str = "neutral neutral"  # type: ignore
-                          ):
+    async def anigamestat(
+        self,
+        ctx,
+        card_base_atk: int,
+        card_def: int,
+        enemy_base_atk: int,
+        enemy_def: int,
+        card_crit_multiplier: Optional[float] = 1.75,
+        enemy_crit_multiplier: Optional[float] = 1.75,
+        *,
+        elements: str = "neutral neutral",  # type: ignore
+    ):
         card_base_atk *= 10
         card_def *= 10
         enemy_base_atk *= 10
@@ -931,8 +966,16 @@ class HelperCommand(commands.Cog):
             card_element = elements[0:-1]
             enemy_element = elements[-1:0:-1]
 
-        anigame = Anigame(card_base_atk, card_def, enemy_base_atk, enemy_def,
-                          card_element, card_crit_multiplier, enemy_element, enemy_crit_multiplier)  # type: ignore
+        anigame = Anigame(
+            card_base_atk,
+            card_def,
+            enemy_base_atk,
+            enemy_def,
+            card_element,
+            card_crit_multiplier,  # type: ignore
+            enemy_element,
+            enemy_crit_multiplier,  # type: ignore
+        )  
 
         view = AnigameView(anigame)
         view.user = ctx.author

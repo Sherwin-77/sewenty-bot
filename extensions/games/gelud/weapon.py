@@ -73,6 +73,7 @@ class Bow(HeroWeapon):
     """
     **Archery**: Deal 50% more damage in ranged mode. Increase range by 2 per round
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":dart:"
@@ -93,6 +94,7 @@ class Dagger(HeroWeapon):
     **Dodge**: Gain 125% of speed as chance to stack dodge buff (different from base dodge)
     If this fails, increase speed by 1
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":dash:"
@@ -116,6 +118,7 @@ class Axe(HeroWeapon):
     """
     **Lifestyle**: heal you 60% of damage
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":drop_of_blood:"
@@ -140,6 +143,7 @@ class Pickaxe(HeroWeapon):
     **Baccstab**: Decreasing enemy def by 70% and your def by 10% at start
     Has 5% chance to trigger again
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":tools:"
@@ -148,8 +152,10 @@ class Pickaxe(HeroWeapon):
         if state.state_at == 0 or (state.state_at == 1 and self.wielder.chance(0.005)):
             enemy.defense -= round(enemy.defense * 0.70)
             self.wielder.defense -= round(self.wielder.defense * 0.10)
-            return (f"{self.wielder.name} using {self.passive}, decreasing {self.wielder.name} def by 70% and " 
-                    f"{self.wielder.name} defense by 10%")
+            return (
+                f"{self.wielder.name} using {self.passive}, decreasing {self.wielder.name} def by 70% and "
+                f"{self.wielder.name} defense by 10%"
+            )
 
     def __str__(self):
         return ":pick:"
@@ -160,6 +166,7 @@ class MagicWand(HeroWeapon):
     **Chemical**: Deal 10% (8% if your hp is higher) of enemy's current HP
     and heal by 100% (115% if your hp is lower) of damage dealt
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":radioactive:"
@@ -181,6 +188,7 @@ class Broom(HeroWeapon):
     """
     **Theft**: Steal 15% of enemy defense and attack. additionally, 15% chance to trigger again
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":trident:"
@@ -201,6 +209,7 @@ class Door(HeroWeapon):
     """
     **Thicc door**: Increase defense by 65%. If your hp below enemy, Increase def by 6.5%
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":shield:"
@@ -221,6 +230,7 @@ class Bomb(HeroWeapon):
     """
     **Eksplosion**: Deal 80% of your attack as True Damage to enemy and decrease def by 10% every 4 rounds
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":boom:"
@@ -231,8 +241,10 @@ class Bomb(HeroWeapon):
 
         enemy.hp -= round(self.wielder.attack * 0.8)
         enemy.defense -= round(enemy.defense * 0.1)
-        return (f"{self.wielder.name} explode bomb and deal {round(self.wielder.attack * 0.8)} damage to " 
-                f"{enemy.name} and decrease def by 10%")
+        return (
+            f"{self.wielder.name} explode bomb and deal {round(self.wielder.attack * 0.8)} damage to "
+            f"{enemy.name} and decrease def by 10%"
+        )
 
     def __str__(self):
         return ":bomb:"
@@ -243,6 +255,7 @@ class Dice(HeroWeapon):
     **Lucc Dice**: Roll 20 sided dice and increase hp atk and def by 5x of rolled dice
     Additionally, 10% chance to trigger again
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = "<:lucc:796732732113682442>"
@@ -253,8 +266,7 @@ class Dice(HeroWeapon):
             self.wielder.attack += round(0.005 * rolled_number)
             self.wielder.hp += round(self.wielder.hp * 0.005 * rolled_number)
             self.wielder.defense += round(self.wielder.defense * 0.005 * rolled_number)
-            return (f"{self.wielder.name} rolled dice and get **{rolled_number}**. "
-                    f"Increase stat by {rolled_number * 5}%")
+            return f"{self.wielder.name} rolled dice and get **{rolled_number}**. " f"Increase stat by {rolled_number * 5}%"
 
     def __str__(self):
         return ":game_die:"
@@ -265,6 +277,7 @@ class Gun(HeroWeapon):
     **Precision**: Has (1 + (3 x current round))% chance to increase damage dealt by (200 + (5 x current round)%
     If this fails, reduce damage dealt to (69 - (1 x current round))% instead
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":beginner:"
@@ -275,12 +288,15 @@ class Gun(HeroWeapon):
 
         if self.wielder.chance(0.01 + 0.03 * state.rounds):
             self.wielder.power = round(self.wielder.power * (2 + 0.05 * state.rounds))
-            return (f"{self.wielder.name} succesfully using {self.passive}. "
-                    f"Increasing damage dealt by {(200 + 5 * state.rounds)}%")
+            return (
+                f"{self.wielder.name} succesfully using {self.passive}. "
+                f"Increasing damage dealt by {(200 + 5 * state.rounds)}%"
+            )
         else:
             self.wielder.power = round(self.wielder.power * (0.69 - (0.01 * state.rounds)))
-            return (f"{self.wielder.name} failed to use {self.passive}. "
-                    f"Reducing damage dealt to {69 - (1 * state.rounds)}%")
+            return (
+                f"{self.wielder.name} failed to use {self.passive}. " f"Reducing damage dealt to {69 - (1 * state.rounds)}%"
+            )
 
     def __str__(self):
         return ":gun:"
@@ -291,6 +307,7 @@ class Satellite(HeroWeapon):
     **Radar**: Decrease incoming attack by 45% for every odd round
     Additionally, has 25% chance to reduce damage dealt by 30%
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":satellite_orbital:"
@@ -318,6 +335,7 @@ class Loudspeaker(HeroWeapon):
     """
     **Motivesien**: While your hp is lower than enemy, increase atk by 20%
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":beginner:"
@@ -343,6 +361,7 @@ class Firecracker(HeroWeapon):
 
     If this fails, decrease your atk by 8% and increase def by 8%
     """
+
     def __init__(self, wielder: Hero):
         super().__init__(wielder)
         self.passive = ":fireworks:"
@@ -358,10 +377,12 @@ class Firecracker(HeroWeapon):
             if self.wielder.defense < enemy.defense:
                 enemy.defense -= round((0.4 - delimiter) * self.wielder.attack)
 
-            return (f"{self.wielder.name} deals **fatality** dmg, " 
-                    f"dealing **{round((damage_bound - delimiter) * self.wielder.attack)}** " 
-                    f"dmg as well as decreasing {enemy.name} def by " 
-                    f"{round((0.4 - delimiter) * 100)}% of {self.wielder.name}'s atk\n")
+            return (
+                f"{self.wielder.name} deals **fatality** dmg, "
+                f"dealing **{round((damage_bound - delimiter) * self.wielder.attack)}** "
+                f"dmg as well as decreasing {enemy.name} def by "
+                f"{round((0.4 - delimiter) * 100)}% of {self.wielder.name}'s atk\n"
+            )
         else:
             self.wielder.attack -= round(0.08 * self.wielder.attack)
             self.wielder.defense += round(0.08 * self.wielder.defense)

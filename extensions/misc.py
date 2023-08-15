@@ -5,6 +5,7 @@ import logging
 import discord
 from discord.ext import commands
 import googletrans
+
 # import wikipedia
 
 import asyncio
@@ -50,16 +51,21 @@ def render_spotify_embed(member: discord.Member, spotify: Optional[discord.Spoti
     duration = int(spotify.end.timestamp() - spotify.start.timestamp())
     ongoing = int(datetime.datetime.now(datetime.timezone.utc).timestamp() - spotify.start.timestamp())
     percentage = round(ongoing / duration * 100)
-    emoji = f"{'<:start0:969180226208813066>' if percentage >= 10 else '<:start1:969180368852910120>'}" \
-            f"{'<:middle0:969180275525443636>' * (0 if percentage <= 10 else min(ceil(percentage / 10) - 1, 8))}" \
-            f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage / 10), 0))}" \
-            f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
+    emoji = (
+        f"{'<:start0:969180226208813066>' if percentage >= 10 else '<:start1:969180368852910120>'}"
+        f"{'<:middle0:969180275525443636>' * (0 if percentage <= 10 else min(ceil(percentage / 10) - 1, 8))}"
+        f"{'<:middle1:969180413845188619>' * (8 if percentage <= 10 else max(9 - ceil(percentage / 10), 0))}"
+        f"{'<:end0:969180313525821470>' if percentage > 90 else '<:end1:969180520695103508>'}"
+    )
     artist = spotify.artist if len(spotify.artists) > 1 else ', '.join(spotify.artists)
-    custom_embed = discord.Embed(title=f"{member.name} is listening to a song",
-                                 description=f"Title: [{spotify.title}]({spotify.track_url})\n"
-                                             f"Artist: {artist}\n"
-                                             f"Album: {spotify.album}\n"
-                                             f"{emoji}", color=spotify.color)
+    custom_embed = discord.Embed(
+        title=f"{member.name} is listening to a song",
+        description=f"Title: [{spotify.title}]({spotify.track_url})\n"
+        f"Artist: {artist}\n"
+        f"Album: {spotify.album}\n"
+        f"{emoji}",
+        color=spotify.color,
+    )
     custom_embed.set_thumbnail(url=spotify.album_cover_url)
     return custom_embed
 
@@ -73,7 +79,6 @@ class ActivityView(discord.ui.View):
 
 class ActivityDropdown(Dropdown):
     def __init__(self, text: str, select_list: List[discord.SelectOption]):
-
         super().__init__(text, select_list)
         self.activities = {}
 
@@ -95,20 +100,22 @@ class ActivityDropdown(Dropdown):
 
         start = activity.start
         if start is None:
-            start = -1e+13
+            start = -1e13
         else:
             start = start.timestamp()
 
         if activity.large_image_url:
             custom_embed.set_thumbnail(url=activity.large_image_url)
-        custom_embed.add_field(name="Details",
-                               value=f"{activity.details or 'No details :c'}\n"
-                                     f"Name: {activity.name}\n"
-                                     f"State: {activity.state}\n"
-                                     f"Type: {activity.type.name}\n"
-                                     f"Started at: <t:{int(start)}:D>\n"
-                                     f"Large image text: {activity.large_image_text}\n"
-                                     f"Small image text: {activity.small_image_text}")
+        custom_embed.add_field(
+            name="Details",
+            value=f"{activity.details or 'No details :c'}\n"
+            f"Name: {activity.name}\n"
+            f"State: {activity.state}\n"
+            f"Type: {activity.type.name}\n"
+            f"Started at: <t:{int(start)}:D>\n"
+            f"Large image text: {activity.large_image_text}\n"
+            f"Small image text: {activity.small_image_text}",
+        )
         if activity.application_id:
             custom_embed.set_footer(text=f"Application id: {activity.application_id}")
         await interaction.response.edit_message(embed=custom_embed, view=None)
@@ -135,12 +142,10 @@ class Miscellaneous(commands.Cog):
         self.OSU_TOKEN_URL = "https://osu.ppy.sh/oauth/token"
         self.SPOTIFY_API_URL = "https://api.spotify.com/v1"
         self.SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
-        
+
     @property
     def magic_header(self):
-        return {
-            "User-Agent": random.choice(USER_AGENTS)
-        }
+        return {"User-Agent": random.choice(USER_AGENTS)}
 
     # TODO: Wikipedia command?
     @commands.command(name="wikipedia", enabled=False)
@@ -243,11 +248,12 @@ class Miscellaneous(commands.Cog):
 
         while not done:
             choice = False
-            content = f"{board[0]} {board[1]} {board[2]}\n" \
-                      f"{board[3]} {board[4]} {board[5]}\n" \
-                      f"{board[6]} {board[7]} {board[8]}"
-            custom_embed = discord.Embed(title=f'{selected_player} to go',
-                                         description=content)
+            content = (
+                f"{board[0]} {board[1]} {board[2]}\n"
+                f"{board[3]} {board[4]} {board[5]}\n"
+                f"{board[6]} {board[7]} {board[8]}"
+            )
+            custom_embed = discord.Embed(title=f'{selected_player} to go', description=content)
             custom_embed.set_footer(text="Select position from 1 - 9")
             await ctx.send(embed=custom_embed)
             try:
@@ -287,11 +293,10 @@ class Miscellaneous(commands.Cog):
         if winner == "DRAW":
             await ctx.send("Game drawn")
             return
-        content = f"{board[0]} {board[1]} {board[2]}\n" \
-                  f"{board[3]} {board[4]} {board[5]}\n" \
-                  f"{board[6]} {board[7]} {board[8]}"
-        custom_embed = discord.Embed(title='Final Board',
-                                     description=content)
+        content = (
+            f"{board[0]} {board[1]} {board[2]}\n" f"{board[3]} {board[4]} {board[5]}\n" f"{board[6]} {board[7]} {board[8]}"
+        )
+        custom_embed = discord.Embed(title='Final Board', description=content)
         custom_embed.add_field(name="Result", value=f"{winner} Won")
         await ctx.send(embed=custom_embed)
 
@@ -303,7 +308,7 @@ class Miscellaneous(commands.Cog):
             return await ctx.reply("Are you scared to guess? Pick difficulty from 1 to 3", mention_author=False)
         if difficulty > 3:
             return await ctx.reply("Too big! Pick dificulty from 1 to 3", mention_author=False)
-        multiplier = 100 ** difficulty
+        multiplier = 100**difficulty
         min_number = random.randrange(1, 101, 10)
         max_number = min_number * multiplier
         if not max_attempt:
@@ -330,11 +335,9 @@ class Miscellaneous(commands.Cog):
                 self.occupied_channel.remove(ctx.channel.id)
                 return
             if int(guess.content) < selected_number:
-                await ctx.send(f"**Low**, {max_attempt - attempt} left\n"
-                               f"Range: {min_number} - {max_number}")
+                await ctx.send(f"**Low**, {max_attempt - attempt} left\n" f"Range: {min_number} - {max_number}")
             elif int(guess.content) > selected_number:
-                await ctx.send(f"**High**, {max_attempt - attempt} left\n"
-                               f"Range: {min_number} - {max_number}")
+                await ctx.send(f"**High**, {max_attempt - attempt} left\n" f"Range: {min_number} - {max_number}")
             else:
                 await ctx.send(f"Correct. Guessed in {attempt} attempt")
                 self.occupied_channel.remove(ctx.channel.id)
@@ -353,13 +356,13 @@ class Miscellaneous(commands.Cog):
             "client_id": int(self.CLIENT_ID),  # type: ignore
             "client_secret": self.CLIENT_SECRET,
             "grant_type": "client_credentials",
-            "scope": "public"
+            "scope": "public",
         }
         async with self.bot.session.post(token_url, data=data) as response:
             res = await response.json()
         self.current_token = (res["access_token"], current + res["expires_in"])
         return res["access_token"]
-    
+
     async def get_spotify_token(self, token_url):
         """
         Basically get osu token but spotify
@@ -369,13 +372,8 @@ class Miscellaneous(commands.Cog):
         if last_token is not None and expired is not None and current + 100 < expired:
             return last_token
         auth_header = base64.urlsafe_b64encode(f"{self.SPOTIFY_ID}:{self.SPOTIFY_SECRET}".encode())
-        headers = {
-            "Authorization": f"Basic {auth_header.decode()}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        params = {
-            "grant_type": "client_credentials"
-        }
+        headers = {"Authorization": f"Basic {auth_header.decode()}", "Content-Type": "application/x-www-form-urlencoded"}
+        params = {"grant_type": "client_credentials"}
         async with self.bot.session.post(token_url, params=params, headers=headers) as response:
             res = await response.json()
 
@@ -391,29 +389,18 @@ class Miscellaneous(commands.Cog):
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
         token = await self.get_token(self.OSU_TOKEN_URL)
-        headers = {
-            "Content_Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
-        params = {
-            "mode": "osu",
-            "limit": limit
-        }
-        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
-                                        params=params,
-                                        headers=headers) as response1:
-
+        headers = {"Content_Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
+        params = {"mode": "osu", "limit": limit}
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}", params=params, headers=headers) as response1:
             if response1.status != 200:
                 return await message.edit(content=f"Failed to find user. Error code {response1.status}")
 
             find_username = await response1.json()
             userid = find_username["id"]
 
-            async with self.bot.session.get(f"{self.OSU_API_URL}/users/{userid}/scores/best",
-                                            params=params,
-                                            headers=headers) as response2:
-
+            async with self.bot.session.get(
+                f"{self.OSU_API_URL}/users/{userid}/scores/best", params=params, headers=headers
+            ) as response2:
                 if response2.status != 200:
                     return await message.edit(content=f"Failed to get score. Error code {response2.status}")
 
@@ -422,9 +409,9 @@ class Miscellaneous(commands.Cog):
         if len(raw) < 1:
             return await message.edit(content="No scores to show")
 
-        custom_embed = discord.Embed(title=find_username["username"],
-                                     description=f"Top {limit} map",
-                                     color=discord.Colour.random())
+        custom_embed = discord.Embed(
+            title=find_username["username"], description=f"Top {limit} map", color=discord.Colour.random()
+        )
         custom_embed.set_thumbnail(url=find_username["avatar_url"])
         for entry in raw:
             title = entry["beatmapset"]["title"]
@@ -440,13 +427,15 @@ class Miscellaneous(commands.Cog):
             max_combo = entry["max_combo"]
             rank = entry["rank"].replace('H', " Hidden")
             mods = " ".join(entry["mods"])
-            custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
-                                   value=f"[{difficulty_ver}]({title_url})\n"
-                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
-                                         f"Mod(s): {mods}\n"
-                                         f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
-                                         f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
-                                   inline=False)
+            custom_embed.add_field(
+                name=f"{title} ⭐ {difficulty_rating}",
+                value=f"[{difficulty_ver}]({title_url})\n"
+                f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
+                f"Mod(s): {mods}\n"
+                f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
+                f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
+                inline=False,
+            )
         await ctx.send(embed=custom_embed)
         await message.delete()
 
@@ -459,29 +448,21 @@ class Miscellaneous(commands.Cog):
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
         token = await self.get_token(self.OSU_TOKEN_URL)
-        headers = {
-            "Content_Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
+        headers = {"Content_Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
         params = {
             "mode": "osu",
             "limit": limit,
         }
-        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
-                                        params=params,
-                                        headers=headers) as response1:
-
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}", params=params, headers=headers) as response1:
             if response1.status != 200:
                 return await message.edit(content=f"Failed to find user. Error code {response1.status}")
 
             find_username = await response1.json()
             userid = find_username["id"]
 
-            async with self.bot.session.get(f"{self.OSU_API_URL}/users/{userid}/scores/recent",
-                                            params=params,
-                                            headers=headers) as response2:
-
+            async with self.bot.session.get(
+                f"{self.OSU_API_URL}/users/{userid}/scores/recent", params=params, headers=headers
+            ) as response2:
                 if response2.status != 200:
                     return await message.edit(content=f"Failed to get score. Error code {response2.status}")
 
@@ -490,9 +471,9 @@ class Miscellaneous(commands.Cog):
         if len(raw) < 1:
             return await message.edit(content="No scores to show")
 
-        custom_embed = discord.Embed(title=find_username["username"],
-                                     description=f"Top {limit} map",
-                                     color=discord.Colour.random())
+        custom_embed = discord.Embed(
+            title=find_username["username"], description=f"Top {limit} map", color=discord.Colour.random()
+        )
         custom_embed.set_thumbnail(url=find_username["avatar_url"])
         for entry in raw:
             title = entry["beatmapset"]["title"]
@@ -508,13 +489,15 @@ class Miscellaneous(commands.Cog):
             max_combo = entry["max_combo"]
             rank = entry["rank"].replace('H', " Hidden")
             mods = " ".join(entry["mods"])
-            custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
-                                   value=f"[{difficulty_ver}]({title_url})\n"
-                                         f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
-                                         f"Mod(s): {mods}\n"
-                                         f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
-                                         f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
-                                   inline=False)
+            custom_embed.add_field(
+                name=f"{title} ⭐ {difficulty_rating}",
+                value=f"[{difficulty_ver}]({title_url})\n"
+                f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
+                f"Mod(s): {mods}\n"
+                f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
+                f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
+                inline=False,
+            )
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="osulast", help="Last play of your osu")
@@ -523,30 +506,18 @@ class Miscellaneous(commands.Cog):
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
         token = await self.get_token(self.OSU_TOKEN_URL)
-        headers = {
-            "Content_Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
-        params = {
-            "mode": "osu",
-            "limit": 1,
-            "include_fails": 1
-        }
-        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
-                                        params=params,
-                                        headers=headers) as response1:
-
+        headers = {"Content_Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
+        params = {"mode": "osu", "limit": 1, "include_fails": 1}
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}", params=params, headers=headers) as response1:
             if response1.status != 200:
                 return await message.edit(content=f"Failed to find user. Error code {response1.status}")
 
             find_username = await response1.json()
             userid = find_username["id"]
 
-            async with self.bot.session.get(f"{self.OSU_API_URL}/users/{userid}/scores/recent",
-                                            params=params,
-                                            headers=headers) as response2:
-
+            async with self.bot.session.get(
+                f"{self.OSU_API_URL}/users/{userid}/scores/recent", params=params, headers=headers
+            ) as response2:
                 if response2.status != 200:
                     return await message.edit(content=f"Failed to get score. Error code {response2.status}")
 
@@ -557,8 +528,7 @@ class Miscellaneous(commands.Cog):
 
         raw = raw[0]
         custom_embed = discord.Embed(color=discord.Colour.random())
-        custom_embed.set_author(name=find_username["username"],
-                                icon_url=find_username["avatar_url"])
+        custom_embed.set_author(name=find_username["username"], icon_url=find_username["avatar_url"])
         title = raw["beatmapset"]["title"]
         title_url = raw["beatmap"]["url"]
         statistic = raw["statistics"]
@@ -572,21 +542,25 @@ class Miscellaneous(commands.Cog):
         max_combo = raw["max_combo"]
         rank = raw["rank"].replace('H', " Hidden")
         mods = " ".join(raw["mods"])
-        custom_embed.add_field(name=f"{title} ⭐ {difficulty_rating}",
-                               value=f"[{difficulty_ver}]({title_url})\n"
-                                     f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
-                                     f"Mod(s): {mods}\n"
-                                     f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
-                                     f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
-                               inline=False)
+        custom_embed.add_field(
+            name=f"{title} ⭐ {difficulty_rating}",
+            value=f"[{difficulty_ver}]({title_url})\n"
+            f"PP: {pp} | {round(accuracy * 100, 1)}% | {max_combo}x **[{rank}]**\n"
+            f"Mod(s): {mods}\n"
+            f"**300**: {count_300} | **100**: {count_100} | **50**: {count_50}\n"
+            f"**激**: {count_geki} | **喝**: {count_katu} | **X**: {count_miss}",
+            inline=False,
+        )
         beatmap = raw["beatmap"]
-        custom_embed.add_field(name="Map details",
-                               value=f"**{beatmap['bpm']} BPM**\n"
-                                     f"AR **{beatmap['ar']}** | CS **{beatmap['cs']}**\n"
-                                     f"HP **{beatmap['drain']}** | OD **{beatmap['accuracy']}**\n"
-                                     f"Circles count: {beatmap['count_circles']}\n"
-                                     f"Slider count: {beatmap['count_sliders']}\n"
-                                     f"Spinner count: {beatmap['count_spinners']}")
+        custom_embed.add_field(
+            name="Map details",
+            value=f"**{beatmap['bpm']} BPM**\n"
+            f"AR **{beatmap['ar']}** | CS **{beatmap['cs']}**\n"
+            f"HP **{beatmap['drain']}** | OD **{beatmap['accuracy']}**\n"
+            f"Circles count: {beatmap['count_circles']}\n"
+            f"Slider count: {beatmap['count_sliders']}\n"
+            f"Spinner count: {beatmap['count_spinners']}",
+        )
         custom_embed.set_thumbnail(url=raw["beatmapset"]["covers"]["cover"])
         # async with self.bot.session.get("https://" + raw["beatmapset"]["preview_url"][2:]) as response:
         #     if response.status == 200:
@@ -601,17 +575,11 @@ class Miscellaneous(commands.Cog):
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
 
         token = await self.get_token(self.OSU_TOKEN_URL)
-        headers = {
-            "Content_Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
+        headers = {"Content_Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
         params = {
             "mode": "osu",
         }
-        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}",
-                                        params=params,
-                                        headers=headers) as response:
+        async with self.bot.session.get(f"{self.OSU_API_URL}/users/{username}", params=params, headers=headers) as response:
             if response.status != 200:
                 return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
             raw = await response.json()
@@ -631,9 +599,9 @@ class Miscellaneous(commands.Cog):
             name = name.capitalize() if len(name) > 3 else name.upper()
             string += f"{name}: {statistic[i]}\n"
         custom_embed.add_field(name="Details", value=string)
-        custom_embed.add_field(name="Other", value=f"Online: {raw['is_online']}\n"
-                                                   f"Active: {raw['is_active']}\n"
-                                                   f"Discord: {raw['discord']}")
+        custom_embed.add_field(
+            name="Other", value=f"Online: {raw['is_online']}\n" f"Active: {raw['is_active']}\n" f"Discord: {raw['discord']}"
+        )
         custom_embed.set_footer(text=f"Joined at {raw['join_date']}")
         await message.edit(content=None, embed=custom_embed)
 
@@ -653,13 +621,13 @@ class Miscellaneous(commands.Cog):
         member: discord.Member
         if not member:
             member = ctx.author
-        filtered_activities = list(filter(lambda x: not isinstance(x, discord.CustomActivity), member.activities)) 
+        filtered_activities = list(filter(lambda x: not isinstance(x, discord.CustomActivity), member.activities))
         if len(filtered_activities) < 1:
             return await ctx.send("No activities")
-        dropdown = ActivityDropdown(text="Select activities",
-                                    select_list=[
-                                        discord.SelectOption(label=a.name) for a in filtered_activities  # type: ignore
-                                    ])
+        dropdown = ActivityDropdown(
+            text="Select activities",
+            select_list=[discord.SelectOption(label=a.name) for a in filtered_activities],  # type: ignore
+        )
         dropdown.activities = {a.name: a for a in filtered_activities}
         view = ActivityView(ctx.author, member)
         view.add_item(dropdown)
@@ -674,19 +642,9 @@ class Miscellaneous(commands.Cog):
 
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
         token = await self.get_spotify_token(self.SPOTIFY_TOKEN_URL)
-        headers = {
-            "Content_Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
-        params = {
-            'q': name,
-            "type": "track",
-            "limit": 3
-        }
-        async with self.bot.session.get(f"{self.SPOTIFY_API_URL}/search",
-                                        params=params,
-                                        headers=headers) as response:
+        headers = {"Content_Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
+        params = {'q': name, "type": "track", "limit": 3}
+        async with self.bot.session.get(f"{self.SPOTIFY_API_URL}/search", params=params, headers=headers) as response:
             if response.status != 200:
                 return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
             raw = await response.json()
@@ -695,12 +653,14 @@ class Miscellaneous(commands.Cog):
         custom_embed.set_footer(text="Want more search result? subscribe to onlyfans")
         for item in raw["tracks"]["items"]:
             duration_ms = item["duration_ms"]
-            custom_embed.add_field(name=item["name"],
-                                   value=f"[URL]({item['external_urls']['spotify']})\n"
-                                         f"Artist: {', '.join([a['name'] for a in item['artists']])}\n"
-                                         f"Duration: {duration_ms//60000} m {(duration_ms // 1000) % 60} s\n"
-                                         f"Popularity: {item['popularity']}",
-                                   inline=False)
+            custom_embed.add_field(
+                name=item["name"],
+                value=f"[URL]({item['external_urls']['spotify']})\n"
+                f"Artist: {', '.join([a['name'] for a in item['artists']])}\n"
+                f"Duration: {duration_ms//60000} m {(duration_ms // 1000) % 60} s\n"
+                f"Popularity: {item['popularity']}",
+                inline=False,
+            )
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(name="spotifyartist", aliases=["spta"])
@@ -711,19 +671,9 @@ class Miscellaneous(commands.Cog):
         """
         message = await ctx.send("Connecting <a:discordloading:792012369168957450>")
         token = await self.get_spotify_token(self.SPOTIFY_TOKEN_URL)
-        headers = {
-            "Content_Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {token}"
-        }
-        params = {
-            'q': name,
-            "type": "artist",
-            "limit": 3
-        }
-        async with self.bot.session.get(f"{self.SPOTIFY_API_URL}/search",
-                                        params=params,
-                                        headers=headers) as response:
+        headers = {"Content_Type": "application/json", "Accept": "application/json", "Authorization": f"Bearer {token}"}
+        params = {'q': name, "type": "artist", "limit": 3}
+        async with self.bot.session.get(f"{self.SPOTIFY_API_URL}/search", params=params, headers=headers) as response:
             if response.status != 200:
                 return await ctx.send(content=f"Failed to get user. Error code: {response.status}")
             raw = await response.json()
@@ -733,11 +683,13 @@ class Miscellaneous(commands.Cog):
         custom_embed.set_footer(text="Want more search result? subscribe to onlyfans")
 
         for item in raw["artists"]["items"]:
-            custom_embed.add_field(name=item["name"],
-                                   value=f"[URL]({item['external_urls']['spotify']})\n"
-                                         f"Genres: {', '.join(item['genres'])}\n"
-                                         f"Followers: {item['followers']['total']}",
-                                   inline=False)
+            custom_embed.add_field(
+                name=item["name"],
+                value=f"[URL]({item['external_urls']['spotify']})\n"
+                f"Genres: {', '.join(item['genres'])}\n"
+                f"Followers: {item['followers']['total']}",
+                inline=False,
+            )
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(aliases=["tl"])
@@ -771,13 +723,7 @@ class Miscellaneous(commands.Cog):
         # custom_embed.add_field(name=f"Translated ({dest})", value=res.text, inline=False)
 
         # https://github.com/Animenosekai/translate/blob/main/translatepy/translators/google.py#L322-L375
-        params = {
-            "client": "gtx",
-            "dj": 1,
-            "dt": 't',
-            'q': text,
-            "sl": "auto",
-            "tl": lang}
+        params = {"client": "gtx", "dj": 1, "dt": 't', 'q': text, "sl": "auto", "tl": lang}
         link = "https://clients5.google.com/translate_a/single?"
         async with self.bot.session.get(link, params=params, headers=self.magic_header) as r:
             if r.status != 200:
@@ -785,15 +731,21 @@ class Miscellaneous(commands.Cog):
             data = await r.json()
         custom_embed = discord.Embed(color=discord.Colour.random())
         src = googletrans.LANGUAGES.get(data["src"], "auto detect").title()
-        lang_format = '\n'.join(f"**{googletrans.LANGUAGES.get(lang, 'unknown').title()}** "
-                                f"({round(confidence * 100, 1)}%)" for lang, confidence in
-                                zip(data["ld_result"]["srclangs"], data["ld_result"]["srclangs_confidences"]))
-        custom_embed.add_field(name=f"Original ({src} {round(data['confidence'] * 100, 1)}%)",
-                               value=''.join(section["orig"] for section in data["sentences"]), inline=False)
-        custom_embed.add_field(name=f"Translated {googletrans.LANGUAGES.get(lang, 'Unknown')}",
-                               value=''.join(section["trans"] for section in data["sentences"]), inline=False)
-        custom_embed.add_field(name="Detected language",
-                               value=lang_format, inline=False)
+        lang_format = '\n'.join(
+            f"**{googletrans.LANGUAGES.get(lang, 'unknown').title()}** " f"({round(confidence * 100, 1)}%)"
+            for lang, confidence in zip(data["ld_result"]["srclangs"], data["ld_result"]["srclangs_confidences"])
+        )
+        custom_embed.add_field(
+            name=f"Original ({src} {round(data['confidence'] * 100, 1)}%)",
+            value=''.join(section["orig"] for section in data["sentences"]),
+            inline=False,
+        )
+        custom_embed.add_field(
+            name=f"Translated {googletrans.LANGUAGES.get(lang, 'Unknown')}",
+            value=''.join(section["trans"] for section in data["sentences"]),
+            inline=False,
+        )
+        custom_embed.add_field(name="Detected language", value=lang_format, inline=False)
         await ctx.send(embed=custom_embed)
 
 

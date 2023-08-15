@@ -27,9 +27,9 @@ class AnigameTalent:
         if self.stat_type not in {"atk", "defense"}:
             raise ValueError("Invalid stat")
         if self.stat_type == "atk":
-            self.card.atk_percentage += (0.36 + (0.06 * self.card.rarity.value))/self.card.atk_percentage
+            self.card.atk_percentage += (0.36 + (0.06 * self.card.rarity.value)) / self.card.atk_percentage
         if self.stat_type == "defense":
-            self.card.defense_percentage += (0.36 + (0.11 * self.card.rarity.value))/self.card.defense_percentage
+            self.card.defense_percentage += (0.36 + (0.11 * self.card.rarity.value)) / self.card.defense_percentage
 
     def breaker(self):
         if self.stat_type not in {"atk", "defense"}:
@@ -47,8 +47,9 @@ class AnigameTalent:
             self.card.atk += floor(difference * (0.72 + 0.12 * self.card.rarity.value))
             self.enemy.atk -= floor(difference * (0.72 + 0.12 * self.card.rarity.value))
         if self.stat_type == "defense":
-            difference = max(self.enemy.defense * self.enemy.defense_percentage -
-                             self.card.defense * self.card.defense_percentage, 0)
+            difference = max(
+                self.enemy.defense * self.enemy.defense_percentage - self.card.defense * self.card.defense_percentage, 0
+            )
             self.card.defense += floor(difference * (0.72 + 0.12 * self.card.rarity.value))
             self.enemy.defense -= floor(difference * (0.72 + 0.12 * self.card.rarity.value))
 

@@ -28,8 +28,7 @@ __version__ = "2.2.4"
 
 load_dotenv()  # in case we use .env in future
 
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger("main")
 
 
@@ -43,8 +42,9 @@ class NewHelpCommand(commands.MinimalHelpCommand):
     async def send_pages(self):
         if len(self.paginator.pages) < 2:
             destination = self.get_destination()
-            await destination.send(embed=discord.Embed(title="Help", description=self.paginator.pages[0],
-                                                       color=discord.Colour.random()))
+            await destination.send(
+                embed=discord.Embed(title="Help", description=self.paginator.pages[0], color=discord.Colour.random())
+            )
         else:
             ctx = self.context
             menu = SimplePages(source=EmbedSource(self.paginator.pages, 1, "Help", lambda pg: pg))
@@ -63,8 +63,7 @@ class SewentyBot(commands.Bot):
     LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase
     GAME_COLLECTION: motor.motor_asyncio.AsyncIOMotorCollection
 
-    disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train",
-                            "kingdom collect", "kingdom attack"}
+    disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train", "kingdom collect", "kingdom attack"}
 
     TOKEN = getenv("DISCORD_TOKEN")
     EMAILS = getenv("EMAIL")
@@ -89,7 +88,7 @@ class SewentyBot(commands.Bot):
             description="Sewenty bot written in python",
             intents=intents,
             status=discord.Status.idle,
-            activity=discord.Game(name="s!help")
+            activity=discord.Game(name="s!help"),
         )
 
         self.TEST_MODE = False
@@ -106,21 +105,19 @@ class SewentyBot(commands.Bot):
 
         self.afk_message = "Ded or work or college >:("
 
-        self.TRIGGER_RESPONSE = {"hakid": ["<:hikablameOwO:851556784380313631>",
-                                           "<:hikanoplsOwO:804522598289375232>"],
-                                 "shifud": ["<a:BowingPandas:771010441324920853>",
-                                            "<:speechlessOwO:793026526911135744>",
-                                            ">.<"],
-                                 "meo": "<a:catMIAOwO:782034693905186816>",
-                                 "radishh": ["<a:blossomradish:812889706249453618>",
-                                             "<a:radishblossom:802357456885383198>"],
-                                 "naed": "<a:emoji3:776775391154798593>",
-                                 "test ajg": "<:wurk:858721776770744320>",
-                                 "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
-                                           "<a:pandasmackOwO:799955371074519041>",
-                                 "vinwuv": "osu! when",
-                                 "invad": "When",
-                                 "thonk": "<:PaulThink:770782702973878283>"}
+        self.TRIGGER_RESPONSE = {
+            "hakid": ["<:hikablameOwO:851556784380313631>", "<:hikanoplsOwO:804522598289375232>"],
+            "shifud": ["<a:BowingPandas:771010441324920853>", "<:speechlessOwO:793026526911135744>", ">.<"],
+            "meo": "<a:catMIAOwO:782034693905186816>",
+            "radishh": ["<a:blossomradish:812889706249453618>", "<a:radishblossom:802357456885383198>"],
+            "naed": "<a:emoji3:776775391154798593>",
+            "test ajg": "<:wurk:858721776770744320>",
+            "xnurag": "⚠ **|** Please complete your captcha to verify that you are human! (9/6) "
+            "<a:pandasmackOwO:799955371074519041>",
+            "vinwuv": "osu! when",
+            "invad": "When",
+            "thonk": "<:PaulThink:770782702973878283>",
+        }
 
         # we define this later
         self.guild_prefix = dict()
@@ -188,7 +185,7 @@ class SewentyBot(commands.Bot):
         if self.TEST_MODE:
             return ["test!"]
         ret = await super().get_prefix(message)
-        if isinstance(ret, str): 
+        if isinstance(ret, str):
             return ret
         if message.guild is not None and f"guild{message.guild.id}" in self.guild_prefix:
             ret.append(self.guild_prefix[f"guild{message.guild.id}"])
@@ -213,9 +210,10 @@ class SewentyBot(commands.Bot):
 
 def slash_is_enabled():
     def wrapper(interaction: discord.Interaction):
-        if interaction.command is None: 
+        if interaction.command is None:
             return False
         return interaction.command.qualified_name not in SewentyBot.disabled_app_command
+
     return discord.app_commands.check(wrapper)
 
 
@@ -228,11 +226,11 @@ def main():
 
     @bot.event
     async def on_ready():
-        print(f"{bot.user.name} has connected to discord!") # type: ignore
+        print(f"{bot.user.name} has connected to discord!")  # type: ignore
 
     @bot.tree.context_menu(name="Banner")
     async def search_banner(interaction: discord.Interaction, member: discord.Member):
-        user = await bot.fetch_user(member.id) 
+        user = await bot.fetch_user(member.id)
         banner_url = user.banner or default_banner_url
 
         custom_embed = discord.Embed()
@@ -278,13 +276,17 @@ def main():
         message = ref.resolved
         if message.embeds:
             output = json.dumps(message.embeds[0].to_dict(), indent='\t')
-            custom_embed = discord.Embed(description=f"```{output}\n```",
-                                         color=discord.Colour.random())
+            custom_embed = discord.Embed(description=f"```{output}\n```", color=discord.Colour.random())
             await ctx.send(embed=custom_embed)
         elif message.stickers:
-            custom_embed = discord.Embed(description='\n'.join([f"{i}. {v.id} - {v.name}.{v.format.file_extension} "
-                                                                f"({v.url})"
-                                                                for i, v in enumerate(message.stickers, start=1)]))
+            custom_embed = discord.Embed(
+                description='\n'.join(
+                    [
+                        f"{i}. {v.id} - {v.name}.{v.format.file_extension} " f"({v.url})"
+                        for i, v in enumerate(message.stickers, start=1)
+                    ]
+                )
+            )
             await ctx.send(embed=custom_embed)
         else:
             await ctx.send("Unable to catch fish")
@@ -312,12 +314,11 @@ def main():
 
     @dm.error
     async def dm_error(ctx, error):
-        await ctx.reply(f"Failed to dm: `{error}`\n"
-                        f"`{type(error)}`")
+        await ctx.reply(f"Failed to dm: `{error}`\n" f"`{type(error)}`")
 
     @bot.command(hidden=True)
     @commands.is_owner()
-    async def switch(ctx: commands.Context, command: bot.get_command): # type: ignore
+    async def switch(ctx: commands.Context, command: bot.get_command):  # type: ignore
         """
         Disable command-
         """
@@ -337,13 +338,12 @@ def main():
 
     @send.error
     async def send_error(ctx, error):
-        await ctx.reply(f"Failed to send: `{error}`\n"
-                        f"`{type(error)}`")
+        await ctx.reply(f"Failed to send: `{error}`\n" f"`{type(error)}`")
 
     # Note that channel id in dict always str
     @bot.command(name="allowchannel", hidden=True)
     @commands.is_owner()
-    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False): 
+    async def allow_channel(ctx: commands.Context, channel_id: Union[discord.TextChannel, int], boss_mode=False):
         """
         Allow tracking anigame rng
         Work for owner only
@@ -389,16 +389,18 @@ def main():
                 value = f"{value} %"
             memory_detail.append(f"{name.capitalize()}: {value}")
 
-        custom_embed = discord.Embed(title="Bot Stats",
-                                     description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
-                                                 f"Total Servers: {count_guild}\n"
-                                                 f"Bot Ver: {__version__}\n"
-                                                 f"CPU usage: {psutil.cpu_percent(1)}%\n"
-                                                 f"Ping: "
-                                                 f"{round(bot.latency * 1000)} ms\n"
-                                                 f"Running in **"
-                                                 f"{'normal' if not bot.TEST_MODE else 'Test'}** mode ",
-                                     color=discord.Colour.random())
+        custom_embed = discord.Embed(
+            title="Bot Stats",
+            description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
+            f"Total Servers: {count_guild}\n"
+            f"Bot Ver: {__version__}\n"
+            f"CPU usage: {psutil.cpu_percent(1)}%\n"
+            f"Ping: "
+            f"{round(bot.latency * 1000)} ms\n"
+            f"Running in **"
+            f"{'normal' if not bot.TEST_MODE else 'Test'}** mode ",
+            color=discord.Colour.random(),
+        )
         custom_embed.add_field(name="Memory", value='\n'.join(memory_detail))
         await ctx.send(embed=custom_embed)
 
@@ -422,11 +424,13 @@ def main():
             return await bot.process_commands(message)
 
         if "inva" in message.content.lower():
-            await bot.send_owner(f"Mentioned 'inva' at <#{message.channel.id}> **Guild** {message.guild.name}\n"
-                                 f"**By:** {message.author} ({message.author.id})\n"
-                                 f"**Jump:** {message.jump_url}\n"
-                                 f"**Full:**\n"
-                                 f"{message.content}")
+            await bot.send_owner(
+                f"Mentioned 'inva' at <#{message.channel.id}> **Guild** {message.guild.name}\n"
+                f"**By:** {message.author} ({message.author.id})\n"
+                f"**Jump:** {message.jump_url}\n"
+                f"**Full:**\n"
+                f"{message.content}"
+            )
 
         guild_id = message.guild.id
         if guild_id == 714152739252338749:
@@ -436,14 +440,19 @@ def main():
                 if not isinstance(u, discord.Member):
                     continue
                 if (
-                        u.id == bot.owner.id
-                        and (u.status == discord.Status.idle
-                             or u.status == discord.Status.dnd
-                             or u.status == discord.Status.offline)
-                        and bot.afk_message is not None
+                    u.id == bot.owner.id
+                    and (
+                        u.status == discord.Status.idle
+                        or u.status == discord.Status.dnd
+                        or u.status == discord.Status.offline
+                    )
+                    and bot.afk_message is not None
                 ):
-                    await message.reply(f"<a:running:791350508375900190> **Owner AFK:** {bot.afk_message}",
-                                        mention_author=False, allowed_mentions=discord.AllowedMentions.none())
+                    await message.reply(
+                        f"<a:running:791350508375900190> **Owner AFK:** {bot.afk_message}",
+                        mention_author=False,
+                        allowed_mentions=discord.AllowedMentions.none(),
+                    )
 
             if low_msg in {"osana", "mira"}:
                 if userid in {436376194166816770, 532912006114836482}:
@@ -474,23 +483,22 @@ def main():
                 return
 
             if (
-                    (
-                            "CRITICAL HIT" in message.split('\n')[2]
-                            and (
-                                    bot.allowed_track_channel[str(after.channel.id)]
-                                    or "Rage Mode" not in message
-                            )
-                    )
-                    or "managed to evade" in message.split('\n')[2]
-                    or "fortunately it resisted" in message.split('\n')[2]
-                    or "uses Lucky Coin" in message.split('\n')[2]
-                    or "uses Unlucky Coin" in message.split('\n')[2]
-                    or "blinded by the smoke" in message.split('\n')[2]
+                (
+                    "CRITICAL HIT" in message.split('\n')[2]
+                    and (bot.allowed_track_channel[str(after.channel.id)] or "Rage Mode" not in message)
+                )
+                or "managed to evade" in message.split('\n')[2]
+                or "fortunately it resisted" in message.split('\n')[2]
+                or "uses Lucky Coin" in message.split('\n')[2]
+                or "uses Unlucky Coin" in message.split('\n')[2]
+                or "blinded by the smoke" in message.split('\n')[2]
             ):
                 message = message.replace("<:ARROW:698301107419611186>", ":arrow_right: ")
-                custom_embed = discord.Embed(title=message.split('[')[1].split(']')[0],
-                                             description=message.split('\n')[1] + '\n' + message.split('\n')[2],
-                                             color=discord.Colour.blue())
+                custom_embed = discord.Embed(
+                    title=message.split('[')[1].split(']')[0],
+                    description=message.split('\n')[1] + '\n' + message.split('\n')[2],
+                    color=discord.Colour.blue(),
+                )
                 custom_embed.set_footer(text="psst. If you want this tracker, DM/tell invaliduser77")
                 await after.channel.send(embed=custom_embed)
 
@@ -506,14 +514,16 @@ def main():
         if len(output) > 1500:
             buffer = BytesIO(output.encode("utf-8"))
             file = discord.File(buffer, filename="log.txt")
-            await bot.send_owner(f"Uncaught error in channel <#{interaction.channel.id}> "
-                                 f"command `{interaction.command}`",
-                                 file=file)
+            await bot.send_owner(
+                f"Uncaught error in channel <#{interaction.channel.id}> " f"command `{interaction.command}`", file=file
+            )
         else:
-            custom_embed = discord.Embed(description=f"Uncaught error in channel <#{interaction.channel.id}> "
-                                                     f"command {interaction.command}\n"
-                                                     f"```py\n{output}\n```",
-                                         color=discord.Colour.red())
+            custom_embed = discord.Embed(
+                description=f"Uncaught error in channel <#{interaction.channel.id}> "
+                f"command {interaction.command}\n"
+                f"```py\n{output}\n```",
+                color=discord.Colour.red(),
+            )
             await bot.send_owner(embed=custom_embed)
 
     @bot.event
@@ -521,19 +531,20 @@ def main():
         if isinstance(error, commands.errors.CommandNotFound) or hasattr(ctx.command, "on_error"):
             return
         if isinstance(error, commands.errors.DisabledCommand):
-            return await ctx.reply("This command is disabled or under maintenance <:speechlessOwO:793026526911135744>",
-                                   mention_author=False)
+            return await ctx.reply(
+                "This command is disabled or under maintenance <:speechlessOwO:793026526911135744>", mention_author=False
+            )
         if isinstance(error, commands.errors.CheckFailure):
-            return await ctx.reply("You are not allowed to use this command",
-                                   mention_author=False)
+            return await ctx.reply("You are not allowed to use this command", mention_author=False)
         if isinstance(error, commands.errors.CommandOnCooldown):
-            return await ctx.reply(f"{error} <:angeryV2:810860324248616960>",
-                                   mention_author=False, delete_after=error.retry_after)
+            return await ctx.reply(
+                f"{error} <:angeryV2:810860324248616960>", mention_author=False, delete_after=error.retry_after
+            )
         if (
-                isinstance(error, commands.errors.NotOwner)
-                or isinstance(error, discord.errors.Forbidden)
-                or isinstance(error, commands.errors.BadArgument)
-                or isinstance(error, commands.errors.MissingRequiredArgument)
+            isinstance(error, commands.errors.NotOwner)
+            or isinstance(error, discord.errors.Forbidden)
+            or isinstance(error, commands.errors.BadArgument)
+            or isinstance(error, commands.errors.MissingRequiredArgument)
         ):
             return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):
@@ -544,10 +555,12 @@ def main():
             file = discord.File(buffer, filename="log.txt")
             await bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
         else:
-            custom_embed = discord.Embed(description=f"Uncaught error in channel <#{ctx.channel.id}> "
-                                                     f"command {ctx.command}\n"
-                                                     f"```py\n{output}\n```",
-                                         color=discord.Colour.red())
+            custom_embed = discord.Embed(
+                description=f"Uncaught error in channel <#{ctx.channel.id}> "
+                f"command {ctx.command}\n"
+                f"```py\n{output}\n```",
+                color=discord.Colour.red(),
+            )
             await bot.send_owner(embed=custom_embed)
 
     asyncio.run(bot.main())

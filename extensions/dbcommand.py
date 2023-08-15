@@ -26,7 +26,7 @@ class TacoNode:
         self.level = int(level)
         self.boost = int(boost)
         self.max_level = int(max_level)
-        self.base_cost = int(cost) / (level + 1)**2
+        self.base_cost = int(cost) / (level + 1) ** 2
 
     @classmethod
     def from_dict(cls, to_convert: dict) -> TacoNode:
@@ -64,14 +64,11 @@ class TacoNode:
     def value(self) -> float:
         if self.cost == 0:
             return 0.0
-        return self.boost/self.cost
+        return self.boost / self.cost
 
     @property
     def dict(self) -> dict:
-        return {"level": self.level,
-                "max_level": self.max_level,
-                "boost": self.boost,
-                "base_cost": self.base_cost}
+        return {"level": self.level, "max_level": self.max_level, "boost": self.boost, "base_cost": self.base_cost}
 
     def upgrade(self):
         """
@@ -98,20 +95,36 @@ class Taco(commands.Cog):
 
         # This may be changed as soon as new location is confirmed
         self.REGISTERED_LOCATION = {"beach", "city", "mall"}
-        self.REGISTERED_ETC = {"Taco Truck Upgrades 🚚": "",
-                               "Ice Cream Stand Upgrades 🍦": "beach",
-                               "Hotdog Cart Upgrades 🌭": "city",
-                               "Mall Kiosk Upgrades 🛒": "mall"}
+        self.REGISTERED_ETC = {
+            "Taco Truck Upgrades 🚚": "",
+            "Ice Cream Stand Upgrades 🍦": "beach",
+            "Hotdog Cart Upgrades 🌭": "city",
+            "Mall Kiosk Upgrades 🛒": "mall",
+        }
         self.SHORTCUT_LOCATION = {'s': '', 'b': "beach", "c": "city", "shack": '', 'm': "mall"}
-        self.HIRE = {"Apprentice", "Cook", "Advertiser", "Greeter", "Sous", "Head", "Executive",
-                     "Cashier", "Associate", "Janitor", "Security", "Sales", "Leader", "Manager"}
+        self.HIRE = {
+            "Apprentice",
+            "Cook",
+            "Advertiser",
+            "Greeter",
+            "Sous",
+            "Head",
+            "Executive",
+            "Cashier",
+            "Associate",
+            "Janitor",
+            "Security",
+            "Sales",
+            "Leader",
+            "Manager",
+        }
         self.STOP_CLAUSE = {"exit", "quit", "abort", 'q', "done", "end"}
         self.taco_set, self.taco_recommend = set(), set()
         self.using_auto = set()
 
-    async def read_taco(self, ctx: commands.Context, embed: discord.Embed,
-                        location_locked: Optional[str] = None) -> Optional[tuple[str, dict, dict]]:
-
+    async def read_taco(
+        self, ctx: commands.Context, embed: discord.Embed, location_locked: Optional[str] = None
+    ) -> Optional[tuple[str, dict, dict]]:
         """
         Get taco upgrade from embed. Returns None if error happened or not matching location_locked
         """
@@ -152,10 +165,9 @@ class Taco(commands.Cog):
             cost = int(new[j + 1].split('$')[-1].replace(',', ''))
             id_ = new[j + 3].split('`')[-2].capitalize()
             to_update.update({id_: boost / cost})
-            taco_data.update({id_: TacoNode(cost=cost,
-                                            boost=boost,
-                                            level=int(level_range[0]),
-                                            max_level=int(level_range[-1]))})
+            taco_data.update(
+                {id_: TacoNode(cost=cost, boost=boost, level=int(level_range[0]), max_level=int(level_range[-1]))}
+            )
         data_id = f"{ctx.author.id}taco{location}"
         return data_id, to_update, taco_data
 
@@ -236,6 +248,7 @@ class Taco(commands.Cog):
         await ctx.message.add_reaction('👍')
 
         if multiple:
+
             def check(reaction, users):
                 return users == ctx.author and str(reaction.emoji) == "❗" and reaction.message == ctx.message
 
@@ -244,14 +257,16 @@ class Taco(commands.Cog):
                 await self.bot.wait_for("reaction_add", timeout=30, check=check)
             except asyncio.TimeoutError:
                 return
-            await ctx.send("Multiple check feature look up to **8 messages** before you and it **overrides** "
-                           "older embed if newer one is the same so be careful")
+            await ctx.send(
+                "Multiple check feature look up to **8 messages** before you and it **overrides** "
+                "older embed if newer one is the same so be careful"
+            )
         self.taco_set.add(str(ctx.author.id))
         await asyncio.sleep(2)
         self.taco_set.remove(str(ctx.author.id))
 
     @commands.command(name='tacorecommend', aliases=['tr'])
-    async def recommend_taco(self, ctx,  location: str = "", auto_update=False):
+    async def recommend_taco(self, ctx, location: str = "", auto_update=False):
         """
         Recommend upgrade. For specific location e.g. beach:
         s!tacorecommend beach
@@ -276,9 +291,7 @@ class Taco(commands.Cog):
         query = {"_id": f"{ctx.author.id}taco{location}"}
         counts = await self.COLLECTION.count_documents(query)
         if counts == 0:
-            return await ctx.reply("Give taco stat when <:PaulOwO:721154434297757727>",
-                                   mention_author=False,
-                                   delete_after=5)
+            return await ctx.reply("Give taco stat when <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         cursor = await self.COLLECTION.find_one(query)
         if "taco_data" not in cursor:
             return await ctx.send("New taco data needed. Please update it")
@@ -286,8 +299,10 @@ class Taco(commands.Cog):
         taco_data = cursor["taco_data"]
         taco_data = {key: TacoNode.from_dict(value) for key, value in taco_data.items()}
         taco = cursor["taco"]
-        await ctx.send(f"Input your budget for location **{location}**. INFO: auto_update set to {auto_update}\n"
-                       f"auto_update decide whether your recommendation will be saved in database or not")
+        await ctx.send(
+            f"Input your budget for location **{location}**. INFO: auto_update set to {auto_update}\n"
+            f"auto_update decide whether your recommendation will be saved in database or not"
+        )
         try:
             budget = await self.bot.wait_for("message", check=valid_number, timeout=60.0)
         except asyncio.TimeoutError:
@@ -362,8 +377,7 @@ class Taco(commands.Cog):
         query = {"_id": f"{ctx.author.id}tacobeach"}
         counts = await self.COLLECTION.count_documents(query)
         if counts == 0:
-            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False,
-                            delete_after=5)
+            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         else:
             cursor = await self.COLLECTION.find_one(query)
             taco = cursor["taco"]
@@ -387,8 +401,7 @@ class Taco(commands.Cog):
         query = {"_id": f"{ctx.author.id}tacocity"}
         counts = await self.COLLECTION.count_documents(query)
         if counts == 0:
-            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False,
-                            delete_after=5)
+            await ctx.reply("Your data not exist <:PaulOwO:721154434297757727>", mention_author=False, delete_after=5)
         else:
             cursor = await self.COLLECTION.find_one(query)
             taco = cursor["taco"]
@@ -415,8 +428,7 @@ class Taco(commands.Cog):
         self.using_auto.add(ctx.author.id)
         location = location.lower()
         location = location if location in self.REGISTERED_LOCATION else "shack"
-        await ctx.send(f"Starting helper in location: **{location}**\n"
-                       f"To exit helper just type 'exit'")
+        await ctx.send(f"Starting helper in location: **{location}**\n" f"To exit helper just type 'exit'")
 
         def valid_answer(msg) -> bool:
             expected_answer = {'y', 'n', "yes", "no"}
@@ -428,10 +440,10 @@ class Taco(commands.Cog):
             return True
 
         def valid_taco(msg: discord.Message) -> bool:
-            if(
-                    msg.channel.id == ctx.channel.id and
-                    msg.author.id == ctx.author.id and
-                    msg.content.lower() in self.STOP_CLAUSE
+            if (
+                msg.channel.id == ctx.channel.id
+                and msg.author.id == ctx.author.id
+                and msg.content.lower() in self.STOP_CLAUSE
             ):
                 return True
 
@@ -464,10 +476,12 @@ class Taco(commands.Cog):
         taco_data = {}
         query = {"_id": f"{ctx.author.id}taco{location if location != 'shack' else ''}"}
         try:
-            await ctx.send("Do you want to update your upgrade first? (y/n)\n"
-                           "**Warning:** Starting from <t:1658728800:D>, you need to update all the upgrade"
-                           " as we updated ~~privacy policy~~ how the command work\n"
-                           "TL;DR: Just say y")
+            await ctx.send(
+                "Do you want to update your upgrade first? (y/n)\n"
+                "**Warning:** Starting from <t:1658728800:D>, you need to update all the upgrade"
+                " as we updated ~~privacy policy~~ how the command work\n"
+                "TL;DR: Just say y"
+            )
             state = await get_answer()
             if state is None:
                 self.using_auto.remove(ctx.author.id)
@@ -481,11 +495,9 @@ class Taco(commands.Cog):
             success: bool = False
             while is_updating:
                 if success:
-                    await ctx.send("**✅ Taco data merged**. Continue do your taco\n"
-                                   "Type 'done' if you're done")
+                    await ctx.send("**✅ Taco data merged**. Continue do your taco\n" "Type 'done' if you're done")
                 else:
-                    await ctx.send("Do your taco here /upgrades, /decorations or anything)\n"
-                                   "Type 'done' if you're done")
+                    await ctx.send("Do your taco here /upgrades, /decorations or anything)\n" "Type 'done' if you're done")
                 message = await self.bot.wait_for("message", check=valid_taco, timeout=60.0)
                 if message.content.lower() in self.STOP_CLAUSE:
                     break
@@ -524,8 +536,7 @@ class Taco(commands.Cog):
                 taco = {**old_update, **taco}
                 taco_data = {**old_taco_data, **taco_data}
 
-            await m.edit(content="Done! Follow the upgrade below\n"
-                                 "**Type 'abort' when you're done**")
+            await m.edit(content="Done! Follow the upgrade below\n" "**Type 'abort' when you're done**")
             custom_embed = discord.Embed(color=discord.Colour.random())
             # loop recommendation until done
             while True:
@@ -539,8 +550,7 @@ class Taco(commands.Cog):
                     await ctx.send(f"Upgrade already maxed. Aborting")
                     break
                 if t not in taco_data:
-                    await ctx.send(f"**Error!** Please update following upgrade: {t}\n"
-                                   f"Aborting..")
+                    await ctx.send(f"**Error!** Please update following upgrade: {t}\n" f"Aborting..")
                     break
                 action = "hire" if t in self.HIRE else "buy"
 
@@ -593,8 +603,9 @@ class Taco(commands.Cog):
 
             self.using_auto.remove(ctx.author.id)
             await self.update_taco({query["_id"]: taco}, {query["_id"]: taco_data})
-            return await ctx.send("Updated your taco data\n"
-                                  "**Set your upgrade** if you bought upgrade but not enough money")
+            return await ctx.send(
+                "Updated your taco data\n" "**Set your upgrade** if you bought upgrade but not enough money"
+            )
 
         except asyncio.TimeoutError:
             self.using_auto.remove(ctx.author.id)
@@ -603,11 +614,11 @@ class Taco(commands.Cog):
 
     @auto_taco.error
     async def auto_taco_error(self, ctx, error):
-        custom_embed = discord.Embed(title="Failed to perfom auto taco",
-                                     description=error.original
-                                     if isinstance(error, commands.CommandInvokeError)
-                                     else error,
-                                     color=discord.Colour.red())
+        custom_embed = discord.Embed(
+            title="Failed to perfom auto taco",
+            description=error.original if isinstance(error, commands.CommandInvokeError) else error,
+            color=discord.Colour.red(),
+        )
         await ctx.send(embed=custom_embed)
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
@@ -615,8 +626,9 @@ class Taco(commands.Cog):
             file = discord.File(buffer, filename="log.txt")
             await self.bot.send_owner(file=file)
         else:
-            custom_embed = discord.Embed(title="Auto taco fail", description=f"```py\n{output}```",
-                                         color=discord.Colour.red())
+            custom_embed = discord.Embed(
+                title="Auto taco fail", description=f"```py\n{output}```", color=discord.Colour.red()
+            )
             await self.bot.send_owner(embed=custom_embed)
 
 
@@ -633,13 +645,11 @@ class OwO(commands.Cog):
             users = ctx.author
         col = self.bot.LXV_DB["owo-stats"]
         query = {"$match": {"$and": [{"_id.user": ctx.author.id}, {"_id.dayId": {"$gte": 0}}]}}
-        date_before = datetime(2000, 1, 1).replace(hour=0,
-                                                   minute=0,
-                                                   second=0,
-                                                   microsecond=0,
-                                                   tzinfo=pytz.timezone("US/Pacific"))
+        date_before = datetime(2000, 1, 1).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
+        )
         date_now = datetime.now(dt.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
-        date_id = (date_now-date_before).days
+        date_id = (date_now - date_before).days
         result = col.aggregate([query])
         total = 0
         first = -1
@@ -654,7 +664,7 @@ class OwO(commands.Cog):
                 owo_count = row["owoCount"]
             if first < 0:
                 first = owo_count
-            if day_id == date_id-1:
+            if day_id == date_id - 1:
                 yesterday = owo_count
             if day_id == date_id:
                 today = owo_count
@@ -674,20 +684,24 @@ class OwO(commands.Cog):
             total += owo_count
 
         custom_embed = discord.Embed(color=discord.Colour.random())
-        custom_embed.add_field(name="What is stat",
-                               value=f"Total: {total}\n"
-                                     f"Today: {today}\n"
-                                     f"Yesterday: {yesterday}\n"
-                                     f"First day: {first}\n"
-                                     f"Last day: {last}",
-                               inline=False)
-        custom_embed.add_field(name="Not so accurate stat",
-                               value=f"This week: {this_week}\n"
-                                     f"This month: {this_month}\n"
-                                     f"This year: {this_year}\n"
-                                     f"Last week: {last_week}\n"
-                                     f"Last month: {last_month}\n"
-                                     f"Last year: {last_year}\n")
+        custom_embed.add_field(
+            name="What is stat",
+            value=f"Total: {total}\n"
+            f"Today: {today}\n"
+            f"Yesterday: {yesterday}\n"
+            f"First day: {first}\n"
+            f"Last day: {last}",
+            inline=False,
+        )
+        custom_embed.add_field(
+            name="Not so accurate stat",
+            value=f"This week: {this_week}\n"
+            f"This month: {this_month}\n"
+            f"This year: {this_year}\n"
+            f"Last week: {last_week}\n"
+            f"Last month: {last_month}\n"
+            f"Last year: {last_year}\n",
+        )
         custom_embed.set_author(name=users.name, icon_url=users.avatar)
         await ctx.send(embed=custom_embed)
 
@@ -711,13 +725,14 @@ class OwO(commands.Cog):
         year = cp['creationInfo']['year']
         image_url = cp['imageLink']
         rand_num = random.randint(0, 16777215)
-        emoji_hp, emoji_att, emoji_pr, emoji_wp, emoji_mag, emoji_mr = \
-            "<:hp:759752326973227029>", \
-            "<:att:759752341678194708>", \
-            "<:pr:759752354467414056>", \
-            "<:wp:759752292713889833>", \
-            "<:mag:759752304080715786>", \
-            "<:mr:759752315904196618>"
+        emoji_hp, emoji_att, emoji_pr, emoji_wp, emoji_mag, emoji_mr = (
+            "<:hp:759752326973227029>",
+            "<:att:759752341678194708>",
+            "<:pr:759752354467414056>",
+            "<:wp:759752292713889833>",
+            "<:mag:759752304080715786>",
+            "<:mr:759752315904196618>",
+        )
         custom_embed = discord.Embed(title=name, color=rand_num)
         month = calendar.month_name[int(month)]
         if aliases:
@@ -725,12 +740,15 @@ class OwO(commands.Cog):
         else:
             aliases = "None"
         custom_embed.add_field(name="Aliases", value=aliases, inline=False)
-        custom_embed.add_field(name="Stats", value=f"{emoji_hp} `{hp}`  "
-                                                   f"{emoji_att} `{str_stat}`  "
-                                                   f"{emoji_pr} `{pr_stat}`\n"
-                                                   f"{emoji_wp} `{wp_stat}`  "
-                                                   f"{emoji_mag} `{mag_stat}`  "
-                                                   f"'{emoji_mr} `{mr_stat}`')")
+        custom_embed.add_field(
+            name="Stats",
+            value=f"{emoji_hp} `{hp}`  "
+            f"{emoji_att} `{str_stat}`  "
+            f"{emoji_pr} `{pr_stat}`\n"
+            f"{emoji_wp} `{wp_stat}`  "
+            f"{emoji_mag} `{mag_stat}`  "
+            f"'{emoji_mr} `{mr_stat}`')",
+        )
         custom_embed.set_thumbnail(url=image_url)
         custom_embed.set_footer(text=f"Created {month} {year}")
         await ctx.send(embed=custom_embed)

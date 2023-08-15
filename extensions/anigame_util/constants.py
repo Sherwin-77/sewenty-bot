@@ -9,7 +9,7 @@ ELEMENT = {
     "grass": "ground",
     "light": "dark",
     "dark": "light",
-    "neutral": ""
+    "neutral": "",
 }
 
 RENDER_ELEMENT = {
@@ -20,7 +20,7 @@ RENDER_ELEMENT = {
     "grass": "🍂",
     "light": "💡",
     "dark": "🌛",
-    "neutral": "✨"
+    "neutral": "✨",
 }
 
 
@@ -39,5 +39,5 @@ STR_TO_RARITY = {
     "rare": Rarity.RARE,
     "super rare": Rarity.SR,
     "ultra rare": Rarity.UR,
-    "legendary": Rarity.L
+    "legendary": Rarity.L,
 }

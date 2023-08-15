@@ -36,7 +36,7 @@ class General(commands.Cog):
 
     @commands.command(help="Give a suggestion")
     async def suggest(self, ctx, *, suggestion):
-        blue = 0x00ffff
+        blue = 0x00FFFF
         channel = self.bot.get_channel(759728217069191209)
         username = await self.bot.fetch_user(ctx.author.id)
         custom_embed = discord.Embed(title=f"{username}\'s Suggestion", description=suggestion, color=blue)
@@ -56,7 +56,9 @@ class General(commands.Cog):
         time_diff2 = round((discord.utils.snowflake_time(message.id).replace(tzinfo=None) - time0).microseconds / 1000)
         await message.edit(
             content=f':ping_pong: Pong! in: {ping} ms\nMessage received in: {time_diff1} ms\n'
-                    f'Message sent in: {time_diff2} ms', allowed_mentions=discord.AllowedMentions.none())
+            f'Message sent in: {time_diff2} ms',
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @commands.hybrid_command()
     async def whois(self, ctx: commands.Context, user: Optional[discord.User] = None):  # type: ignore
@@ -68,13 +70,16 @@ class General(commands.Cog):
             user = ctx.author  # type: ignore
         async with ctx.typing():
             flags = map(dirty_filter, user.public_flags.all()) if user.public_flags.value != 0 else ["None"]
-            custom_embed = discord.Embed(title="User Data", description=f"Created at: "
-                                                                        f"<t:{int(user.created_at.timestamp())}:D>\n"
-                                                                        f"Bot: **{user.bot}**\n"
-                                                                        f"System: **{user.system}**\n"
-                                                                        f"Public Flags: "
-                                                                        f"**{', '.join(flags)}**",
-                                         color=user.accent_color or discord.Colour.random())
+            custom_embed = discord.Embed(
+                title="User Data",
+                description=f"Created at: "
+                f"<t:{int(user.created_at.timestamp())}:D>\n"
+                f"Bot: **{user.bot}**\n"
+                f"System: **{user.system}**\n"
+                f"Public Flags: "
+                f"**{', '.join(flags)}**",
+                color=user.accent_color or discord.Colour.random(),
+            )
             custom_embed.set_author(name=str(user), icon_url=user.avatar)
             custom_embed.set_footer(text=user.id)
             member = ctx.guild.get_member(user.id)  # type: ignore
@@ -83,25 +88,29 @@ class General(commands.Cog):
                 boost = member.premium_since
                 if not boost:
                     boost = discord.utils.utcnow()
-                    boost = discord.utils.format_dt(boost.replace(year=boost.year-69), style='R')
+                    boost = discord.utils.format_dt(boost.replace(year=boost.year - 69), style='R')
                     boost += " ||Not boosting||"
                 else:
                     boost = discord.utils.format_dt(boost, style='R')
-                custom_embed.add_field(name="Member info",
-                                       value=f"Top Role: {member.top_role.mention}\n"
-                                             f"Mobile:\u2800\u2800 {EMOJI_STATUS[str(member.mobile_status)]}\n"
-                                             f"Desktop:\u2800 {EMOJI_STATUS[str(member.desktop_status)]}\n"
-                                             f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[str(member.web_status)]}\n"
-                                             f"Pending verification: **{member.pending}**\n"
-                                             f"Joined at: {discord.utils.format_dt(member.joined_at)}\n"  # type: ignore
-                                             f"Boosting since: {boost}\n"
-                                             f"Nick: {member.nick}",
-                                       inline=False)   # no spaces? fine I'll do it myself
-                custom_embed.add_field(name="< - - - Permissions - - - >",
-                                       value=', '.join([perm.replace('_', ' ').capitalize()
-                                                        for perm, value in iter(member.guild_permissions)
-                                                        if value]),
-                                       inline=False)
+                custom_embed.add_field(
+                    name="Member info",
+                    value=f"Top Role: {member.top_role.mention}\n"
+                    f"Mobile:\u2800\u2800 {EMOJI_STATUS[str(member.mobile_status)]}\n"
+                    f"Desktop:\u2800 {EMOJI_STATUS[str(member.desktop_status)]}\n"
+                    f"Web:\u2800\u2800\u2800 {EMOJI_STATUS[str(member.web_status)]}\n"
+                    f"Pending verification: **{member.pending}**\n"
+                    f"Joined at: {discord.utils.format_dt(member.joined_at)}\n"  # type: ignore
+                    f"Boosting since: {boost}\n"
+                    f"Nick: {member.nick}",
+                    inline=False,
+                )  # no spaces? fine I'll do it myself
+                custom_embed.add_field(
+                    name="< - - - Permissions - - - >",
+                    value=', '.join(
+                        [perm.replace('_', ' ').capitalize() for perm, value in iter(member.guild_permissions) if value]
+                    ),
+                    inline=False,
+                )
                 if member.display_icon:
                     custom_embed.set_author(name=str(user), icon_url=member.display_icon)
                     custom_embed.set_thumbnail(url=member.display_avatar)
@@ -128,7 +137,7 @@ class General(commands.Cog):
         user: discord.User
         if user is None:
             user = ctx.author
-        user = await self.bot.fetch_user(user.id) 
+        user = await self.bot.fetch_user(user.id)
         banner_url = user.banner or self.DEFAULT_BANNER_URL
         custom_embed = discord.Embed()
         custom_embed.set_author(name=f"{user.display_name}'s banner", icon_url=user.display_avatar)

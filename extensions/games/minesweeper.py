@@ -48,23 +48,23 @@ class Minesweeper:
             self.visited[c][r] = True
             if self.data[c][r] == 0:
                 # another spaghetti code
-                if r > 0 and not self.visited[c][r-1]:
-                    q.put((r-1, c))
-                if r < self.max_row-1 and not self.visited[c][r+1]:
-                    q.put((r+1, c))
-                if c > 0 and not self.visited[c-1][r]:
-                    q.put((r, c-1))
-                if c < self.max_column-1 and not self.visited[c+1][r]:
-                    q.put((r, c+1))
+                if r > 0 and not self.visited[c][r - 1]:
+                    q.put((r - 1, c))
+                if r < self.max_row - 1 and not self.visited[c][r + 1]:
+                    q.put((r + 1, c))
+                if c > 0 and not self.visited[c - 1][r]:
+                    q.put((r, c - 1))
+                if c < self.max_column - 1 and not self.visited[c + 1][r]:
+                    q.put((r, c + 1))
 
-                if r > 0 and col > 0 and not self.visited[c-1][r-1]:
-                    q.put((r-1, c-1))
-                if r > 0 and c < self.max_column-1 and not self.visited[c+1][r-1]:
-                    q.put((r-1, c+1))
-                if r < self.max_row-1 and c > 0 and not self.visited[c-1][r+1]:
-                    q.put((r+1, c-1))
-                if r < self.max_row-1 and c < self.max_column-1 and not self.visited[c+1][r+1]:
-                    q.put((r+1, c+1))
+                if r > 0 and col > 0 and not self.visited[c - 1][r - 1]:
+                    q.put((r - 1, c - 1))
+                if r > 0 and c < self.max_column - 1 and not self.visited[c + 1][r - 1]:
+                    q.put((r - 1, c + 1))
+                if r < self.max_row - 1 and c > 0 and not self.visited[c - 1][r + 1]:
+                    q.put((r + 1, c - 1))
+                if r < self.max_row - 1 and c < self.max_column - 1 and not self.visited[c + 1][r + 1]:
+                    q.put((r + 1, c + 1))
 
     def start(self, row_position: int, column_position: int):
         """
@@ -84,31 +84,31 @@ class Minesweeper:
         if column_position >= self.max_column or column_position < 0:
             raise ValueError("Column position must be between max created column -1 and 0 (0-indexed)")
 
-        for _ in repeat(None, self.bomb_count):   # replace this with any number you want
-            row = random.choice(list(range(0, row_position)) + list(range(row_position+1, self.max_row)))
-            col = random.choice(list(range(0, column_position)) + list(range(column_position+1, self.max_column)))
+        for _ in repeat(None, self.bomb_count):  # replace this with any number you want
+            row = random.choice(list(range(0, row_position)) + list(range(row_position + 1, self.max_row)))
+            col = random.choice(list(range(0, column_position)) + list(range(column_position + 1, self.max_column)))
             if self.data[col][row] == MINE_VALUE:  # bonus
                 continue
             self.data[col][row] = MINE_VALUE
             # here goes spaghetti code
-            if row > 0 and self.data[col][row-1] != MINE_VALUE:
-                self.data[col][row-1] += 1  # right
-            if row < self.max_row-1 and self.data[col][row+1] != MINE_VALUE:
-                self.data[col][row+1] += 1  # left
-            if col > 0 and self.data[col-1][row] != MINE_VALUE:
-                self.data[col-1][row] += 1  # up
-            if col < self.max_column-1 and self.data[col+1][row] != MINE_VALUE:
-                self.data[col+1][row] += 1  # down
+            if row > 0 and self.data[col][row - 1] != MINE_VALUE:
+                self.data[col][row - 1] += 1  # right
+            if row < self.max_row - 1 and self.data[col][row + 1] != MINE_VALUE:
+                self.data[col][row + 1] += 1  # left
+            if col > 0 and self.data[col - 1][row] != MINE_VALUE:
+                self.data[col - 1][row] += 1  # up
+            if col < self.max_column - 1 and self.data[col + 1][row] != MINE_VALUE:
+                self.data[col + 1][row] += 1  # down
 
             # border time
-            if row > 0 and col > 0 and self.data[col-1][row-1] != MINE_VALUE:
-                self.data[col-1][row-1] += 1  # top right
-            if row < self.max_row-1 and col > 0 and self.data[col-1][row+1] != MINE_VALUE:
-                self.data[col-1][row+1] += 1  # top left
-            if row > 0 and col < self.max_column-1 and self.data[col+1][row-1] != MINE_VALUE:
-                self.data[col+1][row-1] += 1  # bottom right
-            if row < self.max_row-1 and col < self.max_column-1 and self.data[col+1][row+1] != MINE_VALUE:
-                self.data[col+1][row+1] += 1  # bottom left
+            if row > 0 and col > 0 and self.data[col - 1][row - 1] != MINE_VALUE:
+                self.data[col - 1][row - 1] += 1  # top right
+            if row < self.max_row - 1 and col > 0 and self.data[col - 1][row + 1] != MINE_VALUE:
+                self.data[col - 1][row + 1] += 1  # top left
+            if row > 0 and col < self.max_column - 1 and self.data[col + 1][row - 1] != MINE_VALUE:
+                self.data[col + 1][row - 1] += 1  # bottom right
+            if row < self.max_row - 1 and col < self.max_column - 1 and self.data[col + 1][row + 1] != MINE_VALUE:
+                self.data[col + 1][row + 1] += 1  # bottom left
 
         # at the end reveal the starting cell
         self.open(row_position=row_position, column_position=column_position)

@@ -7,11 +7,14 @@ if TYPE_CHECKING:
 
 
 class AnigameCard:
-    def __init__(self, base_atk: int, defense: int,
-                 element: List[str],
-                 crit_multiplier: float = 1.75,
-                 rarity: Rarity = Rarity.COMMON,
-                 ):
+    def __init__(
+        self,
+        base_atk: int,
+        defense: int,
+        element: List[str],
+        crit_multiplier: float = 1.75,
+        rarity: Rarity = Rarity.COMMON,
+    ):
         self.base_atk = base_atk
         self.atk = base_atk
         self.base_defense = defense
@@ -33,12 +36,17 @@ class AnigameCard:
                     total += 1
                 elif ELEMENT[op] == em:
                     total -= 1
-        return 1 + (total/(len(self.element) * len(enemy_element))) * 0.5
+        return 1 + (total / (len(self.element) * len(enemy_element))) * 0.5
 
     def damage(self, enemy: AnigameCard, crit: bool = False):
-        ret = ((((self.base_atk / (enemy.defense * enemy.defense_percentage)) * (self.atk * self.atk_percentage / 2.9))
-                + 220000 / (enemy.defense * enemy.defense_percentage)) / 3
-               * self.element_multiplier(enemy.element))
+        ret = (
+            (
+                ((self.base_atk / (enemy.defense * enemy.defense_percentage)) * (self.atk * self.atk_percentage / 2.9))
+                + 220000 / (enemy.defense * enemy.defense_percentage)
+            )
+            / 3
+            * self.element_multiplier(enemy.element)
+        )
         if crit:
             ret *= self.crit_multiplier
         return ret

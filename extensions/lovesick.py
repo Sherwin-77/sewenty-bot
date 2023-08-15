@@ -16,8 +16,7 @@ from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 if TYPE_CHECKING:
     from main import SewentyBot
 
-logging.basicConfig(level=logging.INFO,
-                    format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger("extension.lovesick")
 
 
@@ -75,8 +74,7 @@ class EditCount(BaseView):
             return await interaction.followup.send("User not found", ephemeral=True)
 
         participants.update({self.userid: participants[self.userid] + difference})
-        await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query,
-                                                       {"$set": {"participants": participants}})
+        await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query, {"$set": {"participants": participants}})
         custom_embed = self.message.embeds[0]
         self.lines[0] = f"Detected count: **{self.value}**"
         self.lines[1] = f"User id: {self.userid}"
@@ -94,13 +92,12 @@ class EditCount(BaseView):
         participants = cursor["participants"]
         if self.userid not in participants:
             return await interaction.followup.send("User not found", ephemeral=True)
-        res = participants[self.userid]-self.original
+        res = participants[self.userid] - self.original
         if res <= 0:
             participants.pop(self.userid)
         else:
             participants.update({self.userid: res})
-        await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query,
-                                                       {"$set": {"participants": participants}})
+        await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query, {"$set": {"participants": participants}})
 
         await self.message.delete()
 
@@ -116,8 +113,7 @@ class ConfirmEdit(BaseView):
     @discord.ui.button(emoji='✅', style=discord.ButtonStyle.green)  # type: ignore
     async def confirm(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.staff.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         await interaction.response.defer()
         view = EditCount(self.parentcls, self.message, self.staff)
         await interaction.delete_original_response()
@@ -127,8 +123,7 @@ class ConfirmEdit(BaseView):
     @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)  # type: ignore
     async def cancel(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.staff.id:
-            return await interaction.response.send_message(content="You are not allowed to use this >:(",
-                                                           ephemeral=True)
+            return await interaction.response.send_message(content="You are not allowed to use this >:(", ephemeral=True)
         await interaction.response.defer()
         await interaction.delete_original_response()
         self.stop()
@@ -172,7 +167,7 @@ class LoveSick(commands.Cog):
 
         self.message_cache = MessageCache()
         self.mod_cache = set()
-        
+
         # Note that id always stored in str due to big number
         self.lxv_member_id = int(setting["lxv_member_id"])
         self.lxv_link_channel = int(setting["lxv_link_channel"])
@@ -225,22 +220,24 @@ class LoveSick(commands.Cog):
             transaction_latency.append(ts["latency"])
             total_transaction += ts["ops"]
             dt = x["localTime"]
-        guild = self.bot.get_guild(self.GUILD_ID) 
+        guild = self.bot.get_guild(self.GUILD_ID)
         ch = guild.get_channel(765818685922213948)  # type: ignore
         total_read = total_read or 1
         total_write = total_write or 1
         total_command = total_command or 1
         total_transaction = total_transaction or 1
-        await ch.send(f"# Data reporting\n"  # type: ignore
-                      f"Read Latency: Average **{sum(read_latency)/(total_read*1000):.2f} ms** "
-                      f"in {total_read} operations\n"
-                      f"Write Latency: Average **{sum(write_latency)/(total_write*1000):.2f} ms** "
-                      f"in {total_write} operations\n"
-                      f"Command Latency: Average **{sum(command_latency)/(total_command*1000):.2f} ms** "
-                      f"in {total_command} operations\n"
-                      f"Transaction Latency: Average **{sum(transaction_latency)/(total_transaction*1000):.2f} ms**"
-                      f" in {total_transaction} operations\n"
-                      f"{discord.utils.format_dt(dt, 'F')}")  # type: ignore
+        await ch.send(  # type: ignore
+            f"# Data reporting\n"  
+            f"Read Latency: Average **{sum(read_latency)/(total_read*1000):.2f} ms** "
+            f"in {total_read} operations\n"
+            f"Write Latency: Average **{sum(write_latency)/(total_write*1000):.2f} ms** "
+            f"in {total_write} operations\n"
+            f"Command Latency: Average **{sum(command_latency)/(total_command*1000):.2f} ms** "
+            f"in {total_command} operations\n"
+            f"Transaction Latency: Average **{sum(transaction_latency)/(total_transaction*1000):.2f} ms**"
+            f" in {total_transaction} operations\n"
+            f"{discord.utils.format_dt(dt, 'F')}"  # type: ignore
+        )  
 
     @ping_lxv_db.before_loop
     async def check_connected(self):
@@ -276,17 +273,16 @@ class LoveSick(commands.Cog):
         if message.author.bot:
             return
         if (
-                message.guild is not None
-                and message.guild.id == self.GUILD_ID 
-                and message.mentions 
-                and not self.mod_only(message)
+            message.guild is not None
+            and message.guild.id == self.GUILD_ID
+            and message.mentions
+            and not self.mod_only(message)
         ):
-            for x in set(message.mentions): # type: ignore
+            for x in set(message.mentions):  # type: ignore
                 x: discord.Member
                 if self.is_mod(x):
                     self.message_cache.add_message(message, f"ping-{message.id}")
                     break
-
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
@@ -303,15 +299,13 @@ class LoveSick(commands.Cog):
         # Hardcoded channel id, will move the feature later
         await message.channel.send(f"{message.author.mention} y why ping")
         channel = guild.get_channel(789154199186702408)  # type: ignore
-        custom_embed = discord.Embed(title="Mod ping deleted",
-                              description=f"Message from **{message.author.mention}**",
-                              color=discord.Colour.random())
-        custom_embed.add_field(name="Original message",
-                        value=message.content)
+        custom_embed = discord.Embed(
+            title="Mod ping deleted", description=f"Message from **{message.author.mention}**", color=discord.Colour.random()
+        )
+        custom_embed.add_field(name="Original message", value=message.content)
         custom_embed.set_thumbnail(url=message.author.display_avatar)
         custom_embed.set_footer(text=f"userid: {message.author.id}")
         await channel.send(embed=custom_embed)
-
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
@@ -320,16 +314,17 @@ class LoveSick(commands.Cog):
         if self.bot.TEST_MODE:
             return
         if (
-                payload.guild_id == self.GUILD_ID and payload.emoji.name == '📝' and
-                payload.channel_id in {self.lxv_link_channel, self.event_link_channel}
-                and payload.message_id not in self.ignored
-                and payload.user_id not in self.ignored
+            payload.guild_id == self.GUILD_ID
+            and payload.emoji.name == '📝'
+            and payload.channel_id in {self.lxv_link_channel, self.event_link_channel}
+            and payload.message_id not in self.ignored
+            and payload.user_id not in self.ignored
         ):
             guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
             channel = guild.get_channel(payload.channel_id)
             if not isinstance(channel, discord.TextChannel):
                 return
-            message = await channel.fetch_message(payload.message_id)  
+            message = await channel.fetch_message(payload.message_id)
 
             if message.author.id != self.bot.user.id:  # type: ignore
                 self.ignored.add(payload.message_id)
@@ -356,12 +351,12 @@ class LoveSick(commands.Cog):
             await view.send()
 
         if (
-                payload.guild_id == self.GUILD_ID
-                and payload.emoji.id == 1046848826050359368
-                and payload.message_id not in self.ignored
-                and payload.message_id not in self.verified
-                and (payload.user_id, payload.message_id) not in self.ignored
-                and not self.event_disabled
+            payload.guild_id == self.GUILD_ID
+            and payload.emoji.id == 1046848826050359368
+            and payload.message_id not in self.ignored
+            and payload.message_id not in self.verified
+            and (payload.user_id, payload.message_id) not in self.ignored
+            and not self.event_disabled
         ):
             guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
             channel = guild.get_channel(payload.channel_id)
@@ -375,13 +370,16 @@ class LoveSick(commands.Cog):
                 return
 
             if not message.content and not message.embeds:
-                warning = await message.reply("WARNING: Content is empty. Retrying in 3 seconds "
-                                              "<a:discordloading:792012369168957450>")
+                warning = await message.reply(
+                    "WARNING: Content is empty. Retrying in 3 seconds " "<a:discordloading:792012369168957450>"
+                )
                 for i in range(3):
                     await asyncio.sleep(3)
                     message = await channel.fetch_message(payload.message_id)
-                    await warning.edit(content=f"WARNING: Content is empty. Retrying in 3 seconds "
-                                               f"<a:discordloading:792012369168957450> (Attempt {i+1})")
+                    await warning.edit(
+                        content=f"WARNING: Content is empty. Retrying in 3 seconds "
+                        f"<a:discordloading:792012369168957450> (Attempt {i+1})"
+                    )
                     if message.content or message.embeds:
                         self.logs.append(f"Empty content attempted {i+1} times")
                         await warning.delete()
@@ -394,8 +392,9 @@ class LoveSick(commands.Cog):
             if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
                 return await message.add_reaction("<:joinlxv:1044554756569432094>")
 
-            link_channel = guild.get_channel(self.lxv_link_channel
-                                             if member.get_role(self.lxv_member_id) else self.event_link_channel)
+            link_channel = guild.get_channel(
+                self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
+            )
 
             allowed = all([member.get_role(roleid) for roleid in self.required_role_ids])
             if self.bot.TEST_MODE:
@@ -409,13 +408,10 @@ class LoveSick(commands.Cog):
                 return await message.reply("Invalid message type")
 
             if member.display_name not in content:
-                self.logs.append(f"Username mismatch\n"
-                                 f"```"
-                                 f"{member.display_name}\n"
-                                 f"==========\n"
-                                 f"{content}")
-                await message.reply("Username doesn't match/found in hunting message. "
-                                    "If you believe this is yours, contact staff")
+                self.logs.append(f"Username mismatch\n" f"```" f"{member.display_name}\n" f"==========\n" f"{content}")
+                await message.reply(
+                    "Username doesn't match/found in hunting message. " "If you believe this is yours, contact staff"
+                )
                 self.ignored.add((payload.user_id, payload.message_id))
                 return
 
@@ -449,22 +445,22 @@ class LoveSick(commands.Cog):
                 counts += participants[userid]
             participants.update({userid: counts})
 
-            link_embed = discord.Embed(title=f"Hunt from {member}", description=content,
-                                       color=discord.Colour.green())
-            link_embed.add_field(name="Detail",
-                                 value=f"Detected count: **{detected}**\n"
-                                       f"User id: {userid}\n"
-                                       f"Channel: {channel.mention}\n"
-                                       f"Jump url: [Link]({message.jump_url})\n"
-                                       f"In case other wondering, "
-                                       f"react your event hunt message with <:newlxv:1046848826050359368>\n"
-                                       f"If anything wrong, for staff react the emoji below")
+            link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
+            link_embed.add_field(
+                name="Detail",
+                value=f"Detected count: **{detected}**\n"
+                f"User id: {userid}\n"
+                f"Channel: {channel.mention}\n"
+                f"Jump url: [Link]({message.jump_url})\n"
+                f"In case other wondering, "
+                f"react your event hunt message with <:newlxv:1046848826050359368>\n"
+                f"If anything wrong, for staff react the emoji below",
+            )
             msg = await link_channel.send(embed=link_embed)  # type: ignore
             await msg.add_reaction('📝')
 
             if not cursor:
-                await self.LXV_COLLECTION.insert_one(
-                    {"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
+                await self.LXV_COLLECTION.insert_one({"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
             else:
                 await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
 
@@ -473,8 +469,7 @@ class LoveSick(commands.Cog):
             if not verified:
                 await self.LXV_COLLECTION.insert_one({"_id": "verified_msg", "msg_ids": list(self.verified)})
             else:
-                await self.LXV_COLLECTION.update_one({"_id": "verified_msg"},
-                                                     {"$set": {"msg_ids": list(self.verified)}})
+                await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
             await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
     @commands.command()
@@ -488,18 +483,22 @@ class LoveSick(commands.Cog):
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
         roles = [f"<@&{x}>" for x in self.required_role_ids]
-        custom_embed = discord.Embed(title="Super stat for event",
-                                     description=f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
-                                                 f"Event counting "
-                                                 f"currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
-                                                 f"LXV only event set to **{self.lxv_only_event}**\n",
-                                     colour=discord.Colour.random())
+        custom_embed = discord.Embed(
+            title="Super stat for event",
+            description=f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
+            f"Event counting "
+            f"currently **{'disabled' if self.event_disabled else 'enabled'}**\n"
+            f"LXV only event set to **{self.lxv_only_event}**\n",
+            colour=discord.Colour.random(),
+        )
         custom_embed.add_field(name="Required role", value=", ".join(roles))
-        await ctx.send(f"Hi event\n"
-                       f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
-                       f"||Read the command detail before use 👀||\n"
-                       f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>",
-                       embed=custom_embed)
+        await ctx.send(
+            f"Hi event\n"
+            f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
+            f"||Read the command detail before use 👀||\n"
+            f"How to participate? If your hunt contains event pet, react with <:newlxv:1046848826050359368>",
+            embed=custom_embed,
+        )
 
     @event.command(aliases=["f"])
     async def focus(self, ctx, *pet):
@@ -516,11 +515,13 @@ class LoveSick(commands.Cog):
             res = ["None"]
         res = list(res)
         res.sort()
-        custom_embed = discord.Embed(title="Focus index",
-                                     description=f"Are you sure want to focus to index `{'`, `'.join(res)}`?\n"
-                                                 f"**All verified message id posted at link will be cleared"
-                                                 f"and event counting will be set to enabled**",
-                                     color=discord.Colour.green())
+        custom_embed = discord.Embed(
+            title="Focus index",
+            description=f"Are you sure want to focus to index `{'`, `'.join(res)}`?\n"
+            f"**All verified message id posted at link will be cleared"
+            f"and event counting will be set to enabled**",
+            color=discord.Colour.green(),
+        )
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
         await confirm.send(ctx)
         await confirm.wait()
@@ -530,18 +531,20 @@ class LoveSick(commands.Cog):
         self.verified = set()
         self.event_disabled = False
         await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": []}})
-        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"focus": list(res),
-                                                                           "event_disabled": self.event_disabled}})
+        await self.LXV_COLLECTION.update_one(
+            {"_id": "setting"}, {"$set": {"focus": list(res), "event_disabled": self.event_disabled}}
+        )
 
     @event.command(aliases=["role"])
     async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):  # type: ignore
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         roles: List = list(set(roles))
-        custom_embed = discord.Embed(title="Focus index",
-                                     description=f"Are you sure want to set role requirement "
-                                                 f"to {', '.join([r.mention for r in roles])}?",
-                                     color=discord.Colour.green())
+        custom_embed = discord.Embed(
+            title="Focus index",
+            description=f"Are you sure want to set role requirement " f"to {', '.join([r.mention for r in roles])}?",
+            color=discord.Colour.green(),
+        )
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
         await confirm.send(ctx)
         await confirm.wait()
@@ -607,12 +610,10 @@ class LoveSick(commands.Cog):
         custom_embed = discord.Embed(title=f"Leaderboard", color=discord.Colour.random())
         i = 1
         for userid, item in top.items():
-            if i <= length * (page-1):
+            if i <= length * (page - 1):
                 i += 1
                 continue
-            custom_embed.add_field(name=f"#{i}: {ctx.guild.get_member(int(userid))}",
-                                   value=f"{item} Hunts",
-                                   inline=False)
+            custom_embed.add_field(name=f"#{i}: {ctx.guild.get_member(int(userid))}", value=f"{item} Hunts", inline=False)
             i += 1
             if i > length * page:
                 break
@@ -631,8 +632,9 @@ class LoveSick(commands.Cog):
             return await ctx.reply("<:joinlxv:1044554756569432094>")
 
         message = ctx.message.reference.resolved
-        link_channel = ctx.guild.get_channel(self.lxv_link_channel  # type: ignore
-                                             if member.get_role(self.lxv_member_id) else self.event_link_channel)
+        link_channel = ctx.guild.get_channel(  # type: ignore
+            self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel  
+        )
         userid = str(member.id)
 
         content = message.content if not message.embeds else message.embeds[0].description
@@ -668,22 +670,22 @@ class LoveSick(commands.Cog):
             counts += participants[userid]
         participants.update({userid: counts})
 
-        link_embed = discord.Embed(title=f"Hunt from {member}", description=content,
-                                   color=discord.Colour.green())
-        link_embed.add_field(name="Detail",
-                             value=f"Detected count: **{detected}**\n"
-                                   f"User id: {userid}\n"
-                                   f"Channel: {ctx.channel.mention}\n"  # type: ignore
-                                   f"Jump url: [Link]({message.jump_url})\n"
-                                   f"In case other wondering, "
-                                   f"react your event hunt message with <:newlxv:1046848826050359368>\n"
-                                   f"If anything wrong, for staff react the emoji below")
+        link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
+        link_embed.add_field(
+            name="Detail",
+            value=f"Detected count: **{detected}**\n"
+            f"User id: {userid}\n"
+            f"Channel: {ctx.channel.mention}\n"  # type: ignore
+            f"Jump url: [Link]({message.jump_url})\n"
+            f"In case other wondering, "
+            f"react your event hunt message with <:newlxv:1046848826050359368>\n"
+            f"If anything wrong, for staff react the emoji below",
+        )
         msg = await link_channel.send(embed=link_embed)  # type: ignore
         await msg.add_reaction('📝')
 
         if not cursor:
-            await self.LXV_COLLECTION.insert_one(
-                {"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
+            await self.LXV_COLLECTION.insert_one({"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
         else:
             await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
 
@@ -692,8 +694,7 @@ class LoveSick(commands.Cog):
         if not verified:
             await self.LXV_COLLECTION.insert_one({"_id": "verified_msg", "msg_ids": list(self.verified)})
         else:
-            await self.LXV_COLLECTION.update_one({"_id": "verified_msg"},
-                                                 {"$set": {"msg_ids": list(self.verified)}})
+            await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
         await ctx.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
     @event.command(aliases=["acu"])
@@ -708,10 +709,11 @@ class LoveSick(commands.Cog):
             return await ctx.send("Invalid number")
         cursor = await self.LXV_COLLECTION.find_one(self.pet_query)
         if not cursor:
-            custom_embed = discord.Embed(title="Add count",
-                                         description=f"Pet doesn't exist in database. "
-                                                     f"Do you want to add index of focus pet?",
-                                         color=discord.Colour.green())
+            custom_embed = discord.Embed(
+                title="Add count",
+                description=f"Pet doesn't exist in database. " f"Do you want to add index of focus pet?",
+                color=discord.Colour.green(),
+            )
             confirm = ConfirmEmbed(ctx.author.id, custom_embed)
             await confirm.send(ctx)
             await confirm.wait()
@@ -746,11 +748,13 @@ class LoveSick(commands.Cog):
         participants: dict = cursor["participants"]
         if userid not in participants:
             return await ctx.send("User not found")
-        custom_embed = discord.Embed(title="Set count",
-                                     description=f"You are changing pet count of user {user} "
-                                                 f"(Previous **{participants[userid]}**)\n"
-                                                 f"Proceed to continue?",
-                                     color=discord.Colour.green())
+        custom_embed = discord.Embed(
+            title="Set count",
+            description=f"You are changing pet count of user {user} "
+            f"(Previous **{participants[userid]}**)\n"
+            f"Proceed to continue?",
+            color=discord.Colour.green(),
+        )
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
         await confirm.send(ctx)
         await confirm.wait()

@@ -16,8 +16,17 @@ if TYPE_CHECKING:
 class Hero:
     _weapon: HeroWeapon
 
-    def __init__(self, name: str, char: str,
-                 weapon: Union[str, HeroWeapon], hp: int, attack: int, speed: int, defense: int, ranges: int):
+    def __init__(
+        self,
+        name: str,
+        char: str,
+        weapon: Union[str, HeroWeapon],
+        hp: int,
+        attack: int,
+        speed: int,
+        defense: int,
+        ranges: int,
+    ):
         self.name = name
         self.char = char
         if isinstance(weapon, str):
@@ -66,14 +75,20 @@ class Hero:
             return f"{target.name} managed to **dodge** {self.name}'s attack and take no damage", False
 
         if self._get_effect(Effect.DODGE, target_state.buffs):
-            return (f"**[BUFF]** {Effect.DODGE.value}: " 
-                    f"{target.name} **dodge** {self.name}'s attack and take no damage", False)
+            return (
+                f"**[BUFF]** {Effect.DODGE.value}: " f"{target.name} **dodge** {self.name}'s attack and take no damage",
+                False,
+            )
 
         target.hp -= self.power
 
-        return (self.name + (f" have enough range at **{state.distance}** hyper meter and" if self.is_ranged else '')
-                + f" deal **{self.power}** damage to {target.name}. "
-                + ("**CRITICAL HIT**" if critical else ''), True)
+        return (
+            self.name
+            + (f" have enough range at **{state.distance}** hyper meter and" if self.is_ranged else '')
+            + f" deal **{self.power}** damage to {target.name}. "
+            + ("**CRITICAL HIT**" if critical else ''),
+            True,
+        )
 
     def attacks(self, target: Hero, state: State, target_state: State) -> str:
         if not isinstance(target, Hero):

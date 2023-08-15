@@ -24,6 +24,7 @@ class State:
 
     4: Post attack
     """
+
     state_at: int
     buffs: List
     debuffs: List
@@ -82,7 +83,7 @@ class Battle:
                     self.enemy.set_power(b)
 
                     while self.distance > a.ranges and self.distance > b.ranges:
-                        self.distance = max(0, self.distance-a.speed-b.speed)
+                        self.distance = max(0, self.distance - a.speed - b.speed)
                     if a.ranges >= self.distance > self.enemy.ranges:
                         a.is_ranged = True
                         b.is_ranged = False
@@ -117,13 +118,15 @@ class Battle:
                     log += self._check()
 
         if self.distance < self.allies.ranges:
-            self.distance = min(self.allies.ranges, self.distance + self.allies.speed//2)
+            self.distance = min(self.allies.ranges, self.distance + self.allies.speed // 2)
         if self.distance < self.enemy.ranges:
-            self.distance = min(self.enemy.ranges, self.distance + self.enemy.speed//2)
+            self.distance = min(self.enemy.ranges, self.distance + self.enemy.speed // 2)
 
-        self.distance = max(0, self.distance
-                            - round((reduce_dist
-                                     * (1+abs(self.allies.hp-self.enemy.hp)/(self.allies.hp + self.enemy.hp)))))
+        self.distance = max(
+            0,
+            self.distance
+            - round((reduce_dist * (1 + abs(self.allies.hp - self.enemy.hp) / (self.allies.hp + self.enemy.hp)))),
+        )
         self.rounds += 1
 
         return log.strip()

@@ -21,7 +21,7 @@ class Action(commands.GroupCog, group_name="action"):
         bucket = self._cd.get_bucket(ctx.message)
         if bucket is None:
             return
-        retry_after = bucket.update_rate_limit()  
+        retry_after = bucket.update_rate_limit()
         if retry_after:
             raise commands.CommandOnCooldown(bucket, retry_after, commands.BucketType.user)
         return True
@@ -55,15 +55,17 @@ class Action(commands.GroupCog, group_name="action"):
         if not cursor:
             await self.action_collection.insert_one({"_id": f"{ctx.author.id}{action}", "users": users})
         else:
-            await self.action_collection.update_one(query, {"$set": {"users": users}})\
-
+            await self.action_collection.update_one(query, {"$set": {"users": users}})
         return counts
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if (not message.content.lower().startswith('y')
-                or self.bot.TEST_MODE and message.guild is not None
-                and message.guild.id != 714152739252338749):
+        if (
+            not message.content.lower().startswith('y')
+            or self.bot.TEST_MODE
+            and message.guild is not None
+            and message.guild.id != 714152739252338749
+        ):
             return
         offset = 1
         if message.content.lower().startswith("yui"):
@@ -141,19 +143,22 @@ class Action(commands.GroupCog, group_name="action"):
     async def sleep(self, ctx, *, user: Optional[str] = None):
         """Sleep with someone"""
         if user is None:
-            return await ctx.send(f"{ctx.author.mention} sleep peacefully (maybe) today...",
-                                  allowed_mentions=discord.AllowedMentions.none())
+            return await ctx.send(
+                f"{ctx.author.mention} sleep peacefully (maybe) today...", allowed_mentions=discord.AllowedMentions.none()
+            )
         target = await self.query_member(ctx, user)
         if target is None:
             return await ctx.send("User ded")
         if target.id == ctx.author.id:
-            return await ctx.send(f"{ctx.author.mention} sleep peacefully (maybe) today...",
-                                  allowed_mentions=discord.AllowedMentions.none())
+            return await ctx.send(
+                f"{ctx.author.mention} sleep peacefully (maybe) today...", allowed_mentions=discord.AllowedMentions.none()
+            )
 
         counts = await self.update_action(ctx, str(target.id), "sleep")
-        await ctx.send(f"{ctx.author.mention} sleeps with {target.mention}...\n"
-                       f"That's {counts} sleeps now~",
-                       allowed_mentions=discord.AllowedMentions.none())
+        await ctx.send(
+            f"{ctx.author.mention} sleeps with {target.mention}...\n" f"That's {counts} sleeps now~",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @commands.command()
     async def pat(self, ctx, *, user):
@@ -165,9 +170,10 @@ class Action(commands.GroupCog, group_name="action"):
             return await ctx.send("aww :c I'll pat you instead...")
 
         counts = await self.update_action(ctx, str(target.id), "pat")
-        await ctx.send(f"{ctx.author.mention} pats {target.mention}.\n"
-                       f"That's {counts} pats now!",
-                       allowed_mentions=discord.AllowedMentions.none())
+        await ctx.send(
+            f"{ctx.author.mention} pats {target.mention}.\n" f"That's {counts} pats now!",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @commands.command()
     async def bite(self, ctx, *, user):
@@ -179,11 +185,13 @@ class Action(commands.GroupCog, group_name="action"):
             return await ctx.send("Nu bite self :c")
 
         counts = await self.update_action(ctx, str(target.id), "bite")
-        custom_embed = discord.Embed(title="You gave a bite!",
-                                     description=f"{ctx.author.mention} bites {target.mention}",
-                                     url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
-                                         "&permissions=412384349248&scope=bot%20applications.commands",
-                                     color=discord.Colour.random())
+        custom_embed = discord.Embed(
+            title="You gave a bite!",
+            description=f"{ctx.author.mention} bites {target.mention}",
+            url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
+            "&permissions=412384349248&scope=bot%20applications.commands",
+            color=discord.Colour.random(),
+        )
         custom_embed.set_footer(text=f"Thats {counts} bites now!")
         await ctx.send(embed=custom_embed)
 
@@ -197,11 +205,13 @@ class Action(commands.GroupCog, group_name="action"):
             return await ctx.send("Do you need some cuddle :c")
 
         counts = await self.update_action(ctx, str(target.id), "cuddle")
-        custom_embed = discord.Embed(title="You gave a cuddle!",
-                                     description=f"{ctx.author.mention} cuddles {target.mention}",
-                                     url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
-                                         "&permissions=412384349248&scope=bot%20applications.commands",
-                                     color=discord.Colour.random())
+        custom_embed = discord.Embed(
+            title="You gave a cuddle!",
+            description=f"{ctx.author.mention} cuddles {target.mention}",
+            url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
+            "&permissions=412384349248&scope=bot%20applications.commands",
+            color=discord.Colour.random(),
+        )
         custom_embed.set_footer(text=f"Thats {counts} cuddles now!")
         await ctx.send(embed=custom_embed)
 
@@ -215,9 +225,10 @@ class Action(commands.GroupCog, group_name="action"):
             return await ctx.send("No >:(")
 
         counts = await self.update_action(ctx, str(target.id), "cookie")
-        await ctx.send(f"{ctx.author.mention} gave {target.mention} a cookie!\n"
-                       f"That's {counts} cookies now!",
-                       allowed_mentions=discord.AllowedMentions.none())
+        await ctx.send(
+            f"{ctx.author.mention} gave {target.mention} a cookie!\n" f"That's {counts} cookies now!",
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
 
     @commands.command()
     async def counters(self, ctx: commands.Context, action: str, *, user: Optional[str] = None):
@@ -246,7 +257,7 @@ class Action(commands.GroupCog, group_name="action"):
             if i > 25 and len(top) > 25:
                 total += counts
                 continue
-            member = ctx.guild.get_member(int(userid))  
+            member = ctx.guild.get_member(int(userid))
             display = f"User-{userid}"
             if member is not None:
                 display = member.display_name
@@ -259,13 +270,12 @@ class Action(commands.GroupCog, group_name="action"):
         res += '└' + ('─' * 26) + '┴' + ('─' * 8) + "┘\n"
         if total > 0:
             res += f"And {total} more {action}s to {len(top)-25}"
-        custom_embed = discord.Embed(description=f"This leaderboard is for given {action}s\n"
-                                                 f"```\n"
-                                                 f"{res}\n"
-                                                 f"```",
-                                     color=discord.Colour.green())
-        custom_embed.set_author(name=f"{target.display_name}'s leaderboard",
-                                icon_url=target.avatar.url if target.avatar else None)
+        custom_embed = discord.Embed(
+            description=f"This leaderboard is for given {action}s\n" f"```\n" f"{res}\n" f"```", color=discord.Colour.green()
+        )
+        custom_embed.set_author(
+            name=f"{target.display_name}'s leaderboard", icon_url=target.avatar.url if target.avatar else None
+        )
         await ctx.send(embed=custom_embed)
 
 

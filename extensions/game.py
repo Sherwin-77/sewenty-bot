@@ -50,8 +50,9 @@ async def update_point(userid, battle_point, cursor):
     await cursor.update_one({"_id": str(userid)}, {"$set": {"battlepoint": battle_point}})
 
 
-async def update_character(userid, char, weapon, hp, attack, speed, defense, attack1, speed1, ranges, defense1,
-                           battle_point, cursor):
+async def update_character(
+    userid, char, weapon, hp, attack, speed, defense, attack1, speed1, ranges, defense1, battle_point, cursor
+):
     """
     Replace existing character of user in db
 
@@ -77,21 +78,27 @@ async def update_character(userid, char, weapon, hp, attack, speed, defense, att
     None
     """
     userid = str(userid)
-    await cursor.update_one({"_id": userid}, {"$set": {"char": char,
-                                                       "weapon": weapon,
-                                                       "hp": hp,
-                                                       "attack": attack,
-                                                       "speed": speed,
-                                                       "defense": defense,
-                                                       "attack1": attack1,
-                                                       "speed1": speed1,
-                                                       "range": ranges,
-                                                       "defense1": defense1,
-                                                       "battlepoint": battle_point}})
+    await cursor.update_one(
+        {"_id": userid},
+        {
+            "$set": {
+                "char": char,
+                "weapon": weapon,
+                "hp": hp,
+                "attack": attack,
+                "speed": speed,
+                "defense": defense,
+                "attack1": attack1,
+                "speed1": speed1,
+                "range": ranges,
+                "defense1": defense1,
+                "battlepoint": battle_point,
+            }
+        },
+    )
 
 
-async def insert_character(userid, char, weapon, hp, attack, speed, defense, attack1, speed1, ranges, defense1,
-                           cursor):
+async def insert_character(userid, char, weapon, hp, attack, speed, defense, attack1, speed1, ranges, defense1, cursor):
     """
     Create character of user in db
 
@@ -116,18 +123,22 @@ async def insert_character(userid, char, weapon, hp, attack, speed, defense, att
     None
     """
     userid = str(userid)
-    await cursor.insert_one({"_id": userid,
-                             "char": char,
-                             "weapon": weapon,
-                             "hp": hp,
-                             "attack": attack,
-                             "speed": speed,
-                             "defense": defense,
-                             "attack1": attack1,
-                             "speed1": speed1,
-                             "range": ranges,
-                             "defense1": defense1,
-                             "battlepoint": 0})
+    await cursor.insert_one(
+        {
+            "_id": userid,
+            "char": char,
+            "weapon": weapon,
+            "hp": hp,
+            "attack": attack,
+            "speed": speed,
+            "defense": defense,
+            "attack1": attack1,
+            "speed1": speed1,
+            "range": ranges,
+            "defense1": defense1,
+            "battlepoint": 0,
+        }
+    )
 
 
 def generate_enemy(stat, name, multiplier: float = 1):
@@ -161,7 +172,7 @@ class User(Hero):
         speed = self.profile['speed'] + self.profile['speed1']
         defense = round((self.profile['defense'] + self.profile['defense1']) * (1 + 0.05 * self.battle_point))
         ranges = self.profile['range']
-        super().__init__(name, char, weapon, hp, attack, speed, defense, ranges) 
+        super().__init__(name, char, weapon, hp, attack, speed, defense, ranges)
 
     def show(self):
         profile = self.profile
@@ -178,22 +189,28 @@ class User(Hero):
         defense1 = profile['defense1']
         passive = WEAPONRY[weapon]["passive"]
         description = WEAPONRY[weapon]["description"]
-        custom_embed = discord.Embed(title='Profile',
-                                     description=f'Your character: {char}\n'
-                                                 f'HP: {hp}\n'
-                                                 f'Attac: {attack}\n'
-                                                 f'Spid: {speed}\n'
-                                                 f'Difens: {defense}\n'
-                                                 f'BettelPoint: {battle_point}',
-                                     color=discord.Colour.yellow())
-        custom_embed.add_field(name='Weapon', value=f'Your weapon: {weapon}\n'
-                                                    f'Weapon Stat:\n'
-                                                    f'Attac: {attack1}\n'
-                                                    f'Spid: {speed1}\n'
-                                                    f'Range: {ranges}\n'
-                                                    f'Difens: {defense1}\n'
-                                                    f'Passife {passive}\n'
-                                                    f'{description}', inline=False)
+        custom_embed = discord.Embed(
+            title='Profile',
+            description=f'Your character: {char}\n'
+            f'HP: {hp}\n'
+            f'Attac: {attack}\n'
+            f'Spid: {speed}\n'
+            f'Difens: {defense}\n'
+            f'BettelPoint: {battle_point}',
+            color=discord.Colour.yellow(),
+        )
+        custom_embed.add_field(
+            name='Weapon',
+            value=f'Your weapon: {weapon}\n'
+            f'Weapon Stat:\n'
+            f'Attac: {attack1}\n'
+            f'Spid: {speed1}\n'
+            f'Range: {ranges}\n'
+            f'Difens: {defense1}\n'
+            f'Passife {passive}\n'
+            f'{description}',
+            inline=False,
+        )
         return custom_embed
 
 
@@ -282,7 +299,7 @@ class MineBoard(discord.ui.View):
         for button in self.children:  # type: ignore
             button: MineCellButton
             button.disabled = True
-        running_game.remove(str(self.player.id))  
+        running_game.remove(str(self.player.id))
         await self.message.edit(view=self)
 
     def start(self, row_position, column_position):
@@ -309,9 +326,7 @@ class CustomGame(app_commands.Group, name="custombattle"):
 
     @app_commands.command(name="solo")
     @app_commands.describe(weapon="Which weapon you want to use")
-    @app_commands.choices(weapon=[
-        app_commands.Choice(name=x[1:-1].replace('_', ' ').title(), value=x) for x in list_weapon
-    ])
+    @app_commands.choices(weapon=[app_commands.Choice(name=x[1:-1].replace('_', ' ').title(), value=x) for x in list_weapon])
     async def solo_custom(self, interaction: discord.Interaction, weapon: app_commands.Choice[str]):
         await interaction.response.send_message(weapon.value, ephemeral=True)
         max_stat = 200
@@ -319,54 +334,66 @@ class CustomGame(app_commands.Group, name="custombattle"):
         attack = random.randrange(30, 51 + (100 - hp))
         speed = random.randrange(1, 6)
         defense = max_stat - hp - attack - speed
-        player = Hero(name=interaction.user.name,
-                      char=random.choice(CHAR_LIST),
-                      weapon=WEAPONRY[weapon.value]["weapon"],
-                      hp=hp * 8,
-                      attack=attack + WEAPONRY[weapon.value]["attack"],
-                      speed=speed + WEAPONRY[weapon.value]["speed"],
-                      defense=defense + WEAPONRY[weapon.value]["defense"],
-                      ranges=WEAPONRY[weapon.value]["range"])
+        player = Hero(
+            name=interaction.user.name,
+            char=random.choice(CHAR_LIST),
+            weapon=WEAPONRY[weapon.value]["weapon"],
+            hp=hp * 8,
+            attack=attack + WEAPONRY[weapon.value]["attack"],
+            speed=speed + WEAPONRY[weapon.value]["speed"],
+            defense=defense + WEAPONRY[weapon.value]["defense"],
+            ranges=WEAPONRY[weapon.value]["range"],
+        )
         enemy = generate_enemy(0, random.choice(CHARACTER_NAMES), 1)
         system = Battle(player, enemy)
         log = 'Battle Started'
-        custom_embed = discord.Embed(title='Battle',
-                                     description=f'Your character: {player.char}\n'
-                                                 f'HP: {player.hp}\n'
-                                                 f'Attac: {player.attack}\n'
-                                                 f'Spid: {player.speed}\n'
-                                                 f'Difens: {player.defense}\n'
-                                                 f'Range: {player.ranges}\n'
-                                                 f'Weapon: {player.weapon}\n',
-                                     color=discord.Colour.yellow())
-        custom_embed.add_field(name='Enemy', value=f'Opponent character: {enemy.char}\n'
-                                                   f'HP: {enemy.hp}\n'
-                                                   f'Attac: {enemy.attack}\n'
-                                                   f'Spid: {enemy.speed}\n'
-                                                   f'Difens: {enemy.defense}\n'
-                                                   f'Range: {enemy.ranges}\n'
-                                                   f'Weapon: {enemy.weapon}\n')
+        custom_embed = discord.Embed(
+            title='Battle',
+            description=f'Your character: {player.char}\n'
+            f'HP: {player.hp}\n'
+            f'Attac: {player.attack}\n'
+            f'Spid: {player.speed}\n'
+            f'Difens: {player.defense}\n'
+            f'Range: {player.ranges}\n'
+            f'Weapon: {player.weapon}\n',
+            color=discord.Colour.yellow(),
+        )
+        custom_embed.add_field(
+            name='Enemy',
+            value=f'Opponent character: {enemy.char}\n'
+            f'HP: {enemy.hp}\n'
+            f'Attac: {enemy.attack}\n'
+            f'Spid: {enemy.speed}\n'
+            f'Difens: {enemy.defense}\n'
+            f'Range: {enemy.ranges}\n'
+            f'Weapon: {enemy.weapon}\n',
+        )
         message = await interaction.followup.send(embed=custom_embed)
         custom_embed.add_field(name='Log', value=f'{log}', inline=False)
         battleCooldown.update({str(interaction.user.id): True})
         log = system.run()
         while True:
-            custom_embed = discord.Embed(title=f'Battle round {system.rounds}',
-                                         description=f'Your character: {player.char}\n'
-                                                     f'HP: {player.hp}\n'
-                                                     f'Attac: {player.attack}\n'
-                                                     f'Spid: {player.speed}\n'
-                                                     f'Difens: {player.defense}\n'
-                                                     f'Range: {player.ranges}\n'
-                                                     f'Weapon: {player.weapon}\n',
-                                         color=discord.Colour.yellow())
-            custom_embed.add_field(name='Enemy', value=f'Opponent character: {enemy.char}\n'
-                                                       f'HP: {enemy.hp}\n'
-                                                       f'Attac: {enemy.attack}\n'
-                                                       f'Spid: {enemy.speed}\n'
-                                                       f'Difens: {enemy.defense}\n'
-                                                       f'Range: {enemy.ranges}\n'
-                                                       f'Weapon: {enemy.weapon}\n')
+            custom_embed = discord.Embed(
+                title=f'Battle round {system.rounds}',
+                description=f'Your character: {player.char}\n'
+                f'HP: {player.hp}\n'
+                f'Attac: {player.attack}\n'
+                f'Spid: {player.speed}\n'
+                f'Difens: {player.defense}\n'
+                f'Range: {player.ranges}\n'
+                f'Weapon: {player.weapon}\n',
+                color=discord.Colour.yellow(),
+            )
+            custom_embed.add_field(
+                name='Enemy',
+                value=f'Opponent character: {enemy.char}\n'
+                f'HP: {enemy.hp}\n'
+                f'Attac: {enemy.attack}\n'
+                f'Spid: {enemy.speed}\n'
+                f'Difens: {enemy.defense}\n'
+                f'Range: {enemy.ranges}\n'
+                f'Weapon: {enemy.weapon}\n',
+            )
             custom_embed.add_field(name='Log', value=f'{log}', inline=False)
             await asyncio.sleep(SLEEP_TIME)
             await message.edit(embed=custom_embed)  # type: ignore
@@ -402,7 +429,9 @@ class Game(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
 
-    @commands.command(aliases=["gamestart"], )
+    @commands.command(
+        aliases=["gamestart"],
+    )
     async def startgame(self, ctx, re_roll=None):
         """
         Interested in game?
@@ -428,32 +457,62 @@ class Game(commands.Cog):
             defense1 = WEAPONRY[weapon]['defense']
             passive = WEAPONRY[weapon]['passive']
             description = WEAPONRY[weapon]['description']
-            custom_embed = discord.Embed(title='Game started',
-                                         description=f'You get character: {char}\n'
-                                                     f'HP: {hp}\n'
-                                                     f'Attac: {attack}\n'
-                                                     f'Spid: {speed}\n'
-                                                     f'Difens: {defense}',
-                                         color=discord.Colour.yellow())
-            custom_embed.add_field(name='Weapon', value=f'You get: {weapon}\n'
-                                                        f'Weapon Stat:\n'
-                                                        f'Attac: {attack1}\n'
-                                                        f'Spid: {speed1}\n'
-                                                        f'Range: {ranges}\n'
-                                                        f'Difens: {defense1}\n'
-                                                        f'Passife {passive}\n'
-                                                        f'{description}', inline=False)
+            custom_embed = discord.Embed(
+                title='Game started',
+                description=f'You get character: {char}\n'
+                f'HP: {hp}\n'
+                f'Attac: {attack}\n'
+                f'Spid: {speed}\n'
+                f'Difens: {defense}',
+                color=discord.Colour.yellow(),
+            )
+            custom_embed.add_field(
+                name='Weapon',
+                value=f'You get: {weapon}\n'
+                f'Weapon Stat:\n'
+                f'Attac: {attack1}\n'
+                f'Spid: {speed1}\n'
+                f'Range: {ranges}\n'
+                f'Difens: {defense1}\n'
+                f'Passife {passive}\n'
+                f'{description}',
+                inline=False,
+            )
             await ctx.send(embed=custom_embed)
             if counts != 0:  # keep battle point of user if exist
                 battle_point = 0
                 if "battlepoint" in profile:
                     battle_point = profile["battlepoint"]
-                await update_character(userid, char, weapon, hp, attack, speed, defense,
-                                       attack1, speed1, ranges, defense1,
-                                       battle_point, self.bot.GAME_COLLECTION)
+                await update_character(
+                    userid,
+                    char,
+                    weapon,
+                    hp,
+                    attack,
+                    speed,
+                    defense,
+                    attack1,
+                    speed1,
+                    ranges,
+                    defense1,
+                    battle_point,
+                    self.bot.GAME_COLLECTION,
+                )
             else:
-                await insert_character(userid, char, weapon, hp, attack, speed, defense,
-                                       attack1, speed1, ranges, defense1, self.bot.GAME_COLLECTION)
+                await insert_character(
+                    userid,
+                    char,
+                    weapon,
+                    hp,
+                    attack,
+                    speed,
+                    defense,
+                    attack1,
+                    speed1,
+                    ranges,
+                    defense1,
+                    self.bot.GAME_COLLECTION,
+                )
 
         else:
             await ctx.send("You already start your game :c", delete_after=5)
@@ -461,7 +520,9 @@ class Game(commands.Cog):
         await asyncio.sleep(3)
         commandCooldown.pop(str(userid))
 
-    @commands.command(aliases=["gameprofile", "profile"], )
+    @commands.command(
+        aliases=["gameprofile", "profile"],
+    )
     async def profilegame(self, ctx, user: Optional[discord.User] = None):
         """
         Check for profile game
@@ -503,9 +564,9 @@ class Game(commands.Cog):
             return await ctx.send("Point is too large", delete_after=3)
 
         def custom_embed(color):
-            return discord.Embed(title="Confirmation",
-                                 description=f"are you sure want to set your point to {point}?",
-                                 color=color)
+            return discord.Embed(
+                title="Confirmation", description=f"are you sure want to set your point to {point}?", color=color
+            )
 
         target = await ctx.send(embed=custom_embed(discord.Colour.yellow()))
         await target.add_reaction("✅")
@@ -527,8 +588,10 @@ class Game(commands.Cog):
             await target.edit(content="Success", embed=None)
             return
         await self.bot.GAME_COLLECTION.update_one({"_id": str(ctx.author.id)}, {"$set": {"ascended": True}})
-        await target.edit(content=f"Success! {ctx.author.name} ascended and gained power to change weapon\n"
-                                  f"`s!weaponset [weapon]`", embed=None)
+        await target.edit(
+            content=f"Success! {ctx.author.name} ascended and gained power to change weapon\n" f"`s!weaponset [weapon]`",
+            embed=None,
+        )
 
     @commands.command(aliases=["setweapon"])
     async def weaponset(self, ctx, weapon: str):
@@ -553,24 +616,32 @@ class Game(commands.Cog):
         defense1 = WEAPONRY[weapon]['defense']
         passive = WEAPONRY[weapon]['passive']
         description = WEAPONRY[weapon]['description']
-        await self.bot.GAME_COLLECTION.update_one({"_id": str(ctx.author.id)}, {"$set": {"weapon": weapon,
-                                                                                         "attack1": attack1,
-                                                                                         "speed1": speed1,
-                                                                                         "range": ranges,
-                                                                                         "defense1": defense1,
-                                                                                         "passive": passive,
-                                                                                         "description": description
-                                                                                         }})
+        await self.bot.GAME_COLLECTION.update_one(
+            {"_id": str(ctx.author.id)},
+            {
+                "$set": {
+                    "weapon": weapon,
+                    "attack1": attack1,
+                    "speed1": speed1,
+                    "range": ranges,
+                    "defense1": defense1,
+                    "passive": passive,
+                    "description": description,
+                }
+            },
+        )
         profile = await self.bot.GAME_COLLECTION.find_one(query)
         player = User(profile)
         await ctx.send(embed=player.show())
 
-    @commands.command(aliases=["gf", "fight", "bt"], )
+    @commands.command(
+        aliases=["gf", "fight", "bt"],
+    )
     async def gamefight(self, ctx, opponent: Union[discord.User, str], balance: Optional[bool] = False):
         """
         Battle with other player or bot
         Available difficulties are 'e', 'm', 'h', and 'i'
-       """
+        """
         if str(ctx.author.id) in battleCooldown:
             return
         query = {"_id": str(ctx.author.id)}
@@ -596,8 +667,7 @@ class Game(commands.Cog):
             else:
                 stat = 15
                 add_streak = 5
-            enemy = generate_enemy(stat, random.choice(CHARACTER_NAMES),
-                                   1 + 0.5 * random.random() + 0.05 * battle_point)
+            enemy = generate_enemy(stat, random.choice(CHARACTER_NAMES), 1 + 0.5 * random.random() + 0.05 * battle_point)
         else:
             enemy_user = opponent
             if not isinstance(enemy_user, discord.User):
@@ -616,43 +686,53 @@ class Game(commands.Cog):
                 return await ctx.send("Player haven't started any game :c")
         system = Battle(player, enemy)
         log = "Battle Started"
-        custom_embed = discord.Embed(title='Battle',
-                                     description=f'Your character: {player.char}\n'
-                                                 f'HP: {player.hp}\n'
-                                                 f'Attac: {player.attack}\n'
-                                                 f'Spid: {player.speed}\n'
-                                                 f'Difens: {player.defense}\n'
-                                                 f'Range: {player.ranges}\n'
-                                                 f'Weapon: {player.weapon}\n',
-                                     color=discord.Colour.yellow())
-        custom_embed.add_field(name='Enemy', value=f'Opponent character: {enemy.char}\n'
-                                                   f'HP: {enemy.hp}\n'
-                                                   f'Attac: {enemy.attack}\n'
-                                                   f'Spid: {enemy.speed}\n'
-                                                   f'Difens: {enemy.defense}\n'
-                                                   f'Range: {enemy.ranges}\n'
-                                                   f'Weapon: {enemy.weapon}\n')
+        custom_embed = discord.Embed(
+            title='Battle',
+            description=f'Your character: {player.char}\n'
+            f'HP: {player.hp}\n'
+            f'Attac: {player.attack}\n'
+            f'Spid: {player.speed}\n'
+            f'Difens: {player.defense}\n'
+            f'Range: {player.ranges}\n'
+            f'Weapon: {player.weapon}\n',
+            color=discord.Colour.yellow(),
+        )
+        custom_embed.add_field(
+            name='Enemy',
+            value=f'Opponent character: {enemy.char}\n'
+            f'HP: {enemy.hp}\n'
+            f'Attac: {enemy.attack}\n'
+            f'Spid: {enemy.speed}\n'
+            f'Difens: {enemy.defense}\n'
+            f'Range: {enemy.ranges}\n'
+            f'Weapon: {enemy.weapon}\n',
+        )
         message = await ctx.send(embed=custom_embed)
         custom_embed.add_field(name='Log', value=f'{log}', inline=False)
         battleCooldown.update({str(ctx.author.id): True})
         log = system.run()
         while True:
-            custom_embed = discord.Embed(title=f'Battle round {system.rounds}',
-                                         description=f'Your character: {player.char}\n'
-                                                     f'HP: {player.hp}\n'
-                                                     f'Attac: {player.attack}\n'
-                                                     f'Spid: {player.speed}\n'
-                                                     f'Difens: {player.defense}\n'
-                                                     f'Range: {player.ranges}\n'
-                                                     f'Weapon: {player.weapon}\n',
-                                         color=discord.Colour.yellow())
-            custom_embed.add_field(name='Enemy', value=f'Opponent character: {enemy.char}\n'
-                                                       f'HP: {enemy.hp}\n'
-                                                       f'Attac: {enemy.attack}\n'
-                                                       f'Spid: {enemy.speed}\n'
-                                                       f'Difens: {enemy.defense}\n'
-                                                       f'Range: {enemy.ranges}\n'
-                                                       f'Weapon: {enemy.weapon}\n')
+            custom_embed = discord.Embed(
+                title=f'Battle round {system.rounds}',
+                description=f'Your character: {player.char}\n'
+                f'HP: {player.hp}\n'
+                f'Attac: {player.attack}\n'
+                f'Spid: {player.speed}\n'
+                f'Difens: {player.defense}\n'
+                f'Range: {player.ranges}\n'
+                f'Weapon: {player.weapon}\n',
+                color=discord.Colour.yellow(),
+            )
+            custom_embed.add_field(
+                name='Enemy',
+                value=f'Opponent character: {enemy.char}\n'
+                f'HP: {enemy.hp}\n'
+                f'Attac: {enemy.attack}\n'
+                f'Spid: {enemy.speed}\n'
+                f'Difens: {enemy.defense}\n'
+                f'Range: {enemy.ranges}\n'
+                f'Weapon: {enemy.weapon}\n',
+            )
             custom_embed.add_field(name='Log', value=f'{log}', inline=False)
             await asyncio.sleep(SLEEP_TIME)
             await message.edit(embed=custom_embed)
@@ -662,10 +742,12 @@ class Game(commands.Cog):
                     battle_point += add_streak
                     await ctx.send(f'{player.name} win! Your Battle point: {battle_point}')
                     if battle_point >= 2147483647:
-                        await ctx.send(f"{ctx.author.mention} Your battle point reached max\n"
-                                       f"If you would like to reset you can do s!setpoint to any point you want "
-                                       f"(below 2147483647)\n"
-                                       f"Note: This command only usable if you have max point")
+                        await ctx.send(
+                            f"{ctx.author.mention} Your battle point reached max\n"
+                            f"If you would like to reset you can do s!setpoint to any point you want "
+                            f"(below 2147483647)\n"
+                            f"Note: This command only usable if you have max point"
+                        )
                         await update_point(ctx.author.id, 2147483647, self.bot.GAME_COLLECTION)
                     else:
                         await update_point(ctx.author.id, battle_point, self.bot.GAME_COLLECTION)
@@ -694,8 +776,7 @@ class Game(commands.Cog):
                 team[x] = {}
                 team[x]['char'] = random.choice(CHAR_LIST)
                 team[x]['hp'] = random.randrange(30, 81)
-                team[x]['attack'] = random.randrange(30, 51 + (
-                        100 - team[x]['hp']))
+                team[x]['attack'] = random.randrange(30, 51 + (100 - team[x]['hp']))
                 team[x]['speed'] = random.randrange(1, 6)
                 team[x]['defense'] = max_stat - team[x]['hp'] - team[x]['attack'] - team[x]['speed']
                 team[x]['weapon'] = random.choice(list_weapon)
@@ -707,9 +788,7 @@ class Game(commands.Cog):
                 team[x]['passive'] = WEAPONRY[weapon]['passive']
             await self.bot.GAME_COLLECTION.insert_one({"_id": f"team{ctx.author.id}", "team": team})
         team = await self.bot.GAME_COLLECTION.find_one(query)
-        team_embed = discord.Embed(title=f'{ctx.author.name}\'s Team',
-                                   description=None,
-                                   color=discord.Colour.random())
+        team_embed = discord.Embed(title=f'{ctx.author.name}\'s Team', description=None, color=discord.Colour.random())
         for x in range(1, 4):
             char = team["team"][x]['char']
             hp = team["team"][x]['hp']
@@ -723,16 +802,20 @@ class Game(commands.Cog):
             defense1 = team["team"][x]['defense1']
             passive = WEAPONRY[weapon]["passive"]
 
-            team_embed.add_field(name=f'[{x}]', value=f'{char}\n'
-                                                      f'Hp: {hp}\n'
-                                                      f'Attac: {attack}\n'
-                                                      f'Spid: {speed}\n'
-                                                      f'Difens: {defense}\n'
-                                                      f'**Weapon**: {weapon} | {passive}\n'
-                                                      f'Attac: {attack1}\n'
-                                                      f'Difens: {defense1}\n'
-                                                      f'Spid: {speed1}\n'
-                                                      f'Range: {ranges}', inline=True)
+            team_embed.add_field(
+                name=f'[{x}]',
+                value=f'{char}\n'
+                f'Hp: {hp}\n'
+                f'Attac: {attack}\n'
+                f'Spid: {speed}\n'
+                f'Difens: {defense}\n'
+                f'**Weapon**: {weapon} | {passive}\n'
+                f'Attac: {attack1}\n'
+                f'Difens: {defense1}\n'
+                f'Spid: {speed1}\n'
+                f'Range: {ranges}',
+                inline=True,
+            )
             team_hp += team["team"][x]["hp"]
             team_attack += team["team"][x]["attack"] + team["team"][x]["attack1"]
             team_defense += team["team"][x]["defense"] + team["team"][x]["defense1"]
@@ -740,11 +823,13 @@ class Game(commands.Cog):
             team_ranges += team["team"][x]["ranges"]
         team_ranges = team_ranges // 3
         team_speed = team_speed // 3
-        team_embed.description = f"Hp: {team_hp}  "\
-                                 f"Attac: {team_attack}  "\
-                                 f"Difens: {team_defense}  "\
-                                 f"Spid: {team_speed}  "\
-                                 f"Range: {team_ranges}"
+        team_embed.description = (
+            f"Hp: {team_hp}  "
+            f"Attac: {team_attack}  "
+            f"Difens: {team_defense}  "
+            f"Spid: {team_speed}  "
+            f"Range: {team_ranges}"
+        )
         team_embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar)
         await ctx.send(embed=team_embed)
         commandCooldown.update({str(ctx.author.id): True})
@@ -764,13 +849,9 @@ class Game(commands.Cog):
         x = position
         team["team"][x]['char'] = random.choice(CHAR_LIST)
         team["team"][x]['hp'] = random.randrange(30, 81)
-        team["team"][x]['attack'] = random.randrange(30, 51 + (
-                100 - team["team"][x]['hp']))
+        team["team"][x]['attack'] = random.randrange(30, 51 + (100 - team["team"][x]['hp']))
         team["team"][x]['speed'] = random.randrange(1, 6)
-        team["team"][x]['defense'] = (max_stat
-                                      - team["team"][x]['hp']
-                                      - team["team"][x]['attack']
-                                      - team["team"][x]['speed'])
+        team["team"][x]['defense'] = max_stat - team["team"][x]['hp'] - team["team"][x]['attack'] - team["team"][x]['speed']
         team["team"][x]['weapon'] = random.choice(list_weapon)
         weapon = team["team"][x]['weapon']
         team["team"][x]['attack1'] = WEAPONRY[weapon]['attack']
@@ -785,21 +866,25 @@ class Game(commands.Cog):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             return await ctx.reply("Please input position", mention_author=False, delete_after=5)
         if isinstance(error, commands.errors.BadArgument):
-            return await ctx.reply(f"Please input correct parameter\n"
-                                   f"```py\n{error}```", mention_author=False, delete_after=5)
+            return await ctx.reply(
+                f"Please input correct parameter\n" f"```py\n{error}```", mention_author=False, delete_after=5
+            )
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             buffer = BytesIO(output.encode("utf-8"))
             file = discord.File(buffer, filename="log.txt")
-            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`",
-                                      file=file)
+            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
         else:
-            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                                         description=f"```py\n{output}```",
-                                         color=discord.Colour.red())
+            custom_embed = discord.Embed(
+                title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
+                description=f"```py\n{output}```",
+                color=discord.Colour.red(),
+            )
             await self.bot.send_owner(embed=custom_embed)
 
-    @commands.command(aliases=["raidboss"], )
+    @commands.command(
+        aliases=["raidboss"],
+    )
     async def bossraid(self, ctx, difficulty: str):
         """
         Raid some boss with your team and show your skill!
@@ -810,10 +895,7 @@ class Game(commands.Cog):
         counts = await self.bot.GAME_COLLECTION.count_documents(query)
         if counts == 0:
             return await ctx.send("You don't have team :c")
-        stat_buff = {'e': 50,
-                     'h': 60,
-                     'i': 70,
-                     "ss": 100}
+        stat_buff = {'e': 50, 'h': 60, 'i': 70, "ss": 100}
         if difficulty not in stat_buff:
             return await ctx.send("Select difficulty e,h or i", delete_after=5)
         stat = stat_buff[difficulty]
@@ -823,35 +905,50 @@ class Game(commands.Cog):
         system = Battle(team, boss)
         log = "Battle started"
         raid = discord.Embed(title="Raid Boss", description="Round 0", color=discord.Colour.random())
-        raid.add_field(name=team.name, value=f'{team.description}\n'
-                                             f'Hp: {team.hp}  Attac: {team.attack}\n'
-                                             f'Difens: {team.defense}\n'
-                                             f'Spid: {team.speed}\n'
-                                             f'Range: {team.ranges}', inline=True)
-        raid.add_field(name=boss.name, value=f'{boss.char}  {boss.weapon}\n'
-                                             f'Hp: {boss.hp}\n'
-                                             f'Attac: {boss.attack}\n'
-                                             f'Difens: {boss.defense}\n'
-                                             f'Spid: {boss.speed}\n'
-                                             f'Range: {boss.ranges}')
+        raid.add_field(
+            name=team.name,
+            value=f'{team.description}\n'
+            f'Hp: {team.hp}  Attac: {team.attack}\n'
+            f'Difens: {team.defense}\n'
+            f'Spid: {team.speed}\n'
+            f'Range: {team.ranges}',
+            inline=True,
+        )
+        raid.add_field(
+            name=boss.name,
+            value=f'{boss.char}  {boss.weapon}\n'
+            f'Hp: {boss.hp}\n'
+            f'Attac: {boss.attack}\n'
+            f'Difens: {boss.defense}\n'
+            f'Spid: {boss.speed}\n'
+            f'Range: {boss.ranges}',
+        )
         raid.add_field(name='Logs', value=log, inline=False)
         message = await ctx.send(embed=raid)
         log = system.run()
         teamCooldown.update({str(ctx.author.id): True})
         while True:
-            raid = discord.Embed(title="Raid Boss", description=f"Round {system.rounds} battle",
-                                 color=discord.Colour.random())
-            raid.add_field(name=team.name, value=f'{team.description}\n'
-                                                 f'Hp: {team.hp}  Attac: {team.attack}\n'
-                                                 f'Difens: {team.defense}\n'
-                                                 f'Spid: {team.speed}\n'
-                                                 f'Range: {team.ranges}', inline=True)
-            raid.add_field(name=boss.name, value=f'{boss.char}  {boss.weapon}\n'
-                                                 f'Hp: {boss.hp}\n'
-                                                 f'Attac: {boss.attack}\n'
-                                                 f'Difens: {boss.defense}\n'
-                                                 f'Spid: {boss.speed}\n'
-                                                 f'Range: {boss.ranges}')
+            raid = discord.Embed(
+                title="Raid Boss", description=f"Round {system.rounds} battle", color=discord.Colour.random()
+            )
+            raid.add_field(
+                name=team.name,
+                value=f'{team.description}\n'
+                f'Hp: {team.hp}  Attac: {team.attack}\n'
+                f'Difens: {team.defense}\n'
+                f'Spid: {team.speed}\n'
+                f'Range: {team.ranges}',
+                inline=True,
+            )
+            raid.add_field(
+                name=boss.name,
+                value=f'{boss.char}  {boss.weapon}\n'
+                f'Hp: {boss.hp}\n'
+                f'Attac: {boss.attack}\n'
+                f'Difens: {boss.defense}\n'
+                f'Spid: {boss.speed}\n'
+                f'Range: {boss.ranges}',
+            )
             raid.add_field(name='Logs', value=log, inline=False)
             await asyncio.sleep(SLEEP_TIME)
             await message.edit(embed=raid)
@@ -873,12 +970,13 @@ class Game(commands.Cog):
         if len(output) > 1500:
             buffer = BytesIO(output.encode("utf-8"))
             file = discord.File(buffer, filename="log.txt")
-            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`",
-                                      file=file)
+            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
         else:
-            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                                         description=f"```py\n{output}```",
-                                         color=discord.Colour.red())
+            custom_embed = discord.Embed(
+                title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
+                description=f"```py\n{output}```",
+                color=discord.Colour.red(),
+            )
             await self.bot.send_owner(embed=custom_embed)
 
     @commands.command()
@@ -904,18 +1002,24 @@ class Game(commands.Cog):
 
         log = "Battle started"
         raid = discord.Embed(title="Raid enemy", description="Round 0", color=discord.Colour.random())
-        raid.add_field(name=team.name, value=f'{team.description}\n'
-                                             f'Hp: {team.hp}\n'
-                                             f'Attac: {team.attack}\n'
-                                             f'Difens: {team.defense}\n'
-                                             f'Spid: {team.speed}\n'
-                                             f'Range: {team.ranges}')
-        raid.add_field(name=enemy.name, value=f'{enemy.description}\n'
-                                              f'Hp: {enemy.hp}\n'
-                                              f'Attac: {enemy.attack}\n'
-                                              f'Difens: {enemy.defense}\n'
-                                              f'Spid: {enemy.speed}\n'
-                                              f'Range: {enemy.ranges}')
+        raid.add_field(
+            name=team.name,
+            value=f'{team.description}\n'
+            f'Hp: {team.hp}\n'
+            f'Attac: {team.attack}\n'
+            f'Difens: {team.defense}\n'
+            f'Spid: {team.speed}\n'
+            f'Range: {team.ranges}',
+        )
+        raid.add_field(
+            name=enemy.name,
+            value=f'{enemy.description}\n'
+            f'Hp: {enemy.hp}\n'
+            f'Attac: {enemy.attack}\n'
+            f'Difens: {enemy.defense}\n'
+            f'Spid: {enemy.speed}\n'
+            f'Range: {enemy.ranges}',
+        )
         raid.add_field(name='Logs', value=log, inline=False)
         message = await ctx.send(embed=raid)
         log = system.run()
@@ -923,21 +1027,27 @@ class Game(commands.Cog):
 
         # let's begin our date
         while True:
-            raid = discord.Embed(title='Raid enemy',
-                                 description=f'Round {system.rounds} battle',
-                                 color=discord.Colour.random())
-            raid.add_field(name=team.name, value=f'{team.description}\n'
-                                                 f'Hp: {team.hp}\n'
-                                                 f'Attac: {team.attack}\n'
-                                                 f'Difens: {team.defense}\n'
-                                                 f'Spid: {team.speed}\n'
-                                                 f'Range: {team.ranges}')
-            raid.add_field(name=enemy.name, value=f'{enemy.description}\n'
-                                                  f'Hp: {enemy.hp}\n'
-                                                  f'Attac: {enemy.attack}\n'
-                                                  f'Difens: {enemy.defense}\n'
-                                                  f'Spid: {enemy.speed}\n'
-                                                  f'Range: {enemy.ranges}')
+            raid = discord.Embed(
+                title='Raid enemy', description=f'Round {system.rounds} battle', color=discord.Colour.random()
+            )
+            raid.add_field(
+                name=team.name,
+                value=f'{team.description}\n'
+                f'Hp: {team.hp}\n'
+                f'Attac: {team.attack}\n'
+                f'Difens: {team.defense}\n'
+                f'Spid: {team.speed}\n'
+                f'Range: {team.ranges}',
+            )
+            raid.add_field(
+                name=enemy.name,
+                value=f'{enemy.description}\n'
+                f'Hp: {enemy.hp}\n'
+                f'Attac: {enemy.attack}\n'
+                f'Difens: {enemy.defense}\n'
+                f'Spid: {enemy.speed}\n'
+                f'Range: {enemy.ranges}',
+            )
             raid.add_field(name='Logs', value=log, inline=False)
             await asyncio.sleep(SLEEP_TIME)
             await message.edit(embed=raid)
@@ -954,19 +1064,20 @@ class Game(commands.Cog):
     @teambattle.error
     async def teambattle_error(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
-            return await ctx.reply("who you wanna battle with? (userid works instead mention)",
-                                   mention_author=False,
-                                   delete_after=5)
+            return await ctx.reply(
+                "who you wanna battle with? (userid works instead mention)", mention_author=False, delete_after=5
+            )
         output = ''.join(format_exception(type(error), error, error.__traceback__))
         if len(output) > 1500:
             buffer = BytesIO(output.encode("utf-8"))
             file = discord.File(buffer, filename="log.txt")
-            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`",
-                                      file=file)
+            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
         else:
-            custom_embed = discord.Embed(title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                                         description=f"```py\n{output}```",
-                                         color=discord.Colour.red())
+            custom_embed = discord.Embed(
+                title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
+                description=f"```py\n{output}```",
+                color=discord.Colour.red(),
+            )
             await self.bot.send_owner(embed=custom_embed)
 
     @commands.command()
@@ -990,12 +1101,16 @@ class Game(commands.Cog):
         defense = WEAPONRY[name]["defense"]
         passive = WEAPONRY[name]["passive"]
         description = WEAPONRY[name]['description']
-        dexed = discord.Embed(title=name, description=f"Attac: {attack}\n"
-                                                      f"Difens: {defense}\n"
-                                                      f"Range: {ranges}\n"
-                                                      f"Spid: {speed}\n"
-                                                      f"Passife: {passive}\n"
-                                                      f"{description}", color=discord.Colour.random())
+        dexed = discord.Embed(
+            title=name,
+            description=f"Attac: {attack}\n"
+            f"Difens: {defense}\n"
+            f"Range: {ranges}\n"
+            f"Spid: {speed}\n"
+            f"Passife: {passive}\n"
+            f"{description}",
+            color=discord.Colour.random(),
+        )
         await ctx.send(embed=dexed)
 
     @commands.command(aliases=["guidegame", "startguide", "guidestart"])
@@ -1004,21 +1119,30 @@ class Game(commands.Cog):
         Get started
         """
         embed = discord.Embed(title='Game Guide', description='Need more help? ask @invalid-user#8807')
-        embed.add_field(name='Start your game', value='This game has 2 mode. team and solo\n'
-                                                      'Get your solo character by `startgame` command.'
-                                                      'Not satisfied with your weapon? you can do `startgame reroll`\n'
-                                                      'Get your team by `teamgame` command.'
-                                                      'Not satisfied with your weapon combination? you can do '
-                                                      '`teamgame rr [position]`')
-        embed.add_field(name='Weapon', value='Every character you rolled get random weapon. You can check its passive '
-                                             'by `wdesc [weapon]` command where weapon name as emoji name. '
-                                             '**Note that same passive can\'t be stacked**')
-        embed.add_field(name='Battle', value='For solo battle you can do `gamefight [difficulty/player]`. '
-                                             'Difficulties for solo are e, m, h, i. '
-                                             'You get **battlepoint** by winning battle'
-                                             'which will boost your stat\n'
-                                             'For team battle you can do `teambattle [player]` or you can raid '
-                                             '`bossraid [difficulty]`. Difficulties for raid are e, h, i')
+        embed.add_field(
+            name='Start your game',
+            value='This game has 2 mode. team and solo\n'
+            'Get your solo character by `startgame` command.'
+            'Not satisfied with your weapon? you can do `startgame reroll`\n'
+            'Get your team by `teamgame` command.'
+            'Not satisfied with your weapon combination? you can do '
+            '`teamgame rr [position]`',
+        )
+        embed.add_field(
+            name='Weapon',
+            value='Every character you rolled get random weapon. You can check its passive '
+            'by `wdesc [weapon]` command where weapon name as emoji name. '
+            '**Note that same passive can\'t be stacked**',
+        )
+        embed.add_field(
+            name='Battle',
+            value='For solo battle you can do `gamefight [difficulty/player]`. '
+            'Difficulties for solo are e, m, h, i. '
+            'You get **battlepoint** by winning battle'
+            'which will boost your stat\n'
+            'For team battle you can do `teambattle [player]` or you can raid '
+            '`bossraid [difficulty]`. Difficulties for raid are e, h, i',
+        )
         embed.set_author(name=ctx.author.name, icon_url=ctx.author.avatar)
         await ctx.send(embed=embed)
 
