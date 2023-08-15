@@ -24,7 +24,7 @@ from utils.paginators import SimplePages, EmbedSource
 
 USE_PSQL = False
 
-__version__ = "2.2.3"
+__version__ = "2.2.4"
 
 load_dotenv()  # in case we use .env in future
 
