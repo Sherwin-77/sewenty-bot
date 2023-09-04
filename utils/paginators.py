@@ -69,7 +69,7 @@ class EmbedSource(menus.ListPageSource):
         self.title = title
         self.format_caller = format_caller
 
-    async def format_page(self, menu: menus, page):
+    async def format_page(self, menu: menus.Menu, page):
         offset = menu.current_page * self.per_page  # type: ignore
         embed = discord.Embed(color=discord.Colour.random())
         embed.description = '\n'.join(f"{i+1}. {v}" for i, v in enumerate(page, start=offset))
