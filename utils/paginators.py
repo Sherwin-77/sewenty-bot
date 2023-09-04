@@ -49,7 +49,7 @@ class SimplePages(discord.ui.View, menus.MenuPages):
             await self.message.delete()
         else:
             await self.show_current_page()
-        await interaction.response.edit_message(view=self)
+            await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='▶', style=discord.ButtonStyle.blurple)
     async def next_page(self, interaction, _):
