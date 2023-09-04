@@ -64,7 +64,7 @@ class SimplePages(discord.ui.View, menus.MenuPages):
 
 # https://github.com/Rapptz/discord-ext-menus#pagination
 class EmbedSource(menus.ListPageSource):
-    def __init__(self, entries, per_page=4, title=None, format_caller: Callable = None):  # type: ignore
+    def __init__(self, entries, per_page=4, title="Title", format_caller: Callable = None):  # type: ignore
         super().__init__(entries, per_page=per_page)
         self.title = title
         self.format_caller = format_caller
