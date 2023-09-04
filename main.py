@@ -1,6 +1,8 @@
 # bot.py
 import asyncio
+import asyncpg
 from datetime import datetime
+from time import time_ns
 from glob import glob
 from io import BytesIO
 import json
@@ -9,7 +11,7 @@ from os import getenv
 from os.path import relpath
 import random
 from traceback import format_exception
-from typing import Union
+from typing import Optional, Union
 
 import aiohttp
 import discord
@@ -22,11 +24,12 @@ from psutil._common import bytes2human
 from utils.cache import MessageCache
 from utils.paginators import SimplePages, EmbedSource
 
-USE_PSQL = False
-
 __version__ = "2.2.4"
 
 load_dotenv()  # in case we use .env in future
+
+
+
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
 logger = logging.getLogger("main")
@@ -58,6 +61,7 @@ class SewentyBot(commands.Bot):
     # Lint
     owner: discord.User
     session: aiohttp.ClientSession
+    pool: Optional[asyncpg.Pool]
     DB: motor.motor_asyncio.AsyncIOMotorDatabase
     CP_DB: motor.motor_asyncio.AsyncIOMotorDatabase
     LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase
@@ -66,16 +70,6 @@ class SewentyBot(commands.Bot):
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train", "kingdom collect", "kingdom attack"}
 
     TOKEN = getenv("DISCORD_TOKEN")
-    EMAILS = getenv("EMAIL")
-    PASSWORDS = getenv("PASSWORD")
-    SECOND_EMAIL = getenv("NEXT_EMAIL")
-    SECOND_PASSWORD = getenv("NEXT_PASSWORD")
-    CPDB_NAME = getenv("CPDB_NAME")
-    DB_NAME = getenv("DB_NAME")
-    MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@{DB_NAME}.mongodb.net/test"
-    CP_URL = f"mongodb+srv://{SECOND_EMAIL}:{SECOND_PASSWORD}@{CPDB_NAME}.mongodb.net/Hakibot"
-    PSQL_USER = getenv("PSQL_USER")
-    PSQL_PASSWORD = getenv("PSQL_PASSWORD")
 
     # Test db
     # MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"
@@ -91,10 +85,10 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help"),
         )
 
-        self.TEST_MODE = False
+        self.TEST_MODE = True
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
-        self.launch_timestamp = int(datetime.now().timestamp())
+        self.launch_timestamp = time_ns()//1000000000
 
         self.banned_user = set()
         self.message_cache = MessageCache()  # Might be useful later so leaving it here
@@ -122,14 +116,38 @@ class SewentyBot(commands.Bot):
         # we define this later
         self.guild_prefix = dict()
         self.allowed_track_channel = dict()
+        self.pool = None
 
     async def setup_hook(self) -> None:
         if self.TEST_MODE:
             logger.warning("Test mode turned on. Consider turning off before production")
+        email = getenv("EMAIL")
+        password = getenv("PASSWORD")
+        db_name = getenv("DB_NAME")
+        cp_email = getenv("NEXT_EMAIL")
+        cp_password = getenv("NEXT_PASSWORD")
+        cp_name = getenv("CPDB_NAME")
+        mango_url = f"mongodb+srv://{email}:{password}@{db_name}.mongodb.net/test"
+        cp_url = f"mongodb+srv://{cp_email}:{cp_password}@{cp_name}.mongodb.net/Hakibot"
+        psql_user = getenv("PSQL_USER")
+        psql_password = getenv("PSQL_PASSWORD")
+        psql_host = getenv("PSQL_HOST")
+        psql_port = getenv("PSQL_PORT")
+        logger.info(".env loaded")
         self.session = aiohttp.ClientSession()
+        try:
+            self.pool = await asyncpg.create_pool(
+                host=psql_host,
+                database="postgres",
+                user=psql_user,
+                password=psql_password,
+                port=psql_port,
+            )
+        except Exception as e:
+            logger.error(f"Error connecting psql: {e}")
 
-        cluster = motor.motor_asyncio.AsyncIOMotorClient(self.MANGO_URL)
-        cluster1 = motor.motor_asyncio.AsyncIOMotorClient(self.CP_URL)
+        cluster = motor.motor_asyncio.AsyncIOMotorClient(mango_url)
+        cluster1 = motor.motor_asyncio.AsyncIOMotorClient(cp_url)
         app = await self.application_info()
         logger.info("Aiohttp session and database connected")
 
@@ -207,6 +225,16 @@ class SewentyBot(commands.Bot):
         self.last_stack = traceback
         self.last_date = datetime.utcnow()
 
+    async def get_db_ping(self) -> Optional[int]:
+        if self.pool is None:
+            return None
+        t0 = time_ns()
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute("SELECT 1")
+        t1 = time_ns()
+        return (t1-t0)//10000000
+
 
 def slash_is_enabled():
     def wrapper(interaction: discord.Interaction):
@@ -269,6 +297,33 @@ def main():
 
     @bot.command(hidden=True)
     @commands.is_owner()
+    async def sql(ctx, *, query):
+        if bot.pool is None:
+            return await ctx.reply("Psql disabled", mention_author=False)
+        async with bot.pool.acquire() as conn:
+            async with conn.transaction():
+                value = await conn.execute(query)
+        await ctx.send(embed=discord.Embed(title="Result", description=value, color=discord.Colour.random()))
+
+    @bot.command(hidden=True)
+    @commands.is_owner()
+    async def psql(ctx, *, query):
+        if bot.pool is None:
+            return await ctx.reply("Psql disabled", mention_author=False)
+        async with bot.pool.acquire() as conn:
+            async with conn.transaction():
+                value = await conn.fetch(query)
+        await ctx.send(embed=discord.Embed(title="Result", description=value, color=discord.Colour.random()))
+
+    @psql.error
+    @sql.error
+    async def sql_on_error(ctx, error):
+        if isinstance(error, commands.CommandInvokeError):
+            return await ctx.reply(f"Failed to fetch: {type(error.original)} {error.original}", mention_author=False)
+        await ctx.reply(f"Failed to fetch: {type(error)} {error}", mention_author=False)
+
+    @bot.command(hidden=True)
+    @commands.is_owner()
     async def catch(ctx: commands.Context):
         ref = ctx.message.reference
         if ref is None or not isinstance(ref.resolved, discord.Message):
@@ -291,7 +346,6 @@ def main():
         else:
             await ctx.send("Unable to catch fish")
 
-    # noinspection SpellCheckingInspection
     @bot.command(hidden=True)
     @commands.is_owner()
     async def ban(ctx, user: discord.User):
@@ -388,7 +442,7 @@ def main():
             else:
                 value = f"{value} %"
             memory_detail.append(f"{name.capitalize()}: {value}")
-
+        t = await bot.get_db_ping()
         custom_embed = discord.Embed(
             title="Bot Stats",
             description=f"Uptime: <t:{bot.launch_timestamp}:R>\n"
@@ -397,6 +451,7 @@ def main():
             f"CPU usage: {psutil.cpu_percent(1)}%\n"
             f"Ping: "
             f"{round(bot.latency * 1000)} ms\n"
+            f"DB Ping: {t} ms\n"
             f"Running in **"
             f"{'normal' if not bot.TEST_MODE else 'Test'}** mode ",
             color=discord.Colour.random(),

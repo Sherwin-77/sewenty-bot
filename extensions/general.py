@@ -51,12 +51,15 @@ class General(commands.Cog):
         time0 = datetime.utcnow().replace(tzinfo=None)
         time1 = discord.utils.snowflake_time(ctx.message.id).replace(tzinfo=None)
         ping = round(self.bot.latency * 1000)
-        message = await ctx.reply(f':ping_pong: Pong! in: {ping} ms', mention_author=False)
+        message = await ctx.reply(f":ping_pong: Pong! in: {ping} ms", mention_author=False)
         time_diff1 = round((time1 - time0).microseconds / 1000)
         time_diff2 = round((discord.utils.snowflake_time(message.id).replace(tzinfo=None) - time0).microseconds / 1000)
+        db_ping = await self.bot.get_db_ping()
         await message.edit(
-            content=f':ping_pong: Pong! in: {ping} ms\nMessage received in: {time_diff1} ms\n'
-            f'Message sent in: {time_diff2} ms',
+            content=f":ping_pong: Pong! in: {ping} ms\n"
+            f"DB Ping: {db_ping} ms\n"
+            f"Message received in: {time_diff1} ms\n"
+            f"Message sent in: {time_diff2} ms",
             allowed_mentions=discord.AllowedMentions.none(),
         )
 
