@@ -6,7 +6,9 @@ from time import time_ns
 from glob import glob
 from io import BytesIO
 import json
+
 import logging
+import logging.config
 from os import getenv
 from os.path import relpath
 import random
@@ -28,10 +30,31 @@ __version__ = "2.2.4"
 
 load_dotenv()  # in case we use .env in future
 
-
-
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
+logging.config.dictConfig(
+    {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {"simple": {"format": "[{asctime}] [{levelname:^7}] {name}: {message}", "style": "{"}},
+        "handlers": {
+            "console": {
+                "class": "logging.StreamHandler",
+                "level": "INFO",
+                "formatter": "simple",
+                "stream": "ext://sys.stdout",
+            },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "level": "INFO",
+                "formatter": "simple",
+                "filename": "bot.log",
+                "maxBytes": 16 * 1024 * 1024,
+                "backupCount": 3,
+                "encoding": "utf-8",
+            },
+        },
+        "root": {"level": "INFO", "handlers": ["console", "file"]},
+    }
+)
 logger = logging.getLogger("main")
 
 
@@ -88,7 +111,7 @@ class SewentyBot(commands.Bot):
         self.TEST_MODE = True
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
-        self.launch_timestamp = time_ns()//1000000000
+        self.launch_timestamp = time_ns() // 1000000000
 
         self.banned_user = set()
         self.message_cache = MessageCache()  # Might be useful later so leaving it here
@@ -233,7 +256,7 @@ class SewentyBot(commands.Bot):
             async with conn.transaction():
                 await conn.execute("SELECT 1")
         t1 = time_ns()
-        return (t1-t0)//10000000
+        return (t1 - t0) // 10000000
 
 
 def slash_is_enabled():
@@ -243,6 +266,13 @@ def slash_is_enabled():
         return interaction.command.qualified_name not in SewentyBot.disabled_app_command
 
     return discord.app_commands.check(wrapper)
+
+
+def read_log():
+    arr = []
+    with open("bot.log") as f:
+        arr = f.readlines()
+    return arr
 
 
 def main():
@@ -269,6 +299,17 @@ def main():
     @bot.tree.context_menu(name="Ajg", guild=discord.Object(id=714152739252338749))
     async def ajg(interaction: discord.Interaction, user: discord.User):
         await interaction.response.send_message(f"Ajg 👉 {user.mention}")
+
+    @bot.command(hidden=True)
+    @commands.is_owner()
+    async def logs(ctx, page_limit=3):
+        res = await bot.loop.run_in_executor(None, read_log)
+        if len(res) == 0:
+            return await ctx.send("No logs")
+        menu = SimplePages(
+            source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg: f"```.log\n{''.join(pg)}\n```")
+        )
+        await menu.start(ctx)
 
     @bot.command(hidden=True)
     @commands.is_owner()

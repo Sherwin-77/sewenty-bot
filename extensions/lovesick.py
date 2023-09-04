@@ -153,7 +153,6 @@ class LoveSick(commands.Cog):
         self.focus = []
         self.ignored = set()
         self.verified = set()
-        self.logs = []
 
     async def get_setting(self, unload_on_error=True):
         setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
@@ -381,7 +380,7 @@ class LoveSick(commands.Cog):
                         f"<a:discordloading:792012369168957450> (Attempt {i+1})"
                     )
                     if message.content or message.embeds:
-                        self.logs.append(f"Empty content attempted {i+1} times")
+                        logger.warning("Attempted to get empty content. %s tries", i+1)
                         await warning.delete()
 
             userid = str(payload.user_id)
@@ -408,7 +407,7 @@ class LoveSick(commands.Cog):
                 return await message.reply("Invalid message type")
 
             if member.display_name not in content:
-                self.logs.append(f"Username mismatch\n" f"```" f"{member.display_name}\n" f"==========\n" f"{content}")
+                logger.error("Username Mismatch |Compare: %s | Content: %s", member.display_name, content)
                 await message.reply(
                     "Username doesn't match/found in hunting message. " "If you believe this is yours, contact staff"
                 )
@@ -471,14 +470,6 @@ class LoveSick(commands.Cog):
             else:
                 await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
             await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
-
-    @commands.command()
-    @commands.is_owner()
-    async def lxvlog(self, ctx):
-        if len(self.logs) <= 0:
-            return await ctx.send("No logs")
-        menu = SimplePages(source=EmbedSource(self.logs[::-1], 1, "Logs", lambda pg: pg))
-        await menu.start(ctx)
 
     @commands.group(invoke_without_command=True, aliases=["ev"])
     async def event(self, ctx):
