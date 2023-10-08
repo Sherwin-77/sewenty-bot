@@ -16,8 +16,7 @@ from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 if TYPE_CHECKING:
     from main import SewentyBot
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s:%(name)s: %(message)s")
-logger = logging.getLogger("extension.lovesick")
+logger = logging.getLogger(__name__)
 
 
 # TODO: Move this to view_util, Fix inconsistent self var
@@ -280,7 +279,7 @@ class LoveSick(commands.Cog):
             for x in set(message.mentions):  # type: ignore
                 x: discord.Member
                 if self.is_mod(x):
-                    self.message_cache.add_message(message, f"ping-{message.id}")
+                    await self.message_cache.add_message(message, f"ping-{message.id}")
                     break
 
     @commands.Cog.listener()
@@ -289,15 +288,18 @@ class LoveSick(commands.Cog):
             return
         if payload.guild_id != self.GUILD_ID:
             return
-        message = self.message_cache.remove_message(f"ping-{payload.message_id}")
+        message = await self.message_cache.remove_message(f"ping-{payload.message_id}")
         if message is None:
             return
 
         # Do smth here
+        # TODO: Maybe figure out how to consistently check who delete message?
 
         # Hardcoded channel id, will move the feature later
-        await message.channel.send(f"{message.author.mention} y why ping")
-        channel = guild.get_channel(789154199186702408)  # type: ignore
+        await message.channel.send(f"{message.author.mention} Do not ghost ping <:smolaris:1155797791268937788>")
+        guild = self.bot.get_guild(self.GUILD_ID)
+        channel: discord.TextChannel
+        channel = guild.get_channel(765818685922213948)  # type: ignore
         custom_embed = discord.Embed(
             title="Mod ping deleted", description=f"Message from **{message.author.mention}**", color=discord.Colour.random()
         )

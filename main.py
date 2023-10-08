@@ -79,7 +79,6 @@ class NewHelpCommand(commands.MinimalHelpCommand):
 
 # noinspection SpellCheckingInspection
 class SewentyBot(commands.Bot):
-    # TODO: Implement psql
 
     # Lint
     owner: discord.User
@@ -108,7 +107,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help"),
         )
 
-        self.TEST_MODE = True
+        self.TEST_MODE = False
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = time_ns() // 1000000000
@@ -270,7 +269,7 @@ def slash_is_enabled():
 
 def read_log():
     arr = []
-    with open("bot.log") as f:
+    with open("bot.log", encoding="utf-8") as f:
         arr = f.readlines()
     return arr
 
@@ -310,6 +309,24 @@ def main():
             source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg: f"```.log\n{''.join(pg)}\n```")
         )
         await menu.start(ctx)
+
+    @bot.command(hidden=True)
+    @commands.is_owner()
+    @commands.bot_has_guild_permissions(view_audit_log=True)
+    async def alogs(ctx: commands.Context, page_limit=3):
+        if not ctx.guild:
+            return
+
+        res = [f"**{entry.action}:** {entry.user} -> {entry.target} (Reason: {entry.reason}) **AT:** {discord.utils.format_dt(entry.created_at)}" async for entry in ctx.guild.audit_logs(limit=10 * 3) ]
+
+        # Normally doesn't trigger unless new guild
+        if len(res) == 0:
+            return await ctx.send("No logs")
+        menu = SimplePages(
+            source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg:  '\n'.join(pg))
+        )
+        await menu.start(ctx)
+        
 
     @bot.command(hidden=True)
     @commands.is_owner()
