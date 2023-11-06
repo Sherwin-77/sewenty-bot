@@ -147,8 +147,8 @@ class LoveSick(commands.Cog):
         self.event_link_channel = 0
         self.event_disabled = False
         self.lxv_only_event = False
+        self.required_role_ids = []
         self.mod_ids = set()
-        self.required_role_ids = set()
         self.focus = []
         self.ignored = set()
         self.verified = set()
@@ -392,17 +392,30 @@ class LoveSick(commands.Cog):
 
             if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
                 return await message.add_reaction("<:joinlxv:1044554756569432094>")
+            match_role = [member.get_role(roleid) for roleid in self.required_role_ids]
+            allowed = all(match_role)
 
-            link_channel = guild.get_channel(
-                self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
-            )
-
-            allowed = all([member.get_role(roleid) for roleid in self.required_role_ids])
             if self.bot.TEST_MODE:
                 if allowed:
                     return await message.reply("Success")
                 else:
                     return await message.reply("Missing")
+
+            if not allowed:
+                arr = []
+                for i in range(len(self.required_role_ids)):
+                    if match_role[i] is None:
+                        role = guild.get_role(self.required_role_ids[i])
+                        if role is None:
+                            continue
+                        arr.append(role.name)
+                # Failsafe if requirement role is non existent
+                if arr:
+                    return await message.reply(f"Following role is required to participate: `{'`, `'.join(arr)}`")
+            link_channel = guild.get_channel(
+                self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
+            )
+
 
             content = message.content if not message.embeds else message.embeds[0].description
             if content is None:
@@ -534,7 +547,7 @@ class LoveSick(commands.Cog):
             return await ctx.send("You are not allowed to use this command >:(")
         roles: List = list(set(roles))
         custom_embed = discord.Embed(
-            title="Focus index",
+            title="Set Role",
             description=f"Are you sure want to set role requirement " f"to {', '.join([r.mention for r in roles])}?",
             color=discord.Colour.green(),
         )
@@ -547,13 +560,14 @@ class LoveSick(commands.Cog):
         self.required_role_ids = res
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"required_role_ids": [str(x) for x in res]}})
 
-    @event.command(aliases=['d', 'e', "enable"])
-    async def disable(self, ctx):
+    @event.command(aliases=['d', 'e', "enable", "disable"])
+    async def toggle(self, ctx):
         """
         Toggle enable or disable event counting
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
+        self.event_disabled = not self.event_disabled
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
         await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
 
