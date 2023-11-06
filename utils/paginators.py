@@ -13,8 +13,10 @@ class SimplePages(discord.ui.View, menus.MenuPages):
         self._source = source
         self.current_page = 0
         self.delete_message_after = delete_message_after
+        self.button = discord.ui.Button(disabled=True, label=str(self.current_page))
 
     async def start(self, ctx, *, channel=None, wait=False):
+        self.add_item(self.button)
         await self._source._prepare_once()
         self.ctx = ctx
         self.message = await self.send_initial_message(ctx, ctx.channel)
@@ -33,11 +35,13 @@ class SimplePages(discord.ui.View, menus.MenuPages):
     @discord.ui.button(emoji='⏪', style=discord.ButtonStyle.blurple)
     async def skip_to_first(self, interaction, _):
         await self.show_page(0)
+        self.button.label = '1'
         await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='◀', style=discord.ButtonStyle.blurple)
     async def back_page(self, interaction, _):
         await self.show_checked_page(self.current_page-1)
+        self.button.label = str(self.current_page+1)
         await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='⏹', style=discord.ButtonStyle.blurple)
@@ -54,11 +58,13 @@ class SimplePages(discord.ui.View, menus.MenuPages):
     @discord.ui.button(emoji='▶', style=discord.ButtonStyle.blurple)
     async def next_page(self, interaction, _):
         await self.show_checked_page(self.current_page+1)
+        self.button.label = str(self.current_page+1)
         await interaction.response.edit_message(view=self)
 
     @discord.ui.button(emoji='⏩', style=discord.ButtonStyle.blurple)
     async def skip_to_last(self, interaction, _):
         await self.show_page(self._source.get_max_pages()-1)  # type: ignore
+        self.button.label = str(self.current_page+1)
         await interaction.response.edit_message(view=self)
 
 
