@@ -266,7 +266,7 @@ def slash_is_enabled():
 
     return discord.app_commands.check(wrapper)
 
-
+# TODO: Optimize read log to limit?
 def read_log():
     arr = []
     with open("bot.log", encoding="utf-8") as f:
@@ -306,7 +306,7 @@ def main():
         if len(res) == 0:
             return await ctx.send("No logs")
         menu = SimplePages(
-            source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg: f"```.log\n{''.join(pg)}\n```")
+            source=EmbedSource(res[-1: -page_limit * 8 : -1], page_limit, "Logs", lambda pg: f"```.log\n{''.join(pg)}\n```")
         )
         await menu.start(ctx)
 
