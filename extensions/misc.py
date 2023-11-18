@@ -693,7 +693,7 @@ class Miscellaneous(commands.Cog):
         await message.edit(content=None, embed=custom_embed)
 
     @commands.command(aliases=["tl"])
-    @commands.cooldown(rate=1, per=20.0, type=commands.BucketType.user)
+    @commands.cooldown(rate=1, per=15.0, type=commands.BucketType.user)
     async def translate(self, ctx: commands.Context, *, text: Annotated[Optional[str], commands.clean_content] = None):
         """
         Translate accrucy 99% same as Google Translate with cost of high risk being blocked :c
@@ -715,20 +715,21 @@ class Miscellaneous(commands.Cog):
         if len(text) > 1000:
             return await ctx.reply("Too long :c", mention_author=False)
 
-        # res = await self.bot.loop.run_in_executor(None, self.translator.translate, text)
-        # custom_embed = discord.Embed(color=discord.Colour.random())
-        # src = googletrans.LANGUAGES.get(res.src, "auto detect").title()
-        # dest = googletrans.LANGUAGES.get(res.dest, "auto detect").title()
-        # custom_embed.add_field(name=f"Original ({src})", value=res.origin, inline=False)
-        # custom_embed.add_field(name=f"Translated ({dest})", value=res.text, inline=False)
-
-        # https://github.com/Animenosekai/translate/blob/main/translatepy/translators/google.py#L322-L375
         params = {"client": "gtx", "dj": 1, "dt": 't', 'q': text, "sl": "auto", "tl": lang}
-        link = "https://clients5.google.com/translate_a/single?"
-        async with self.bot.session.get(link, params=params, headers=self.magic_header) as r:
-            if r.status != 200:
-                return await ctx.reply(f"Error status {r.status}", mention_author=False)
-            data = await r.json()
+        # https://github.com/Animenosekai/translate/blob/main/translatepy/translators/google.py#L322-L375
+        apis = ["clients5.google.com", "translate.googleapis.com"]
+        data = None
+        api_status = 200
+        for x in apis:
+            link = f"https://{x}/translate_a/single?"
+            async with self.bot.session.get(link, params=params, headers=self.magic_header) as r:
+                if r.status != 200:
+                    api_status = r.status
+                    continue
+                data = await r.json()
+                print(data)
+        if data is None:
+            return await ctx.send(f"Error status {api_status}")
         custom_embed = discord.Embed(color=discord.Colour.random())
         src = googletrans.LANGUAGES.get(data["src"], "auto detect").title()
         lang_format = '\n'.join(
