@@ -79,7 +79,6 @@ class NewHelpCommand(commands.MinimalHelpCommand):
 
 # noinspection SpellCheckingInspection
 class SewentyBot(commands.Bot):
-
     # Lint
     owner: discord.User
     session: aiohttp.ClientSession
@@ -266,6 +265,7 @@ def slash_is_enabled():
 
     return discord.app_commands.check(wrapper)
 
+
 # TODO: Optimize read log to limit?
 def read_log():
     arr = []
@@ -306,7 +306,7 @@ def main():
         if len(res) == 0:
             return await ctx.send("No logs")
         menu = SimplePages(
-            source=EmbedSource(res[-1: -page_limit * 8 : -1], page_limit, "Logs", lambda pg: f"```.log\n{''.join(pg)}\n```")
+            source=EmbedSource(res[-1 : -page_limit * 8 : -1], page_limit, "Logs", lambda pg: f"```.log\n{''.join(pg)}\n```")
         )
         await menu.start(ctx)
 
@@ -317,16 +317,16 @@ def main():
         if not ctx.guild:
             return
 
-        res = [f"**{entry.action}:** {entry.user} -> {entry.target} (Reason: {entry.reason}) **AT:** {discord.utils.format_dt(entry.created_at)}" async for entry in ctx.guild.audit_logs(limit=10 * 3) ]
+        res = [
+            f"**{entry.action}:** {entry.user} -> {entry.target} (Reason: {entry.reason}) **AT:** {discord.utils.format_dt(entry.created_at)}"
+            async for entry in ctx.guild.audit_logs(limit=10 * 3)
+        ]
 
         # Normally doesn't trigger unless new guild
         if len(res) == 0:
             return await ctx.send("No logs")
-        menu = SimplePages(
-            source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg:  '\n'.join(pg))
-        )
+        menu = SimplePages(source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg: '\n'.join(pg)))
         await menu.start(ctx)
-        
 
     @bot.command(hidden=True)
     @commands.is_owner()
@@ -582,37 +582,56 @@ def main():
         await bot.process_commands(message)
 
     @bot.event
-    async def on_message_edit(before, after):
+    async def on_message_edit(before: discord.Message, after: discord.Message):
         if bot.TEST_MODE:
             return
         if before.author.id == 571027211407196161 and str(before.channel.id) in bot.allowed_track_channel:
             catch_ = after.embeds
             if not catch_:
                 return
-            processed = catch_[-1].to_dict()
+            processed = catch_[-1]
+            prev_catch_ = before.embeds
             try:
-                message = processed["fields"][0]["value"]
+                message = processed.fields[0].value 
+                if message is None:
+                    return
+                if (
+                    prev_catch_
+                    and prev_catch_[-1].fields is not None
+                    and prev_catch_[-1].fields[0].value is not None
+                    and prev_catch_[-1].fields[0].value == message  # Better compare alg?
+                ):  # Compare with previous edited message
+                    return
             except KeyError:
                 return
-
+            """
+            Line 1: **[Round X]**
+            Line 2: Prev action
+            Line 3: Latest action
+            """
+            arr = message.split('\n')
+            if len(arr) < 3:
+                return
+            latest = arr[2]  # Abuse dynamic type
+            print(latest)
             if (
                 (
-                    "CRITICAL HIT" in message.split('\n')[2]
+                    "CRITICAL HIT" in latest
                     and (bot.allowed_track_channel[str(after.channel.id)] or "Rage Mode" not in message)
                 )
-                or "managed to evade" in message.split('\n')[2]
-                or "fortunately it resisted" in message.split('\n')[2]
-                or "uses Lucky Coin" in message.split('\n')[2]
-                or "uses Unlucky Coin" in message.split('\n')[2]
-                or "blinded by the smoke" in message.split('\n')[2]
+                or "managed to evade" in latest
+                or "fortunately it resisted" in latest
+                or "uses **Lucky Coin**" in latest
+                or "uses **Unlucky Coin**" in latest
+                or "blinded by the smoke" in latest
             ):
                 message = message.replace("<:ARROW:698301107419611186>", ":arrow_right: ")
                 custom_embed = discord.Embed(
-                    title=message.split('[')[1].split(']')[0],
-                    description=message.split('\n')[1] + '\n' + message.split('\n')[2],
+                    title=arr[0].split('[')[1].split(']')[0],
+                    description=arr[1] + '\n' + latest,
                     color=discord.Colour.blue(),
                 )
-                custom_embed.set_footer(text="psst. If you want this tracker, DM/tell invaliduser77")
+                custom_embed.set_footer(text="psst. If you want this tracker, DM/tell invaliduser77 (Tracker is fixed. If there's bug, please report immediately)")
                 await after.channel.send(embed=custom_embed)
 
     @bot.tree.error
