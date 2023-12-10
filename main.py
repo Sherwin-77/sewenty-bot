@@ -114,10 +114,6 @@ class SewentyBot(commands.Bot):
         self.banned_user = set()
         self.message_cache = MessageCache()  # Might be useful later so leaving it here
 
-        # TODO: Better logging
-        self.last_stack = []
-        self.last_date = None
-
         self.afk_message = "Ded or work or college >:("
 
         self.TRIGGER_RESPONSE = {
