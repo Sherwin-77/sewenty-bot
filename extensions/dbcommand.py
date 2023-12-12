@@ -635,6 +635,38 @@ class Taco(commands.Cog):
 class OwO(commands.Cog):
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
+        self.setting_db = self.bot.DB["bot"]
+        self._cache_settings = dict()
+        self._drop_cd = set()
+
+    async def cog_load(self) -> None:
+        async for document in self.setting_db.find({"_id": {"$regex": r"^OwODropEvent"}}):
+            self._cache_settings[document["_id"]] = document
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot or message.guild is None:
+            return
+        if "owo" in message.content.lower():
+            setting = self._cache_settings.get(f"OwODropEvent-{message.guild.id}")
+            if setting is None:
+                return
+            if setting["disabled"]:
+                return
+            if str(message.author.id) in self._drop_cd:
+                return
+            self._drop_cd.add(str(message.author.id))
+            if random.random() < setting["chance"]:
+                custom_embed = discord.Embed(   
+                    title="CONGRATULATIONS",
+                    description=f"{message.author.mention} get rewards from saying owo. Please redeem according to server rule",
+                    color=discord.Colour.yellow()
+                )
+                custom_embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar)
+                custom_embed.set_footer(text=f"Identifier id: Message {message.id}")
+                await message.channel.send(embed=custom_embed)
+            await asyncio.sleep(setting["cooldown"])
+            self._drop_cd.remove(str(message.author.id))
 
     @commands.command(aliases=["owostats", "statowo", " statsowo", "ostat"])
     async def owostat(self, ctx, users: discord.User = None):  # type: ignore
@@ -705,8 +737,8 @@ class OwO(commands.Cog):
         custom_embed.set_author(name=users.name, icon_url=users.avatar)
         await ctx.send(embed=custom_embed)
 
-    @commands.command(name='cp', help='Wanna search for cp?')
-    async def cp_dex(self, ctx, name):
+    @commands.command(help='Wanna search for cp?')
+    async def cp(self, ctx, name):
         query = {"$or": [{"aliases": name}, {"_id": name}]}
         cp_collection = self.bot.CP_DB["cp"]
         cp = await cp_collection.find_one(query)
@@ -752,6 +784,59 @@ class OwO(commands.Cog):
         custom_embed.set_thumbnail(url=image_url)
         custom_embed.set_footer(text=f"Created {month} {year}")
         await ctx.send(embed=custom_embed)
+
+    @commands.group(invoke_without_command=True, name="owodropevent", aliases=["ode"])
+    async def owo_drop_event(self, ctx: commands.Context):
+        query = {"_id": f"OwODropEvent-{ctx.guild.id}"}  # type: ignore
+        guild_setting = await self.setting_db.find_one(query)
+        if not guild_setting:
+            guild_setting = {
+                "_id": f"OwODropEvent-{ctx.guild.id}",  # type: ignore
+                "cooldown": 15.0,
+                "chance": 0.01,
+                "enabled": False,
+            }
+            await self.setting_db.insert_one(guild_setting)
+            self._cache_settings[query["_id"]] = guild_setting
+        custom_embed = discord.Embed(
+            title="OwO Drop event setting",
+            description=f"Cooldown: **{guild_setting['cooldown']} s**\n"
+            f"Drop chance: **{guild_setting['chance']}**\n"
+            f"Enabled: **{guild_setting['enabled']}**",
+            color=discord.Colour.random(),
+        )
+        custom_embed.set_footer(text="Will enter cooldown state whether drop triggered or not")
+        await ctx.send(embed=custom_embed)
+
+    @owo_drop_event.group()
+    async def set(self, ctx: commands.Context, setting: str, number: Optional[float] = None, state: Optional[bool] = None):
+        mem: discord.Member = ctx.author  # type: ignore
+        if (
+            not (mem.guild_permissions.manage_channels and mem.guild_permissions.manage_messages)
+            and mem.id != self.bot.owner.id
+        ):
+            return await ctx.reply("Manage channel perm required")
+        setting = setting.lower()
+        if setting not in {"cooldown", "chance", "enabled"}:
+            return await ctx.reply("Not a valid event setting. Should be `cooldown`, `chance` or `enabled`")
+        if not number and not state or (setting != "enabled" and number is None):
+            return await ctx.reply("Wer")
+        query = {"_id": f"OwODropEvent-{ctx.guild.id}"}  # type: ignore
+        guild_setting = await self.setting_db.find_one(query)
+        if not guild_setting:
+            default = {
+                "_id": f"OwODropEvent-{ctx.guild.id}",  # type: ignore
+                "cooldown": 15.0,
+                "chance": 0.01,
+                "enabled": False,
+            }
+            default[setting] = number or state
+            await self.setting_db.insert_one(default)
+            self._cache_settings[query["_id"]] = default
+        else:
+            await self.setting_db.update_one(query, {"$set": {setting: number or state}})
+            guild_setting[setting] = number or state
+            self._cache_settings[query["_id"]] = guild_setting
 
 
 async def setup(bot: SewentyBot):
