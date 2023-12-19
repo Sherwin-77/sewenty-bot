@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from os import name
+import random
 from typing import TYPE_CHECKING, List, Optional
 
 import logging
@@ -10,7 +10,6 @@ import discord
 from discord.ext import commands, tasks
 
 from utils.cache import MessageCache
-from utils.paginators import SimplePages, EmbedSource
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 
 if TYPE_CHECKING:
@@ -152,6 +151,22 @@ class LoveSick(commands.Cog):
         self.focus = []
         self.ignored = set()
         self.verified = set()
+        self.owo_drop_event_settings = {}
+        self._drop_cd = set()
+        self.item_render = {
+            "Grinch gift": "<a:gift1:1186669830074531840>",
+            "Wreath gift": "<a:gift2:1186669847095029781>",
+            "Angel gift" : "<a:gift3:1184120760374149201>",
+            "Rudolph gift": "<a:gift4:1186669868947349515>",
+            "Santa gift": "<a:gift5:1186669895665066064>",
+        }
+        self.gift_names = [
+            "Grinch gift",
+            "Wreath gift",
+            "Angel gift",
+            "Rudolph gift",
+            "Santa gift"
+        ]
 
     async def get_setting(self, unload_on_error=True):
         setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
@@ -187,6 +202,8 @@ class LoveSick(commands.Cog):
     async def cog_load(self) -> None:
         await self.get_setting()
         self.ping_lxv_db.start()
+        doc = await self.LXV_COLLECTION.find_one({"_id": "OwODropEvent"})
+        self.owo_drop_event_settings = doc
 
     async def cog_unload(self) -> None:
         self.ping_lxv_db.cancel()
@@ -225,7 +242,7 @@ class LoveSick(commands.Cog):
         total_command = total_command or 1
         total_transaction = total_transaction or 1
         await ch.send(  # type: ignore
-            f"# Data reporting\n"  
+            f"# Data reporting\n"
             f"Read Latency: Average **{sum(read_latency)/(total_read*1000):.2f} ms** "
             f"in {total_read} operations\n"
             f"Write Latency: Average **{sum(write_latency)/(total_write*1000):.2f} ms** "
@@ -235,7 +252,7 @@ class LoveSick(commands.Cog):
             f"Transaction Latency: Average **{sum(transaction_latency)/(total_transaction*1000):.2f} ms**"
             f" in {total_transaction} operations\n"
             f"{discord.utils.format_dt(dt, 'F')}"  # type: ignore
-        )  
+        )
 
     @ping_lxv_db.before_loop
     async def check_connected(self):
@@ -247,6 +264,8 @@ class LoveSick(commands.Cog):
         return {"_id": f"pet|{'|'.join(self.focus)}"}
 
     def is_mod(self, member: discord.Member):
+        if member.bot:
+            return False
         if member.id in self.mod_cache:
             return True
         allowed = False
@@ -266,6 +285,39 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        if "owo" in message.content.lower():
+            setting = self.owo_drop_event_settings
+            if not setting:
+                return
+            if not setting["enabled"]:
+                return
+            if str(message.author.id) in self._drop_cd:
+                return
+            self._drop_cd.add(str(message.author.id))
+            for i in range(5, 0, -1):
+                if random.random() < setting[f"chance{i}"] or (
+                    self.bot.TEST_MODE and message.author.id == self.bot.owner.id
+                ):
+                    custom_embed = discord.Embed(
+                        title=f"{self.item_render[self.gift_names[i-1]]} GIFTS {self.item_render[self.gift_names[i-1]]}",
+                        description=f"{message.author.mention} got **{self.gift_names[i-1]}**!",
+                        color=discord.Colour.yellow(),
+                    )
+                    custom_embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar)
+                    custom_embed.set_footer(text=f"Identifier id: Message {message.id}")
+                    await message.reply(embed=custom_embed, mention_author=False)
+                    exist = await self.LXV_COLLECTION.count_documents({"_id": f"inv{message.author.id}"}, limit=1)
+                    if not exist:
+                        await self.LXV_COLLECTION.insert_one({
+                            "_id": f"inv{message.author.id}",
+                            self.gift_names[i-1]: 1
+                        })
+                    else:
+                        await self.LXV_COLLECTION.update_one({"_id": f"inv{message.author.id}"}, {"$inc": {f"gift{i}": 1}})
+                    break
+                    # await message.reply("<a:gift3:1184120760374149201>")
+            await asyncio.sleep(setting["cooldown"])
+            self._drop_cd.remove(str(message.author.id))
         if self.bot.TEST_MODE:
             return
         if message.author.bot:
@@ -382,7 +434,7 @@ class LoveSick(commands.Cog):
                         f"<a:discordloading:792012369168957450> (Attempt {i+1})"
                     )
                     if message.content or message.embeds:
-                        logger.warning("Attempted to get empty content. %s tries", i+1)
+                        logger.warning("Attempted to get empty content. %s tries", i + 1)
                         await warning.delete()
 
             userid = str(payload.user_id)
@@ -415,7 +467,6 @@ class LoveSick(commands.Cog):
             link_channel = guild.get_channel(
                 self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
             )
-
 
             content = message.content if not message.embeds else message.embeds[0].description
             if content is None:
@@ -486,8 +537,8 @@ class LoveSick(commands.Cog):
                 await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
             await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
-    @commands.group(invoke_without_command=True, aliases=["ev"])
-    async def event(self, ctx):
+    @commands.group(invoke_without_command=True, aliases=["ev"], name="event")
+    async def event_group(self, ctx: commands.Context):
         roles = [f"<@&{x}>" for x in self.required_role_ids]
         custom_embed = discord.Embed(
             title="Super stat for event",
@@ -506,7 +557,7 @@ class LoveSick(commands.Cog):
             embed=custom_embed,
         )
 
-    @event.command(aliases=["f"])
+    @event_group.command(aliases=["f"])  # type: ignore
     async def focus(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
@@ -541,7 +592,7 @@ class LoveSick(commands.Cog):
             {"_id": "setting"}, {"$set": {"focus": list(res), "event_disabled": self.event_disabled}}
         )
 
-    @event.command(aliases=["role"])
+    @event_group.command(aliases=["role"])  # type: ignore
     async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):  # type: ignore
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
@@ -560,7 +611,7 @@ class LoveSick(commands.Cog):
         self.required_role_ids = res
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"required_role_ids": [str(x) for x in res]}})
 
-    @event.command(aliases=['d', 'e', "enable", "disable"])
+    @event_group.command(aliases=['d', 'e', "enable", "disable"])  # type: ignore
     async def toggle(self, ctx):
         """
         Toggle enable or disable event counting
@@ -571,7 +622,7 @@ class LoveSick(commands.Cog):
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"event_disabled": self.event_disabled}})
         await ctx.send("Set to " + ("**disabled**" if self.event_disabled else "**enabled**"))
 
-    @event.command(aliases=["lxv"])
+    @event_group.command(aliases=["lxv"])  # type: ignore
     async def lxvonly(self, ctx):
         """
         Toggle enable or disable lxv event only
@@ -582,7 +633,7 @@ class LoveSick(commands.Cog):
         await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"lxv_only_event": self.lxv_only_event}})
         await ctx.send(f"Set to **{self.lxv_only_event}**")
 
-    @event.command(aliases=['s'])
+    @event_group.command(aliases=['s'])  # type: ignore
     async def stat(self, ctx, user: Optional[discord.User] = None):
         """
         Show pet count
@@ -598,7 +649,7 @@ class LoveSick(commands.Cog):
         counts = cursor["participants"].get(userid, 0)
         await ctx.send(f"Total hunt: **{counts}**")
 
-    @event.command(aliases=["lb"])
+    @event_group.command(aliases=["lb"])  # type: ignore
     async def leaderboard(self, ctx, length=5, page=1):
         """
         Show pet leaderboard
@@ -626,7 +677,7 @@ class LoveSick(commands.Cog):
                 break
         await ctx.send(embed=custom_embed)
 
-    @event.command()
+    @event_group.command()  # type: ignore
     async def forcesend(self, ctx: commands.Context, member: discord.Member):
         """
         Force sending hunt message to channel. This only bypass username check
@@ -640,7 +691,7 @@ class LoveSick(commands.Cog):
 
         message = ctx.message.reference.resolved
         link_channel = ctx.guild.get_channel(  # type: ignore
-            self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel  
+            self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
         )
         userid = str(member.id)
 
@@ -704,7 +755,7 @@ class LoveSick(commands.Cog):
             await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
         await ctx.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
-    @event.command(aliases=["acu"])
+    @event_group.command(aliases=["acu"])  # type: ignore
     async def addcountuser(self, ctx, user: discord.User, amount: Optional[int] = 1):  # type: ignore
         """
         Manual add count for user
@@ -738,7 +789,7 @@ class LoveSick(commands.Cog):
             await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
         await ctx.send(f"Succesfully add count pet of user {user} by {amount}")
 
-    @event.command(aliases=["sc"])
+    @event_group.command(aliases=["sc"])  # type: ignore
     async def setcount(self, ctx, user: discord.User, amount: Optional[int] = 0):  # type: ignore
         """
         Set pet count of user. Amount 0 to delete the entry
@@ -772,6 +823,88 @@ class LoveSick(commands.Cog):
         else:
             participants.update({userid: amount})
         await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
+
+    @commands.command(aliases=["lxvinv"])
+    async def lxvinventory(self, ctx: commands.Context):
+        doc = await self.LXV_COLLECTION.find_one(f"inv{ctx.author.id}")
+        if not doc:
+            return ctx.reply("Empty inventory")
+
+        full_display = ""
+        
+        for k, v in doc.items():
+            if k == "_id":
+                continue
+            full_display += f"{self.item_render[k]}: {v}\n"
+        await ctx.send(full_display)
+
+
+    @commands.group(invoke_without_command=True, name="lxvowodropevent", aliases=["lxvode"])
+    async def lxv_owo_drop_event(self, ctx: commands.Context):
+        query = {"_id": "OwODropEvent"}
+        guild_setting = await self.LXV_COLLECTION.find_one(query)
+        if not guild_setting:
+            guild_setting = {
+                "_id": "OwODropEvent",
+                "cooldown": 15.0,
+                "chance1": 0.01,
+                "chance2": 0.01,
+                "chance3": 0.01,
+                "chance4": 0.01,
+                "chance5": 0.01,
+                "enabled": False,
+            }
+            await self.LXV_COLLECTION.insert_one(guild_setting)
+            self.owo_drop_event_settings = guild_setting
+        custom_embed = discord.Embed(
+            title="OwO Drop event setting",
+            description=f"Cooldown: **{guild_setting['cooldown']} s**\n"
+            f"Drop chance tier 1: **{guild_setting['chance1']}%**\n"
+            f"Drop chance tier 2: **{guild_setting['chance2']}%**\n"
+            f"Drop chance tier 3: **{guild_setting['chance3']}%**\n"
+            f"Drop chance tier 4: **{guild_setting['chance4']}%**\n"
+            f"Drop chance tier 5: **{guild_setting['chance5']}%**\n"
+            f"Enabled: **{guild_setting['enabled']}**",
+            color=discord.Colour.random(),
+        )
+        custom_embed.set_footer(text="Will enter cooldown state whether drop triggered or not")
+        await ctx.send(embed=custom_embed)
+
+    @lxv_owo_drop_event.command()
+    async def set(self, ctx: commands.Context, setting: str, number: Optional[float] = None, state: Optional[bool] = None):
+        mem: discord.Member = ctx.author  # type: ignore
+        if not self.mod_only(ctx):
+            return await ctx.reply("Womp womp")
+        setting = setting.lower()
+        if setting not in {"cooldown", "chance1", "chance2", "chance3", "chance4", "chance5", "enabled"}:
+            return await ctx.reply("Not a valid event setting. Should be `cooldown`, `chance` or `enabled`")
+        if (
+            (number is None and state is None)
+            or (setting != "enabled" and number is None)
+            or (setting == "enabled" and number is not None)
+        ):
+            return await ctx.reply("Wer")
+        query = {"_id": f"OwODropEvent"}
+        guild_setting = await self.LXV_COLLECTION.find_one(query)
+        if not guild_setting:
+            default = {
+                "_id": "OwODropEvent",
+                "cooldown": 15.0,
+                "chance1": 0.01,
+                "chance2": 0.01,
+                "chance3": 0.01,
+                "chance4": 0.01,
+                "chance5": 0.01,
+                "enabled": False,
+            }
+            default[setting] = number if number is not None else state
+            await self.LXV_COLLECTION.insert_one(default)
+            self.owo_drop_event_settings = default
+        else:
+            await self.LXV_COLLECTION.update_one(query, {"$set": {setting: number if number is not None else state}})
+            guild_setting[setting] = number if number is not None else state
+            self.owo_drop_event_settings = guild_setting
+        await ctx.send(f"Successfully set **{setting}** to **{number if number is not None else state}**")
 
 
 async def setup(bot: SewentyBot):

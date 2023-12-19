@@ -809,7 +809,7 @@ class OwO(commands.Cog):
         custom_embed.set_footer(text="Will enter cooldown state whether drop triggered or not")
         await ctx.send(embed=custom_embed)
 
-    @owo_drop_event.group()
+    @owo_drop_event.command()
     async def set(self, ctx: commands.Context, setting: str, number: Optional[float] = None, state: Optional[bool] = None):
         mem: discord.Member = ctx.author  # type: ignore
         if (
