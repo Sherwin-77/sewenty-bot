@@ -300,7 +300,7 @@ class LoveSick(commands.Cog):
                 ):
                     custom_embed = discord.Embed(
                         title=f"{self.item_render[self.gift_names[i-1]]} GIFTS {self.item_render[self.gift_names[i-1]]}",
-                        description=f"{message.author.mention} got **{self.gift_names[i-1]}**!",
+                        description=f"{message.author.mention} got a **{self.gift_names[i-1]}**!",
                         color=discord.Colour.yellow(),
                     )
                     custom_embed.set_author(name=message.author.display_name, icon_url=message.author.display_avatar)
