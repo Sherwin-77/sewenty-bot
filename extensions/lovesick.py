@@ -156,17 +156,11 @@ class LoveSick(commands.Cog):
         self.item_render = {
             "Grinch gift": "<a:gift1:1186669830074531840>",
             "Wreath gift": "<a:gift2:1186669847095029781>",
-            "Angel gift" : "<a:gift3:1184120760374149201>",
+            "Angel gift": "<a:gift3:1184120760374149201>",
             "Rudolph gift": "<a:gift4:1186669868947349515>",
             "Santa gift": "<a:gift5:1186669895665066064>",
         }
-        self.gift_names = [
-            "Grinch gift",
-            "Wreath gift",
-            "Angel gift",
-            "Rudolph gift",
-            "Santa gift"
-        ]
+        self.gift_names = ["Grinch gift", "Wreath gift", "Angel gift", "Rudolph gift", "Santa gift"]
 
     async def get_setting(self, unload_on_error=True):
         setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
@@ -285,7 +279,7 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if "owo" in message.content.lower():
+        if "owo" in message.content.lower() or "uwu" in message.content.lower():
             setting = self.owo_drop_event_settings
             if not setting:
                 return
@@ -295,8 +289,8 @@ class LoveSick(commands.Cog):
                 return
             self._drop_cd.add(str(message.author.id))
             for i in range(5, 0, -1):
-                if random.random() < setting[f"chance{i}"] or (
-                    self.bot.TEST_MODE and message.author.id == self.bot.owner.id
+                if random.random() < setting[f"chance{i}"] / 100 or (
+                    self.bot.TEST_MODE and self.is_mod(message.author) and random.random() < (setting[f"chance{i}"] + 5 + (5-i)*5) / 100  # type: ignore
                 ):
                     custom_embed = discord.Embed(
                         title=f"{self.item_render[self.gift_names[i-1]]} GIFTS {self.item_render[self.gift_names[i-1]]}",
@@ -308,12 +302,9 @@ class LoveSick(commands.Cog):
                     await message.reply(embed=custom_embed, mention_author=False)
                     exist = await self.LXV_COLLECTION.count_documents({"_id": f"inv{message.author.id}"}, limit=1)
                     if not exist:
-                        await self.LXV_COLLECTION.insert_one({
-                            "_id": f"inv{message.author.id}",
-                            self.gift_names[i-1]: 1
-                        })
+                        await self.LXV_COLLECTION.insert_one({"_id": f"inv{message.author.id}", self.gift_names[i - 1]: 1})
                     else:
-                        await self.LXV_COLLECTION.update_one({"_id": f"inv{message.author.id}"}, {"$inc": {f"gift{i}": 1}})
+                        await self.LXV_COLLECTION.update_one({"_id": f"inv{message.author.id}"}, {"$inc": {self.gift_names[i - 1]: 1}})
                     break
                     # await message.reply("<a:gift3:1184120760374149201>")
             await asyncio.sleep(setting["cooldown"])
@@ -828,16 +819,18 @@ class LoveSick(commands.Cog):
     async def lxvinventory(self, ctx: commands.Context):
         doc = await self.LXV_COLLECTION.find_one(f"inv{ctx.author.id}")
         if not doc:
-            return ctx.reply("Empty inventory")
+            return await ctx.reply("Empty inventory")
 
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.set_author(name=f"{ctx.author.name} - Inventory", icon_url=ctx.author.avatar)
         full_display = ""
-        
+
         for k, v in doc.items():
             if k == "_id":
                 continue
-            full_display += f"{self.item_render[k]}: {v}\n"
-        await ctx.send(full_display)
-
+            full_display += f"{self.item_render[k]} **{k}**: {v}\n"
+        custom_embed.add_field(name="Items", value=full_display)
+        await ctx.send(embed=custom_embed)
 
     @commands.group(invoke_without_command=True, name="lxvowodropevent", aliases=["lxvode"])
     async def lxv_owo_drop_event(self, ctx: commands.Context):
