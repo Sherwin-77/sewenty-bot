@@ -279,6 +279,8 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        if(message.author.bot): 
+            return
         if "owo" in message.content.lower() or "uwu" in message.content.lower():
             setting = self.owo_drop_event_settings
             if not setting:
@@ -288,8 +290,9 @@ class LoveSick(commands.Cog):
             if str(message.author.id) in self._drop_cd:
                 return
             self._drop_cd.add(str(message.author.id))
+            chance = random.random()
             for i in range(5, 0, -1):
-                if random.random() < setting[f"chance{i}"] / 100 or (
+                if chance < setting[f"chance{i}"] / 100 or (
                     self.bot.TEST_MODE and self.is_mod(message.author) and random.random() < (setting[f"chance{i}"] + 5 + (5-i)*5) / 100  # type: ignore
                 ):
                     custom_embed = discord.Embed(
