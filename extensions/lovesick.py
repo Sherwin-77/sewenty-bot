@@ -837,6 +837,8 @@ class LoveSick(commands.Cog):
 
     @commands.group(invoke_without_command=True, name="lxvowodropevent", aliases=["lxvode"])
     async def lxv_owo_drop_event(self, ctx: commands.Context):
+        if not self.mod_only(ctx):
+            return await ctx.reply("Womp")
         query = {"_id": "OwODropEvent"}
         guild_setting = await self.LXV_COLLECTION.find_one(query)
         if not guild_setting:
