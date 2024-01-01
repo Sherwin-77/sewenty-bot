@@ -26,7 +26,7 @@ from psutil._common import bytes2human
 from utils.cache import MessageCache
 from utils.paginators import SimplePages, EmbedSource
 
-__version__ = "2.2.4"
+__version__ = "2.3.0"
 
 load_dotenv()  # in case we use .env in future
 
