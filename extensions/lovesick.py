@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 import logging
 
@@ -146,7 +146,7 @@ class LoveSick(commands.Cog):
         self.event_link_channel = 0
         self.event_disabled = False
         self.lxv_only_event = False
-        self.required_role_ids = []
+        self.required_role_ids: List[Union[str, List[str]]] = []
         self.mod_ids = set()
         self.focus = []
         self.ignored = set()
@@ -181,7 +181,7 @@ class LoveSick(commands.Cog):
         self.event_link_channel = int(setting["event_link_channel"])
         self.lxv_only_event = setting["lxv_only_event"]
         self.mod_ids = set(map(int, setting["mod_ids"]))
-        self.required_role_ids = list(set(map(int, setting["required_role_ids"])))
+        self.required_role_ids = setting["required_role_ids"]
         verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
         if verified:
             self.verified = set(map(int, verified["msg_ids"]))
@@ -257,7 +257,7 @@ class LoveSick(commands.Cog):
     def pet_query(self) -> dict:
         return {"_id": f"pet|{'|'.join(self.focus)}"}
 
-    def is_mod(self, member: discord.Member):
+    def is_mod(self, member: discord.Member) -> bool:
         if member.bot:
             return False
         if member.id in self.mod_cache:
@@ -275,7 +275,7 @@ class LoveSick(commands.Cog):
         return allowed
 
     def mod_only(self, ctx) -> bool:
-        return self.is_mod(ctx.author)
+        return self.is_mod(ctx.author) 
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -395,8 +395,6 @@ class LoveSick(commands.Cog):
                 return
 
             view = ConfirmEdit(self, message, member)  # type: ignore
-            await view.send()
-
         if (
             payload.guild_id == self.GUILD_ID
             and payload.emoji.id == 1046848826050359368
@@ -438,7 +436,7 @@ class LoveSick(commands.Cog):
 
             if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
                 return await message.add_reaction("<:joinlxv:1044554756569432094>")
-            match_role = [member.get_role(roleid) for roleid in self.required_role_ids]
+            match_role = [member.get_role(int(it)) if isinstance(it, str) else any([member.get_role(int(x)) for x in it]) for it in self.required_role_ids]
             allowed = all(match_role)
 
             if self.bot.TEST_MODE:
@@ -451,13 +449,26 @@ class LoveSick(commands.Cog):
                 arr = []
                 for i in range(len(self.required_role_ids)):
                     if match_role[i] is None:
-                        role = guild.get_role(self.required_role_ids[i])
+                        role = guild.get_role(self.required_role_ids[i])  # type: ignore
                         if role is None:
                             continue
                         arr.append(role.name)
+                    elif not match_role[i]:
+                        roles = [guild.get_role(x) for x in self.required_role_ids[i]]  # type: ignore
+                        if not any(roles):
+                            continue
+                        arr.append(roles)
+
                 # Failsafe if requirement role is non existent
                 if arr:
-                    return await message.reply(f"Following role is required to participate: `{'`, `'.join(arr)}`")
+                    display = ""
+                    for x in arr:
+                        if isinstance(x, list):
+                            display += "One of the following roles: " + ' '.join([y.mention for y in x]) + '\n'
+                        else:
+                            display += f"Required: {x.mention}\n"
+                    custom_embed = discord.Embed(title="Missing roles", colour=discord.Colour.red(), description=display)
+                    return await message.reply(embed=custom_embed)
             link_channel = guild.get_channel(
                 self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
             )
@@ -531,9 +542,17 @@ class LoveSick(commands.Cog):
                 await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
             await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
 
-    @commands.group(invoke_without_command=True, aliases=["ev"], name="event")
+    @commands.group(invoke_without_command=True, name="lxv")
+    async def lxv_group(self, ctx: commands.Context):
+        return await ctx.reply("?")
+
+    @lxv_group.group(invoke_without_command=True, aliases=["ev"], name="event")
     async def event_group(self, ctx: commands.Context):
-        roles = [f"<@&{x}>" for x in self.required_role_ids]
+        roles = [f"<@&{x}>" for x in self.required_role_ids if not isinstance(x, list)]
+        optionaled = []
+        for x in self.required_role_ids:
+            if isinstance(x, list):
+                optionaled.append(' '.join([f"<@&{y}>" for y in x]))
         custom_embed = discord.Embed(
             title="Super stat for event",
             description=f"Focused pet: `{'` `'.join(self.focus or ['None'])}`\n"
@@ -542,7 +561,8 @@ class LoveSick(commands.Cog):
             f"LXV only event set to **{self.lxv_only_event}**\n",
             colour=discord.Colour.random(),
         )
-        custom_embed.add_field(name="Required role", value=", ".join(roles))
+        custom_embed.add_field(name="Required role", value=" ".join(roles), inline=False)
+        custom_embed.add_field(name="One of the role", value="**->** " + '\n**->** '.join(optionaled), inline=False)
         await ctx.send(
             f"Hi event\n"
             f"For detail command, check from `s!help event` and `s!help event [command]` for detail\n"
@@ -587,13 +607,13 @@ class LoveSick(commands.Cog):
         )
 
     @event_group.command(aliases=["role"])  # type: ignore
-    async def setrole(self, ctx, roles: commands.Greedy[discord.Role]):  # type: ignore
+    async def setrole(self, ctx, roles: commands.Greedy[discord.Role], is_optional: Optional[bool] = False):  # type: ignore
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
-        roles: List = list(set(roles))
+        roles: List[discord.Role] = list(set(roles))
         custom_embed = discord.Embed(
-            title="Set Role",
-            description=f"Are you sure want to set role requirement " f"to {', '.join([r.mention for r in roles])}?",
+            title="Set " + ("Optional Roles" if is_optional else "Roles"),
+            description=f"Are you sure want to set role requirement " f"to {', '.join([r.mention for r in roles])}? If you set optional roles, the requirement roles will be **appended** instead of replaced",
             color=discord.Colour.green(),
         )
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
@@ -601,9 +621,12 @@ class LoveSick(commands.Cog):
         await confirm.wait()
         if not confirm.value:
             return
-        res = [r.id for r in roles]
-        self.required_role_ids = res
-        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"required_role_ids": [str(x) for x in res]}})
+        res = [str(r.id) for r in roles]
+        if(is_optional):
+            self.required_role_ids.append(res)
+        else:
+            self.required_role_ids = res  # type: ignore
+        await self.LXV_COLLECTION.update_one({"_id": "setting"}, {"$set": {"required_role_ids": self.required_role_ids}})
 
     @event_group.command(aliases=['d', 'e', "enable", "disable"])  # type: ignore
     async def toggle(self, ctx):
@@ -817,9 +840,10 @@ class LoveSick(commands.Cog):
         else:
             participants.update({userid: amount})
         await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
+    
 
-    @commands.command(aliases=["lxvinv"])
-    async def lxvinventory(self, ctx: commands.Context):
+    @lxv_group.command(aliases=["inv"])
+    async def inventory(self, ctx: commands.Context):
         doc = await self.LXV_COLLECTION.find_one(f"inv{ctx.author.id}")
         if not doc:
             return await ctx.reply("Empty inventory")
@@ -835,7 +859,7 @@ class LoveSick(commands.Cog):
         custom_embed.add_field(name="Items", value=full_display)
         await ctx.send(embed=custom_embed)
 
-    @commands.group(invoke_without_command=True, name="lxvowodropevent", aliases=["lxvode"])
+    @lxv_group.group(invoke_without_command=True, name="owodropevent", aliases=["ode"])
     async def lxv_owo_drop_event(self, ctx: commands.Context):
         if not self.mod_only(ctx):
             return await ctx.reply("Womp")
@@ -904,6 +928,30 @@ class LoveSick(commands.Cog):
             self.owo_drop_event_settings = guild_setting
         await ctx.send(f"Successfully set **{setting}** to **{number if number is not None else state}**")
 
+    @lxv_group.group(name="automember", aliases=["am"], invoke_without_command=True)
+    async def auto_member(self, ctx: commands.Context):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        return await ctx.reply("SoonTM")
+    
+    @auto_member.command(name="startschedule", aliases=["ss"])
+    async def start_shedule(self, ctx: commands.Context, custom_time: Optional[int] = 60):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        """
+        Start / Restart schedule for auto member removal. 
+        Set custom_time in days. Default to 60 days (2 months)
+        """
+        return await ctx.reply(f"SoonTM in {custom_time} days")    
+    
+    @auto_member.command(name="cancelschedule", aliases=["cs"])
+    async def cancel_shedule(self, ctx: commands.Context):
+        """
+        Cancel schedule duh
+        """
+        return await ctx.reply(f"SoonTM cancel")
 
 async def setup(bot: SewentyBot):
     await bot.add_cog(LoveSick(bot))
+
+  
