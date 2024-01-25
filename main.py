@@ -598,7 +598,7 @@ def main():
                     and prev_catch_[-1].fields[0].value == message  # Better compare alg?
                 ):  # Compare with previous edited message
                     return
-            except KeyError:
+            except (KeyError, IndexError):
                 return
             """
             Line 1: **[Round X]**
