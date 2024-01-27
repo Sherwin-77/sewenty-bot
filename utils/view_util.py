@@ -47,7 +47,7 @@ class ConfirmEmbed(BaseView):
         await interaction.response.edit_message(content="Success", view=None, embed=None)
         self.stop()
 
-    @discord.ui.button(emoji='❌', style=discord.ButtonStyle.red)  # type: ignore
+    @discord.ui.button(emoji='❎', style=discord.ButtonStyle.red)  # type: ignore
     async def cancel(self, interaction: discord.Interaction, _: discord.Button):
         if interaction.user.id != self.userid:
             return await interaction.response.send_message(content="You are not allowed to use this >:(",
