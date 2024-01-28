@@ -106,7 +106,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help"),
         )
 
-        self.TEST_MODE = False
+        self.TEST_MODE = getenv("ENVIRONMENT", "PRODUCTION") == "DEV"
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = time_ns() // 1000000000
