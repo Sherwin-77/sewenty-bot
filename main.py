@@ -163,7 +163,7 @@ class SewentyBot(commands.Bot):
         except Exception as e:
             logger.error(f"Error connecting psql: {e}")
 
-        cluster = motor.motor_asyncio.AsyncIOMotorClient(mango_url)
+        cluster = motor.motor_asyncio.AsyncIOMotorClient(mango_url, tz_aware=True)
         cluster1 = motor.motor_asyncio.AsyncIOMotorClient(cp_url)
         app = await self.application_info()
         logger.info("Aiohttp session and database connected")
@@ -309,19 +309,19 @@ def main():
     @bot.command(hidden=True)
     @commands.is_owner()
     @commands.bot_has_guild_permissions(view_audit_log=True)
-    async def alogs(ctx: commands.Context, page_limit=3):
+    async def alogs(ctx: commands.Context, page_limit=3, fetch_limit=3):
         if not ctx.guild:
             return
 
         res = [
             f"**{entry.action}:** {entry.user} -> {entry.target} (Reason: {entry.reason}) **AT:** {discord.utils.format_dt(entry.created_at)}"
-            async for entry in ctx.guild.audit_logs(limit=10 * 3)
+            async for entry in ctx.guild.audit_logs(limit=10 * fetch_limit)
         ]
 
         # Normally doesn't trigger unless new guild
         if len(res) == 0:
             return await ctx.send("No logs")
-        menu = SimplePages(source=EmbedSource(res[: -page_limit * 5 : -1], 5, "Logs", lambda pg: '\n'.join(pg)))
+        menu = SimplePages(source=EmbedSource(res, page_limit, "Logs", lambda pg: '\n'.join(pg)))
         await menu.start(ctx)
 
     @bot.command(hidden=True)
