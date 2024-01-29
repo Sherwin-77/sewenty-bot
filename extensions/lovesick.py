@@ -425,7 +425,7 @@ class LoveSick(commands.Cog):
         )
         custom_embed.add_field(name="Original message", value=message.content)
         custom_embed.set_thumbnail(url=message.author.display_avatar)
-        custom_embed.set_footer(text=f"userid: {message.author.id}")
+        custom_embed.set_footer(text=f"UserId: {message.author.id} at {message.channel.mention} (#{message.channel.name}) ")  # type: ignore
         await channel.send(embed=custom_embed)
 
     @commands.Cog.listener()
