@@ -534,7 +534,7 @@ def main():
 
         if "inva" in message.content.lower():
             await bot.send_owner(
-                f"Mentioned 'inva' at <#{message.channel.id}> **Guild** {message.guild.name}\n"
+                f"Mentioned 'inva' at {message.channel.mention} #{message.channel.name} **Guild** {message.guild.name}\n"  # type: ignore
                 f"**By:** {message.author} ({message.author.id})\n"
                 f"**Jump:** {message.jump_url}\n"
                 f"**Full:**\n"
