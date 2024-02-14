@@ -517,21 +517,21 @@ class LoveSick(commands.Cog):
             allowed = all(match_role)
 
             if self.bot.TEST_MODE:
-                if allowed:
-                    return await message.reply("Success")
-                else:
-                    return await message.reply("Missing")
+                print(allowed)
+                print(match_role)
+                print(self.required_role_ids)
+                return
 
             if not allowed:
                 arr = []
                 for i in range(len(self.required_role_ids)):
                     if match_role[i] is None:
-                        role = guild.get_role(self.required_role_ids[i])  # type: ignore
+                        role = guild.get_role(int(self.required_role_ids[i]))  # type: ignore
                         if role is None:
                             continue
                         arr.append(role.name)
                     elif not match_role[i]:
-                        roles = [guild.get_role(x) for x in self.required_role_ids[i]]  # type: ignore
+                        roles = [guild.get_role(int(x)) for x in self.required_role_ids[i]]  # type: ignore
                         if not any(roles):
                             continue
                         arr.append(roles)
@@ -556,11 +556,10 @@ class LoveSick(commands.Cog):
 
             if member.display_name not in content:
                 logger.error("Username Mismatch |Compare: %s | Content: %s", member.display_name, content)
-                await message.reply(
+                self.ignored.add((payload.user_id, payload.message_id))
+                return await message.reply(
                     "Username doesn't match/found in hunting message. " "If you believe this is yours, contact staff"
                 )
-                self.ignored.add((payload.user_id, payload.message_id))
-                return
 
             default = 1
             counts = 0
@@ -583,7 +582,8 @@ class LoveSick(commands.Cog):
 
             participants = {}
             if counts == 0:
-                return await message.reply("No event pet found")
+                self.ignored.add((payload.user_id, payload.message_id))
+                return await message.reply("No event pet found. If you believe there is event pet, contact staff")
             detected = counts
             cursor = await self.LXV_COLLECTION.find_one(self.pet_query)
             if cursor:
