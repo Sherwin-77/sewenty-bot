@@ -168,7 +168,8 @@ class SewentyBot(commands.Bot):
         app = await self.application_info()
         logger.info("Aiohttp session and database connected")
 
-        self.owner = app.owner
+        # TODO: Change to use .env
+        self.owner = self.get_user(436376194166816770) or await self.fetch_user(436376194166816770)
         self.DB = cluster["Data"]
         self.CP_DB = cluster1["Hakibot"]
         self.LXV_DB = cluster1["lxv"]
