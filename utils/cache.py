@@ -94,8 +94,8 @@ class MessageCache:
                 return self.__cache.pop(key_del)
         else:
             if key in self.__cache:
-                if f"message-{key}" in self.__record:
-                    n = self.__record.pop(f"message-{key}")
+                if key in self.__record:
+                    n = self.__record.pop(key)
                     await self.__q.remove_node(n)
                 logger.debug("Removed message key %s", key)
                 return self.__cache.pop(key)
