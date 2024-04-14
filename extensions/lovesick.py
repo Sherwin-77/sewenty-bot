@@ -252,13 +252,14 @@ class LoveSick(commands.Cog):
         grouping = {"$group": {"_id": "$_id.user", "counts": {"$sum": "$owoCount"}}}
 
         # NOTE: Notice hardcode requirement owo
-        raw = {}
+        raw = {x: 0 for x in lxv_members_id}
         async for row in self.LXV_STAT_COLLECTION.aggregate([query, grouping]):
-            if row["counts"] < 1000:
+            if row["counts"] >= 1000:
+                raw.pop(row["_id"])
+            else:
                 raw[row["_id"]] = row["counts"]
-        ids = [mem.id for mem in lxv_role.members if mem.id in raw]
         results = [f"{mem.name} [{mem.id}]: **{raw[mem.id]}**" for mem in lxv_role.members if mem.id in raw]
-        self._inactives_member_id = ids
+        self._inactives_member_id = list(raw.keys())
         self._inactives_member_string = results
         await msg.edit(
             content="Checking member done. Please check list by using `s!lovesick automember memberinfo`. If you are sure to remove their roles, execute by using `s!lovesick automember execute`"
@@ -353,6 +354,8 @@ class LoveSick(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
+        if self.bot.TEST_MODE:
+            return
         if "owo" in message.content.lower() or "uwu" in message.content.lower():
             setting = self.owo_drop_event_settings
             if not setting:
@@ -386,10 +389,6 @@ class LoveSick(commands.Cog):
                     # await message.reply("<a:gift3:1184120760374149201>")
             await asyncio.sleep(setting["cooldown"])
             self._drop_cd.remove(str(message.author.id))
-        if self.bot.TEST_MODE:
-            return
-        if message.author.bot:
-            return
         if (
             message.guild is not None
             and message.guild.id == self.GUILD_ID
@@ -404,12 +403,12 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
-        if self.bot.TEST_MODE:
-            return
         if payload.guild_id != self.GUILD_ID:
             return
         message = await self.message_cache.remove_message(f"ping-{payload.message_id}")
         if message is None:
+            return
+        if self.bot.TEST_MODE:
             return
 
         # Do smth here
@@ -1212,6 +1211,35 @@ class LoveSick(commands.Cog):
                 continue
             await member.add_roles(lxv_role, reason="Undo execute remove role")
         await msg.edit(content="Undo done!")
+
+    @auto_member.command(name="mockcheck", aliases=["mc"])
+    async def mock_check(self, ctx: commands.Context, days: int):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        if not ctx.author.guild_permissions.manage_roles and self.bot.owner.id != ctx.author.id:  # type: ignore
+            return await ctx.send("Manage role required")
+
+        date_before = datetime.datetime(2000, 1, 1).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
+        )
+        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
+        date_id = (date_now - date_before).days - days
+        lxv_role: discord.Role = ctx.guild.get_role(self.lxv_member_id)  # type: ignore
+        lxv_members_id = [x.id for x in lxv_role.members]
+
+        query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_id}}]}}
+        grouping = {"$group": {"_id": "$_id.user", "counts": {"$sum": "$owoCount"}}}
+
+        raw = {x: 0 for x in lxv_members_id}
+        async for row in self.LXV_STAT_COLLECTION.aggregate([query, grouping]):
+            if row["counts"] >= 1000:
+                raw.pop(row["_id"])
+            else:
+                raw[row["_id"]] = row["counts"]
+        results = [f"{mem.name} [{mem.id}]: **{raw[mem.id]}**" for mem in lxv_role.members if mem.id in raw]
+
+        menu = SimplePages(EmbedSource(results, 15, f"Inactive members"))
+        await menu.start(ctx)
 
 
 async def setup(bot: SewentyBot):
