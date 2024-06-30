@@ -589,7 +589,7 @@ def main():
             processed = catch_[-1]
             prev_catch_ = before.embeds
             try:
-                message = processed.fields[0].value 
+                message = processed.fields[0].value
                 if message is None:
                     return
                 if (
