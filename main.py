@@ -13,7 +13,7 @@ from os import getenv
 from os.path import relpath
 import random
 from traceback import format_exception
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import aiohttp
 import discord
@@ -237,6 +237,27 @@ class SewentyBot(commands.Bot):
     async def send_owner(self, message=None, **kwargs) -> None:
         channel = await self.owner.create_dm()
         await channel.send(message, **kwargs)
+
+    async def send_error_to_owner(
+        self, error: Exception, channel: discord.abc.MessageableChannel, command: Optional[commands.Command[Any, ..., Any]]
+    ) -> None:
+        channel_name = getattr(channel, "name", "Unknown")
+        output = ''.join(format_exception(type(error), error, error.__traceback__))
+        if len(output) > 1500:
+            buffer = BytesIO(output.encode("utf-8"))
+            file = discord.File(buffer, filename="log.txt")
+            await self.send_owner(
+                f"Uncaught error in channel <#{channel.id}> #{channel_name} ({channel.id})\n command `{command}`",
+                file=file,
+            )
+        else:
+            custom_embed = discord.Embed(
+                description=f"Uncaught error in channel <#{channel.id}> #{channel_name} ({channel.id})\n"
+                f"command {command}\n"
+                f"```py\n{output}\n```",
+                color=discord.Colour.red(),
+            )
+            await self.send_owner(embed=custom_embed)
 
     def blocking_stack(self, traceback) -> None:
         logger.warning("Blocking code detected. You also can check from s!laststack")
@@ -680,19 +701,7 @@ def main():
             return await ctx.reply(error, mention_author=False)
         if isinstance(error, commands.errors.UserNotFound):
             return await ctx.reply("User not found", mention_author=False)
-        output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 1500:
-            buffer = BytesIO(output.encode("utf-8"))
-            file = discord.File(buffer, filename="log.txt")
-            await bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
-        else:
-            custom_embed = discord.Embed(
-                description=f"Uncaught error in channel <#{ctx.channel.id}> "
-                f"command {ctx.command}\n"
-                f"```py\n{output}\n```",
-                color=discord.Colour.red(),
-            )
-            await bot.send_owner(embed=custom_embed)
+        await bot.send_error_to_owner(error, ctx.channel, ctx.command)
 
     asyncio.run(bot.main())
 
