@@ -628,7 +628,9 @@ def main():
                     description=arr[1] + '\n' + latest,
                     color=discord.Colour.blue(),
                 )
-                custom_embed.set_footer(text="psst. If you want this tracker, DM/tell invaliduser77 (Tracker is fixed. If there's bug, please report immediately)")
+                custom_embed.set_footer(
+                    text="psst. If you want this tracker, DM/tell invaliduser77 (Tracker is fixed. If there's bug, please report immediately)"
+                )
                 await after.channel.send(embed=custom_embed)
 
     @bot.tree.error
