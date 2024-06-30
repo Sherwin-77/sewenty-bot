@@ -239,7 +239,7 @@ class SewentyBot(commands.Bot):
         await channel.send(message, **kwargs)
 
     async def send_error_to_owner(
-        self, error: Exception, channel: discord.abc.MessageableChannel, command: Optional[commands.Command[Any, ..., Any]]
+        self, error: Exception, channel: discord.abc.MessageableChannel, command: Optional[Union[commands.Command[Any, ..., Any], str]]
     ) -> None:
         channel_name = getattr(channel, "name", "Unknown")
         output = ''.join(format_exception(type(error), error, error.__traceback__))
