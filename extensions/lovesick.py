@@ -454,6 +454,10 @@ class LoveSick(commands.Cog):
             if member is None:  # Fallback
                 member = guild.fetch_member(payload.user_id)  # type: ignore
 
+            if member.bot:
+                self.ignored.add(payload.user_id)
+                return
+
             allowed = False
             if self.bot.owner == member:
                 allowed = True
@@ -478,13 +482,16 @@ class LoveSick(commands.Cog):
             and not self.event_disabled
         ):
             self.ignored.add(payload.user_id)
+
             guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
             if guild is None:
                 guild = await self.bot.fetch_guild(self.GUILD_ID, with_counts=False)
+
             channel = guild.get_channel(payload.channel_id)
             if not isinstance(channel, discord.TextChannel):
                 self.ignored.remove(payload.user_id)
                 return
+            
             try:
                 message = await channel.fetch_message(payload.message_id)
 
@@ -514,15 +521,18 @@ class LoveSick(commands.Cog):
                 if member is None:  # Fallback
                     member = guild.fetch_member(payload.user_id)  # type: ignore
 
+                if member.bot:
+                    return
+
                 if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
                     self.ignored.remove(payload.user_id)
                     return await message.add_reaction("<:joinlxv:1044554756569432094>")
+                
                 match_role = [
                     member.get_role(int(it)) if isinstance(it, str) else any([member.get_role(int(x)) for x in it])
                     for it in self.required_role_ids
                 ]
                 allowed = all(match_role)
-
                 if not allowed:
                     arr = []
                     for i in range(len(self.required_role_ids)):
@@ -588,6 +598,11 @@ class LoveSick(commands.Cog):
                 if userid in participants:
                     counts += participants[userid]
                 participants.update({userid: counts})
+
+                if self.bot.TEST_MODE:
+                    self.verified.add(payload.message_id)
+                    self.ignored.remove(payload.user_id)
+                    return await message.reply("OK");
 
                 link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
                 link_embed.add_field(
