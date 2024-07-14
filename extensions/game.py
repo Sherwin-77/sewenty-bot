@@ -869,18 +869,7 @@ class Game(commands.Cog):
             return await ctx.reply(
                 f"Please input correct parameter\n" f"```py\n{error}```", mention_author=False, delete_after=5
             )
-        output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 1500:
-            buffer = BytesIO(output.encode("utf-8"))
-            file = discord.File(buffer, filename="log.txt")
-            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
-        else:
-            custom_embed = discord.Embed(
-                title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                description=f"```py\n{output}```",
-                color=discord.Colour.red(),
-            )
-            await self.bot.send_owner(embed=custom_embed)
+        await self.bot.send_error_to_owner(error, ctx.channel, ctx.command)
 
     @commands.command(
         aliases=["raidboss"],
@@ -966,18 +955,7 @@ class Game(commands.Cog):
     async def raid_on_errors(self, ctx, error):
         if isinstance(error, commands.errors.MissingRequiredArgument):
             return await ctx.reply("Please input difficulty `e`,`h`, or `i`", mention_author=False, delete_after=5)
-        output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 1500:
-            buffer = BytesIO(output.encode("utf-8"))
-            file = discord.File(buffer, filename="log.txt")
-            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
-        else:
-            custom_embed = discord.Embed(
-                title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                description=f"```py\n{output}```",
-                color=discord.Colour.red(),
-            )
-            await self.bot.send_owner(embed=custom_embed)
+        await self.bot.send_error_to_owner(error, ctx.channel, ctx.command)
 
     @commands.command()
     async def teambattle(self, ctx, users: discord.User):
@@ -1067,18 +1045,7 @@ class Game(commands.Cog):
             return await ctx.reply(
                 "who you wanna battle with? (userid works instead mention)", mention_author=False, delete_after=5
             )
-        output = ''.join(format_exception(type(error), error, error.__traceback__))
-        if len(output) > 1500:
-            buffer = BytesIO(output.encode("utf-8"))
-            file = discord.File(buffer, filename="log.txt")
-            await self.bot.send_owner(f"Uncaught error in channel <#{ctx.channel.id}> command `{ctx.command}`", file=file)
-        else:
-            custom_embed = discord.Embed(
-                title=f"Uncaught error in channel <#{ctx.channel.id}> command {ctx.command}",
-                description=f"```py\n{output}```",
-                color=discord.Colour.red(),
-            )
-            await self.bot.send_owner(embed=custom_embed)
+        await self.bot.send_error_to_owner(error, ctx.channel, ctx.command)
 
     @commands.command()
     async def wdesc(self, ctx, name=None):

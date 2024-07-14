@@ -454,6 +454,10 @@ class LoveSick(commands.Cog):
             if member is None:  # Fallback
                 member = guild.fetch_member(payload.user_id)  # type: ignore
 
+            if member.bot:
+                self.ignored.add(payload.user_id)
+                return
+
             allowed = False
             if self.bot.owner == member:
                 allowed = True
@@ -471,152 +475,175 @@ class LoveSick(commands.Cog):
         if (
             payload.guild_id == self.GUILD_ID
             and payload.emoji.id == 1046848826050359368
-            and payload.message_id not in self.ignored
             and payload.message_id not in self.verified
+            and payload.message_id not in self.ignored
+            and payload.user_id not in self.ignored
             and (payload.user_id, payload.message_id) not in self.ignored
             and not self.event_disabled
         ):
+            self.ignored.add(payload.user_id)
+
             guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
+            if guild is None:
+                guild = await self.bot.fetch_guild(self.GUILD_ID, with_counts=False)
+
             channel = guild.get_channel(payload.channel_id)
             if not isinstance(channel, discord.TextChannel):
+                self.ignored.remove(payload.user_id)
                 return
-            message = await channel.fetch_message(payload.message_id)
+            
+            try:
+                message = await channel.fetch_message(payload.message_id)
 
-            # Check if its from owo
-            if message.author.id != 408785106942164992:
-                self.ignored.add(payload.message_id)
-                return
+                # Check if its from owo
+                if message.author.id != 408785106942164992:
+                    self.ignored.add(payload.message_id)
+                    self.ignored.remove(payload.user_id)
+                    return
 
-            if not message.content and not message.embeds:
-                warning = await message.reply(
-                    "WARNING: Content is empty. Retrying in 3 seconds " "<a:discordloading:792012369168957450>"
-                )
-                for i in range(3):
-                    await asyncio.sleep(3)
-                    message = await channel.fetch_message(payload.message_id)
-                    await warning.edit(
-                        content=f"WARNING: Content is empty. Retrying in 3 seconds "
-                        f"<a:discordloading:792012369168957450> (Attempt {i+1})"
+                if not message.content and not message.embeds:
+                    warning = await message.reply(
+                        "WARNING: Content is empty. Retrying in 3 seconds " "<a:discordloading:792012369168957450>"
                     )
-                    if message.content or message.embeds:
-                        logger.warning("Attempted to get empty content. %s tries", i + 1)
-                        await warning.delete()
+                    for i in range(3):
+                        await asyncio.sleep(3)
+                        message = await channel.fetch_message(payload.message_id)
+                        await warning.edit(
+                            content=f"WARNING: Content is empty. Retrying in 3 seconds "
+                            f"<a:discordloading:792012369168957450> (Attempt {i+1})"
+                        )
+                        if message.content or message.embeds:
+                            logger.warning("Attempted to get empty content. %s tries", i + 1)
+                            await warning.delete()
 
-            userid = str(payload.user_id)
-            member = guild.get_member(payload.user_id)  # type: ignore
-            if member is None:  # Fallback
-                member = guild.fetch_member(payload.user_id)  # type: ignore
+                userid = str(payload.user_id)
+                member = guild.get_member(payload.user_id)  # type: ignore
+                if member is None:  # Fallback
+                    member = guild.fetch_member(payload.user_id)  # type: ignore
 
-            if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
-                return await message.add_reaction("<:joinlxv:1044554756569432094>")
-            match_role = [
-                member.get_role(int(it)) if isinstance(it, str) else any([member.get_role(int(x)) for x in it])
-                for it in self.required_role_ids
-            ]
-            allowed = all(match_role)
+                if member.bot:
+                    return
 
-            if self.bot.TEST_MODE:
-                print(allowed)
-                print(match_role)
-                print(self.required_role_ids)
-                return
+                if member.get_role(self.lxv_member_id) is None and self.lxv_only_event:
+                    self.ignored.remove(payload.user_id)
+                    return await message.add_reaction("<:joinlxv:1044554756569432094>")
+                
+                match_role = [
+                    member.get_role(int(it)) if isinstance(it, str) else any([member.get_role(int(x)) for x in it])
+                    for it in self.required_role_ids
+                ]
+                allowed = all(match_role)
+                if not allowed:
+                    arr = []
+                    for i in range(len(self.required_role_ids)):
+                        if match_role[i] is None:
+                            role = guild.get_role(int(self.required_role_ids[i]))  # type: ignore
+                            if role is None:
+                                continue
+                            arr.append(role.name)
+                        elif not match_role[i]:
+                            roles = [guild.get_role(int(x)) for x in self.required_role_ids[i]]  # type: ignore
+                            if not any(roles):
+                                continue
+                            arr.append(roles)
 
-            if not allowed:
-                arr = []
-                for i in range(len(self.required_role_ids)):
-                    if match_role[i] is None:
-                        role = guild.get_role(int(self.required_role_ids[i]))  # type: ignore
-                        if role is None:
-                            continue
-                        arr.append(role.name)
-                    elif not match_role[i]:
-                        roles = [guild.get_role(int(x)) for x in self.required_role_ids[i]]  # type: ignore
-                        if not any(roles):
-                            continue
-                        arr.append(roles)
-
-                # Failsafe if requirement role is non existent
-                if arr:
-                    display = ""
-                    for x in arr:
-                        if isinstance(x, list):
-                            display += "One of the following roles: " + ' '.join([y.mention for y in x]) + '\n'
-                        else:
-                            display += f"Required: {x.mention}\n"
-                    custom_embed = discord.Embed(title="Missing roles", colour=discord.Colour.red(), description=display)
-                    return await message.reply(embed=custom_embed)
-            link_channel = guild.get_channel(
-                self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
-            )
-
-            content = message.content if not message.embeds else message.embeds[0].description
-            if content is None:
-                return await message.reply("Invalid message type")
-
-            if member.display_name not in content:
-                logger.error("Username Mismatch |Compare: %s | Content: %s", member.display_name, content)
-                self.ignored.add((payload.user_id, payload.message_id))
-                return await message.reply(
-                    "Username doesn't match/found in hunting message. " "If you believe this is yours, contact staff"
+                    # Failsafe if requirement role is non existent
+                    if arr:
+                        display = ""
+                        for x in arr:
+                            if isinstance(x, list):
+                                display += "One of the following roles: " + ' '.join([y.mention for y in x]) + '\n'
+                            else:
+                                display += f"Required: {x.mention}\n"
+                        custom_embed = discord.Embed(title="Missing roles", colour=discord.Colour.red(), description=display)
+                        self.ignored.remove(payload.user_id)
+                        return await message.reply(embed=custom_embed)
+                link_channel = guild.get_channel(
+                    self.lxv_link_channel if member.get_role(self.lxv_member_id) else self.event_link_channel
                 )
 
-            default = 1
-            counts = 0
-            """
-                Normal content would be
-                x | name hunt   [0]
-                y | caught pets [1]
-                z | team xp     [2]
+                content = message.content if not message.embeds else message.embeds[0].description
+                if content is None:
+                    self.ignored.remove(payload.user_id)
+                    return await message.reply("Invalid message type")
+
+                if member.display_name not in content:
+                    logger.error("Username Mismatch |Compare: %s | Content: %s", member.display_name, content)
+                    self.ignored.add((payload.user_id, payload.message_id))
+                    self.ignored.remove(payload.user_id)
+                    return await message.reply(
+                        "Username doesn't match/found in hunting message. " "If you believe this is yours, contact staff"
+                    )
+
+                default = 1
                 """
-            check = content.split('\n')
-            for i, line in enumerate(check):
-                for pet in self.focus:
-                    if pet in line:
-                        if i == default:
-                            counts += line.count(pet)
+                    Normal content would be
+                    x | name hunt   [0]
+                    y | caught pets [1]
+                    z | team xp     [2]
+                """
+                check = content.split('\n')
+                counts = sum(line.count(pet) for i, line in enumerate(check) if i == default for pet in self.focus if pet in line)
 
-                        if i != default and not line.endswith("**!"):  # default message for xp team
-                            default = i
-                            counts = line.count(pet)
+                if counts == 0:
+                    self.ignored.add((payload.user_id, payload.message_id))
+                    self.ignored.remove(payload.user_id)
+                    return await message.reply("No event pet found. If you believe there is event pet, contact staff")
+                
+                participants = {}
+                detected = counts
+                cursor = await self.LXV_COLLECTION.find_one(self.pet_query)
+                if cursor:
+                    participants = cursor["participants"]
+                if userid in participants:
+                    counts += participants[userid]
+                participants.update({userid: counts})
 
-            participants = {}
-            if counts == 0:
-                self.ignored.add((payload.user_id, payload.message_id))
-                return await message.reply("No event pet found. If you believe there is event pet, contact staff")
-            detected = counts
-            cursor = await self.LXV_COLLECTION.find_one(self.pet_query)
-            if cursor:
-                participants = cursor["participants"]
-            if userid in participants:
-                counts += participants[userid]
-            participants.update({userid: counts})
+                if self.bot.TEST_MODE:
+                    self.verified.add(payload.message_id)
+                    self.ignored.remove(payload.user_id)
+                    return await message.reply("OK");
 
-            link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
-            link_embed.add_field(
-                name="Detail",
-                value=f"Detected count: **{detected}**\n"
-                f"User id: {userid}\n"
-                f"Channel: {channel.mention}\n"
-                f"Jump url: [Link]({message.jump_url})\n"
-                f"In case other wondering, "
-                f"react your event hunt message with <:newlxv:1046848826050359368>\n"
-                f"If anything wrong, for staff react the emoji below",
-            )
-            msg = await link_channel.send(embed=link_embed)  # type: ignore
-            await msg.add_reaction('📝')
+                link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
+                link_embed.add_field(
+                    name="Detail",
+                    value=f"Detected count: **{detected}**\n"
+                    f"User id: {userid}\n"
+                    f"Channel: {channel.mention}\n"
+                    f"Jump url: [Link]({message.jump_url})\n"
+                    f"In case other wondering, "
+                    f"react your event hunt message with <:newlxv:1046848826050359368>\n"
+                    f"If anything wrong, for staff react the emoji below to edit",
+                )
+                msg = await link_channel.send(embed=link_embed)  # type: ignore
+                await msg.add_reaction('📝')
 
-            if not cursor:
-                await self.LXV_COLLECTION.insert_one({"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
-            else:
-                await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
+                if not cursor:
+                    await self.LXV_COLLECTION.insert_one({"_id": f"pet|{'|'.join(self.focus)}", "participants": participants})
+                else:
+                    await self.LXV_COLLECTION.update_one(self.pet_query, {"$set": {"participants": participants}})
 
-            self.verified.add(payload.message_id)
-            verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
-            if not verified:
-                await self.LXV_COLLECTION.insert_one({"_id": "verified_msg", "msg_ids": list(self.verified)})
-            else:
-                await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
-            await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
+                self.verified.add(payload.message_id)
+                verified = await self.LXV_COLLECTION.find_one({"_id": "verified_msg"})
+                if not verified:
+                    await self.LXV_COLLECTION.insert_one({"_id": "verified_msg", "msg_ids": list(self.verified)})
+                else:
+                    await self.LXV_COLLECTION.update_one({"_id": "verified_msg"}, {"$set": {"msg_ids": list(self.verified)}})
+
+                await message.reply(f"Sent to {link_channel.mention}")  # type: ignore
+                self.ignored.remove(payload.user_id)
+            except Exception as e:
+                await self.bot.send_error_to_owner(e, channel, None)
+                if payload.user_id in self.ignored:
+                    self.ignored.remove(payload.user_id)
+                    
+                if isinstance(e, KeyError):
+                    return
+                
+                await message.reply("Something went wrong. Please try again later")
+                if payload.message_id in self.verified:
+                    self.verified.remove(payload.message_id)
+            
 
     @commands.group(invoke_without_command=True, name="lxv")
     async def lxv_group(self, ctx: commands.Context):
