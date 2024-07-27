@@ -8,4 +8,6 @@
 How to run:
 - No you don't
 
+docker branch available [WIP]
+
 This repository is for example if you want to start code in discord.py

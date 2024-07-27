@@ -42,17 +42,17 @@ logging.config.dictConfig(
                 "formatter": "simple",
                 "stream": "ext://sys.stdout",
             },
-            # "file": {
-            #     "class": "logging.handlers.RotatingFileHandler",
-            #     "level": "INFO",
-            #     "formatter": "simple",
-            #     "filename": "bot.log",
-            #     "maxBytes": 16 * 1024 * 1024,
-            #     "backupCount": 3,
-            #     "encoding": "utf-8",
-            # },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "level": "INFO",
+                "formatter": "simple",
+                "filename": "bot.log",
+                "maxBytes": 16 * 1024 * 1024,
+                "backupCount": 3,
+                "encoding": "utf-8",
+            },
         },
-        "root": {"level": "INFO", "handlers": ["console"]},
+        "root": {"level": "INFO", "handlers": ["console", "file"]},
     }
 )
 logger = logging.getLogger("main")
