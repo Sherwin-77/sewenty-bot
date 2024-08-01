@@ -587,7 +587,7 @@ class LoveSick(commands.Cog):
                 for i, line in enumerate(check):
                     if i == 0 or i == default:
                         for pet in self.focus:
-                            pet_counts  = sum(line.count(pet.lower()))
+                            pet_counts  = line.count(pet.lower())
                             counts += pet_counts
                             if i == 0:
                                 if counts > 1:
