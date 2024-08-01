@@ -582,8 +582,8 @@ class LoveSick(commands.Cog):
                     y | caught pets [1]
                     z | team xp     [2]
                 """
-                check = content.split('\n')
-                counts = sum(line.count(pet) for i, line in enumerate(check) if i == default for pet in self.focus if pet in line)
+                check = content.lower().split('\n')
+                counts = sum(line.count(pet.lower()) for i, line in enumerate(check) if i == default for pet in self.focus if pet in line)
 
                 if counts == 0:
                     self.ignored.add((payload.user_id, payload.message_id))
