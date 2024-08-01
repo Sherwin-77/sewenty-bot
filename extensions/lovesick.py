@@ -583,7 +583,18 @@ class LoveSick(commands.Cog):
                     z | team xp     [2]
                 """
                 check = content.lower().split('\n')
-                counts = sum(line.count(pet.lower()) for i, line in enumerate(check) if i == default for pet in self.focus if pet in line)
+                counts = 0
+                for i, line in enumerate(check):
+                    if i == 0 or i == default:
+                        for pet in self.focus:
+                            pet_counts  = sum(line.count(pet.lower()))
+                            counts += pet_counts
+                            if i == 0:
+                                if counts > 1:
+                                    self.ignored.remove(payload.user_id)
+                                    return await message.reply("Illegal catch, ensure your hunt line is correct (Expected first line exist if no gem which is one pet only)")
+                        if counts > 0:
+                            break
 
                 if counts == 0:
                     self.ignored.add((payload.user_id, payload.message_id))
