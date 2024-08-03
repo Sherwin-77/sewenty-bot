@@ -50,6 +50,20 @@ class EditCount(BaseView):
         self.userid = self.lines[1].split(':')[1].strip()
         self.staff = staff
 
+    async def _delete_hunt(self, interaction: discord.Interaction):
+        cursor = await self.parentcls.LXV_COLLECTION.find_one(self.parentcls.pet_query)
+        if cursor is None:
+            return await interaction.response.send_message("Index not found", ephemeral=True)
+        participants = cursor["participants"]
+        if self.userid not in participants:
+            return await interaction.response.send_message("User not found", ephemeral=True)
+        res = participants[self.userid] - self.original
+        if res <= 0:
+            participants.pop(self.userid)
+        else:
+            participants.update({self.userid: res})
+        await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query, {"$set": {"participants": participants}})
+
     @discord.ui.button(emoji='🔼', style=discord.ButtonStyle.blurple)  # type: ignore
     async def incre_number(self, interaction: discord.Interaction, _: discord.Button):
         self.value += 1
@@ -82,23 +96,12 @@ class EditCount(BaseView):
         custom_embed.set_field_at(0, name="Detail", value='\n'.join(self.lines))
         await self.message.edit(content=f"Corrected by {self.staff}", embed=custom_embed)
 
-    @discord.ui.button(label="Delete hunt", style=discord.ButtonStyle.red)  # type: ignore
+    @discord.ui.button(label="Delete Hunt", style=discord.ButtonStyle.red)  # type: ignore
     async def delete_hunt(self, interaction: discord.Interaction, _: discord.Button):
-        cursor = await self.parentcls.LXV_COLLECTION.find_one(self.parentcls.pet_query)
         await interaction.response.defer()
         await interaction.delete_original_response()
 
-        if cursor is None:
-            return await interaction.followup.send("Index not found", ephemeral=True)
-        participants = cursor["participants"]
-        if self.userid not in participants:
-            return await interaction.followup.send("User not found", ephemeral=True)
-        res = participants[self.userid] - self.original
-        if res <= 0:
-            participants.pop(self.userid)
-        else:
-            participants.update({self.userid: res})
-        await self.parentcls.LXV_COLLECTION.update_one(self.parentcls.pet_query, {"$set": {"participants": participants}})
+        await self._delete_hunt(interaction)
 
         await self.message.delete()
 
@@ -245,7 +248,7 @@ class LoveSick(commands.Cog):
             hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
         )
         date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
-        date_id = (date_now - date_before).days - next_check["repeatEvery"]  # You must be grateful I add 1 day bonus :D
+        date_id = (date_now - date_before).days - next_check["repeatEvery"] 
 
         # Query to match all the id user that in lxv member id, then collect until x day before, then sum all of them
         query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_id}}]}}
@@ -262,7 +265,7 @@ class LoveSick(commands.Cog):
         self._inactives_member_id = list(raw.keys())
         self._inactives_member_string = results
         await msg.edit(
-            content="Checking member done. Please check list by using `s!lovesick automember memberinfo`. If you are sure to remove their roles, execute by using `s!lovesick automember execute`"
+            content="Checking member done. Please check list by using `s!lxv automember memberinfo`. If you are sure to remove their roles, execute by using `s!lxv automember execute`"
         )
         self._last_inactive_check = discord.utils.snowflake_time(msg.id)
         next_time = discord.utils.snowflake_time(msg.id) + datetime.timedelta(days=next_check["repeatEvery"])
@@ -429,8 +432,6 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-        guild: discord.Guild
-        member: discord.Member
         if self.bot.TEST_MODE:
             return
         if (
@@ -440,7 +441,9 @@ class LoveSick(commands.Cog):
             and payload.message_id not in self.ignored
             and payload.user_id not in self.ignored
         ):
-            guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
+            guild = self.bot.get_guild(self.GUILD_ID) 
+            if guild is None:
+                guild = await self.bot.fetch_guild(self.GUILD_ID, with_counts=False)
             channel = guild.get_channel(payload.channel_id)
             if not isinstance(channel, discord.TextChannel):
                 return
@@ -450,9 +453,9 @@ class LoveSick(commands.Cog):
                 self.ignored.add(payload.message_id)
                 return
 
-            member = guild.get_member(payload.user_id)  # type: ignore
+            member = guild.get_member(payload.user_id) 
             if member is None:  # Fallback
-                member = guild.fetch_member(payload.user_id)  # type: ignore
+                member = await guild.fetch_member(payload.user_id)
 
             if member.bot:
                 self.ignored.add(payload.user_id)
@@ -471,7 +474,7 @@ class LoveSick(commands.Cog):
                 self.ignored.add(payload.user_id)
                 return
 
-            view = ConfirmEdit(self, message, member)  # type: ignore
+            view = ConfirmEdit(self, message, member) 
         if (
             payload.guild_id == self.GUILD_ID
             and payload.emoji.id == 1046848826050359368
@@ -483,8 +486,8 @@ class LoveSick(commands.Cog):
         ):
             self.ignored.add(payload.user_id)
 
-            guild = self.bot.get_guild(self.GUILD_ID)  # type: ignore
-            if guild is None:
+            guild = self.bot.get_guild(self.GUILD_ID)  
+            if guild is None:  # Fallback
                 guild = await self.bot.fetch_guild(self.GUILD_ID, with_counts=False)
 
             channel = guild.get_channel(payload.channel_id)
@@ -517,9 +520,9 @@ class LoveSick(commands.Cog):
                             await warning.delete()
 
                 userid = str(payload.user_id)
-                member = guild.get_member(payload.user_id)  # type: ignore
+                member = guild.get_member(payload.user_id) 
                 if member is None:  # Fallback
-                    member = guild.fetch_member(payload.user_id)  # type: ignore
+                    member = await guild.fetch_member(payload.user_id)  
 
                 if member.bot:
                     return
@@ -582,8 +585,19 @@ class LoveSick(commands.Cog):
                     y | caught pets [1]
                     z | team xp     [2]
                 """
-                check = content.split('\n')
-                counts = sum(line.count(pet) for i, line in enumerate(check) if i == default for pet in self.focus if pet in line)
+                check = content.lower().split('\n')
+                counts = 0
+                for i, line in enumerate(check):
+                    if i == 0 or i == default:
+                        for pet in self.focus:
+                            pet_counts  = line.count(pet.lower())
+                            counts += pet_counts
+                            if i == 0:
+                                if counts > 1:
+                                    self.ignored.remove(payload.user_id)
+                                    return await message.reply("Illegal catch, ensure your hunt line is correct (Expected first line exist if no gem which is one pet only)")
+                        if counts > 0:
+                            break
 
                 if counts == 0:
                     self.ignored.add((payload.user_id, payload.message_id))
@@ -1189,7 +1203,7 @@ class LoveSick(commands.Cog):
             return await ctx.reply("Not yet")
         custom_embed = discord.Embed(
             title="Execute auto remove member role",
-            description=f"This will remove role from member in previous checked list (you can see the list from command `s!lovesick automember memberinfo`)\n"
+            description=f"This will remove role from member in previous checked list (you can see the list from command `s!lxv automember memberinfo`)\n"
             f"**This action is irreversible!**. Are you sure?",
             color=discord.Colour.red(),
         )
@@ -1219,7 +1233,7 @@ class LoveSick(commands.Cog):
             return await ctx.reply("Not yet")
         custom_embed = discord.Embed(
             title="Undo remove member role",
-            description=f"This will give role in member in previous checked list (you can see the list from command `s!lovesick automember memberinfo`)\n"
+            description=f"This will give role in member in previous checked list (you can see the list from command `s!lxv automember memberinfo`)\n"
             f"**This action is irreversible!**. Are you sure?",
             color=discord.Colour.red(),
         )
