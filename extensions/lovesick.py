@@ -618,7 +618,7 @@ class LoveSick(commands.Cog):
                     self.ignored.remove(payload.user_id)
                     return await message.reply("OK");
 
-                link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
+                link_embed = discord.Embed(title=member.name, description=content, color=discord.Colour.green())
                 link_embed.add_field(
                     name="Detail",
                     value=f"Detected count: **{detected}**\n"
@@ -629,6 +629,7 @@ class LoveSick(commands.Cog):
                     f"react your event hunt message with <:newlxv:1046848826050359368>\n"
                     f"If anything wrong, for staff react the emoji below to edit",
                 )
+                link_embed.set_footer(text=f"Sent by: {member.display_name}")
                 msg = await link_channel.send(embed=link_embed)  # type: ignore
                 await msg.add_reaction('📝')
 
@@ -863,7 +864,7 @@ class LoveSick(commands.Cog):
             counts += participants[userid]
         participants.update({userid: counts})
 
-        link_embed = discord.Embed(title=f"Hunt from {member}", description=content, color=discord.Colour.green())
+        link_embed = discord.Embed(title=member.name, description=content, color=discord.Colour.green())
         link_embed.add_field(
             name="Detail",
             value=f"Detected count: **{detected}**\n"
@@ -874,6 +875,7 @@ class LoveSick(commands.Cog):
             f"react your event hunt message with <:newlxv:1046848826050359368>\n"
             f"If anything wrong, for staff react the emoji below",
         )
+        link_embed.set_footer(text=f"Sent by: {member.display_name}")
         msg = await link_channel.send(embed=link_embed)  # type: ignore
         await msg.add_reaction('📝')
 
