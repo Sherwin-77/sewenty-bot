@@ -641,7 +641,7 @@ class LoveSick(commands.Cog):
                     f"User id: {userid}\n"
                     f"Channel: {channel.mention}\n"
                     f"Jump url: [Link]({message.jump_url})\n"
-                    f"Line: {line_check + 1}\n",
+                    f"Line: {line_check + 1}\n"
                     f"In case other wondering, "
                     f"react your event hunt message with <:newlxv:1046848826050359368>\n"
                     f"If anything wrong, for staff react the emoji below to edit",
@@ -885,10 +885,10 @@ class LoveSick(commands.Cog):
             f"User id: {userid}\n"
             f"Channel: {ctx.channel.mention}\n"  # type: ignore
             f"Jump url: [Link]({message.jump_url})\n"
-            f"Line: {line_check + 1}\n",
+            f"Line: {line_check + 1}\n"
             f"In case other wondering, "
             f"react your event hunt message with <:newlxv:1046848826050359368>\n"
-            f"If anything wrong, for staff react the emoji below",
+            f"If anything wrong, for staff react the emoji below"
         )
         link_embed.set_footer(text=f"Sent by: {member.display_name}")
         msg = await link_channel.send(embed=link_embed)  # type: ignore
