@@ -218,6 +218,13 @@ class LoveSick(commands.Cog):
     @tasks.loop()
     async def auto_remove_member(self):
         auto_member_settings = await self.LXV_COLLECTION.find_one({"_id": "autoMember"})
+        previous_check = await self.LXV_COLLECTION.find_one({"_id": "autoMemberCheck"})
+        if previous_check is not None:
+            self._last_inactive_check = previous_check["lastCheck"]
+            self._inactives_member_id = previous_check["inactivesMember"]
+            self._inactives_member_string = previous_check["inactivesMemberString"]
+            logger.info("Found previous check, setting last check time to %s", self._last_inactive_check)
+
         guild = self.bot.get_guild(self.GUILD_ID)
         ch = guild.get_channel(789154199186702408)  # type: ignore
         if not auto_member_settings or "nextTime" not in auto_member_settings or "repeatEvery" not in auto_member_settings or "disabled" not in auto_member_settings:
@@ -275,11 +282,14 @@ class LoveSick(commands.Cog):
         await msg.edit(
             content="Checking member done. Please check list by using `s!lxv automember memberinfo`. If you are sure to remove their roles, execute by using `s!lxv automember execute`"
         )
-        # TODO: Backup inactives member
+        
+        if previous_check is not None:
+            await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"inactivesMember": self._inactives_member_id, "inactivesMemberString": self._inactives_member_string, "lastCheck": self._last_inactive_check}})
+        else:
+            await self.LXV_COLLECTION.insert_one({"_id": "autoMember", "inactivesMember": self._inactives_member_id, "inactivesMemberString": self._inactives_member_string, "lastCheck": self._last_inactive_check})
 
         # Update next time
-        self._last_inactive_check = discord.utils.snowflake_time(msg.id)
-        next_time = utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1)
+        next_time = utils.start_of_day(utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1))
         await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time}})
 
     @auto_remove_member.before_loop
