@@ -704,7 +704,7 @@ class LoveSick(commands.Cog):
     async def focus(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
-        All verified **message id** posted at link channel will be cleared and event counting will set to eenabled
+        All verified **message id** posted at link channel will be cleared and event counting will set to enabled
         """
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
