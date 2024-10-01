@@ -577,8 +577,6 @@ class LoveSick(commands.Cog):
                     return await message.reply(
                         "Username doesn't match/found in hunting message. " "If you believe this is yours, contact staff"
                     )
-
-                default = 1
                 """
                     Normal content would be
                     x | name hunt   [0]
@@ -587,17 +585,13 @@ class LoveSick(commands.Cog):
                 """
                 check = content.lower().split('\n')
                 counts = 0
+                line_check = 0
                 for i, line in enumerate(check):
-                    if i == 0 or i == default:
-                        for pet in self.focus:
-                            pet_counts  = line.count(pet.lower())
-                            counts += pet_counts
-                            if i == 0:
-                                if counts > 1:
-                                    self.ignored.remove(payload.user_id)
-                                    return await message.reply("Illegal catch, ensure your hunt line is correct (Expected first line exist if no gem which is one pet only)")
-                        if counts > 0:
-                            break
+                    for pet in self.focus:
+                        counts += line.count(pet.lower())
+                    if counts > 0:
+                        line_check = i
+                        break
 
                 if counts == 0:
                     self.ignored.add((payload.user_id, payload.message_id))
@@ -625,6 +619,7 @@ class LoveSick(commands.Cog):
                     f"User id: {userid}\n"
                     f"Channel: {channel.mention}\n"
                     f"Jump url: [Link]({message.jump_url})\n"
+                    f"Line: {line_check + 1}\n",
                     f"In case other wondering, "
                     f"react your event hunt message with <:newlxv:1046848826050359368>\n"
                     f"If anything wrong, for staff react the emoji below to edit",
@@ -689,8 +684,8 @@ class LoveSick(commands.Cog):
             embed=custom_embed,
         )
 
-    @event_group.command(aliases=["f"])
-    async def focus(self, ctx, *pet):
+    @event_group.command(name="focus", aliases=["f"])
+    async def focus_pet(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
         All verified **message id** posted at link channel will be cleared and event counting will set to eenabled
@@ -834,8 +829,6 @@ class LoveSick(commands.Cog):
         content = message.content if not message.embeds else message.embeds[0].description
         if content is None:
             return await ctx.reply("Invalid message")
-        default = 1
-        counts = 0
         """
             Normal content would be
             x | name hunt   [0]
@@ -843,15 +836,14 @@ class LoveSick(commands.Cog):
             z | team xp     [2]
             """
         check = content.split('\n')
+        counts = 0
+        line_check = 0
         for i, line in enumerate(check):
             for pet in self.focus:
-                if pet in line:
-                    if i == default:
-                        counts += line.count(pet)
-
-                    if i != default and not line.endswith("**!"):  # default message for xp team
-                        default = i
-                        counts = line.count(pet)
+                counts += line.count(pet.lower())
+            if counts > 0:
+                line_check = i
+                break
 
         participants = {}
         if counts == 0:
@@ -871,6 +863,7 @@ class LoveSick(commands.Cog):
             f"User id: {userid}\n"
             f"Channel: {ctx.channel.mention}\n"  # type: ignore
             f"Jump url: [Link]({message.jump_url})\n"
+            f"Line: {line_check + 1}\n",
             f"In case other wondering, "
             f"react your event hunt message with <:newlxv:1046848826050359368>\n"
             f"If anything wrong, for staff react the emoji below",
