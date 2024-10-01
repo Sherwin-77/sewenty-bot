@@ -13,7 +13,7 @@ import pytz
 
 import utils
 from utils.cache import MessageCache
-from utils.paginators import EmbedSource, SimplePages
+from utils.paginators import DataEmbedSource, SimplePages
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 
 if TYPE_CHECKING:
@@ -160,8 +160,7 @@ class LoveSick(commands.Cog):
         self.ignored = set()
         self.verified = set()
         self.owo_drop_event_settings = {}
-        self._inactives_member_id = []
-        self._inactives_member_string = []
+        self._inactives_member_data = []
         self._last_inactive_check: Optional[datetime.datetime] = None
         self._drop_cd = set()
         self.item_render = {
@@ -221,8 +220,7 @@ class LoveSick(commands.Cog):
         previous_check = await self.LXV_COLLECTION.find_one({"_id": "autoMemberCheck"})
         if previous_check is not None:
             self._last_inactive_check = previous_check["lastCheck"]
-            self._inactives_member_id = previous_check["inactivesMember"]
-            self._inactives_member_string = previous_check["inactivesMemberString"]
+            self._inactives_member_data = previous_check["data"]
             logger.info("Found previous check, setting last check time to %s", self._last_inactive_check)
 
         guild = self.bot.get_guild(self.GUILD_ID)
@@ -276,18 +274,17 @@ class LoveSick(commands.Cog):
                 raw.pop(row["_id"])
             else:
                 raw[row["_id"]] = row["counts"]
-        results = [f"{mem.name} [{mem.id}]: **{raw[mem.id]}**" for mem in lxv_role.members if mem.id in raw]
-        self._inactives_member_id = list(raw.keys())
-        self._inactives_member_string = results
+        results = [{"id": mem.id, "name": mem.name, "count": raw[mem.id]} for mem in lxv_role.members if mem.id in raw]
+        self._inactives_member_data = results
         self._last_inactive_check = discord.utils.snowflake_time(msg.id)
         await msg.edit(
             content="Checking member done. Please check list by using `s!lxv automember memberinfo`. If you are sure to remove their roles, execute by using `s!lxv automember execute`"
         )
         
         if previous_check is not None:
-            await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"inactivesMember": self._inactives_member_id, "inactivesMemberString": self._inactives_member_string, "lastCheck": self._last_inactive_check}})
+            await self.LXV_COLLECTION.update_one({"_id": "autoMemberCheck"}, {"$set": {"data": self._inactives_member_data, "lastCheck": self._last_inactive_check}})
         else:
-            await self.LXV_COLLECTION.insert_one({"_id": "autoMember", "inactivesMember": self._inactives_member_id, "inactivesMemberString": self._inactives_member_string, "lastCheck": self._last_inactive_check})
+            await self.LXV_COLLECTION.insert_one({"_id": "autoMemberCheck", "data": self._inactives_member_data, "lastCheck": self._last_inactive_check})
 
         # Update next time
         next_time = utils.start_of_day(utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1))
@@ -1072,7 +1069,7 @@ class LoveSick(commands.Cog):
             title="Not so informative auto check member role",
             description=f"Last check: {display_date}\n"
             f"Next schedule: {discord.utils.format_dt(doc['nextTime'], 'R')}\n"
-            f"Repeat schedule every: **{doc['repeatEvery']} days**\n"
+            f"Repeat schedule every: **{doc['repeatEvery']} months**\n"
             f"Running: **{self.auto_remove_member.is_running()}**\n"
             f"Disabled: **{doc['disabled']}**\n"
             f"||For more info, please check by running command `s!help lovesick automember`||",
@@ -1080,14 +1077,17 @@ class LoveSick(commands.Cog):
         )
         await ctx.send(embed=custom_embed)
 
+
     @auto_member.command(name="memberinfo", aliases=["mi"])
     async def member_info(self, ctx: commands.Context):
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
-        if not self._inactives_member_string:
-            return await ctx.reply("Not yet")
+        if not self._inactives_member_data:
+            if not self._last_inactive_check:
+                return await ctx.reply("Not yet")
+            return await ctx.reply("No inactive member")
         display_date = discord.utils.format_dt(self._last_inactive_check) if self._last_inactive_check else ''
-        menu = SimplePages(EmbedSource(self._inactives_member_string, 15, f"Inactive members as of {display_date}"))
+        menu = SimplePages(DataEmbedSource(self._inactives_member_data, 15, f"Inactive members as of {display_date}", lambda idx, x: f"{x['name']} [{x['id']}] - **{x['count']}**"))
         await menu.start(ctx)
 
     @auto_member.command(name="startschedule", aliases=["ss"])
@@ -1110,7 +1110,7 @@ class LoveSick(commands.Cog):
         next_time = utils.start_of_day(utils.add_months(current_time, start_time, 1))
         custom_embed = discord.Embed(
             title="Start schedule",
-            description=f"Schedule for auto check inactive lovesick member will be set to **every {repeat_time} day(s)** starting **{start_time} day(s) from now** {discord.utils.format_dt(next_time, 'R')}.\n"
+            description=f"Schedule for auto check inactive lovesick member will be set to **every {repeat_time} month(s)** starting **{start_time} month(s) from now** {discord.utils.format_dt(next_time, 'R')}.\n"
             f"This also enable the schedule (if previously disabled). Are you sure?",
             color=discord.Colour.green(),
         )
@@ -1193,12 +1193,12 @@ class LoveSick(commands.Cog):
         if not doc:
             return await ctx.reply("No schedule running")
         if start_after < 0:
-            return await ctx.reply("Invalid day")
+            return await ctx.reply("Invalid month")
         current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
         next_time = utils.start_of_day(utils.add_months(current_time, start_after, 1))
         custom_embed = discord.Embed(
             title="Set Timer",
-            description=f"Next schedule for auto check inactive lovesick member will set to **{start_after} days** {discord.utils.format_dt(next_time, 'R')} (previously {discord.utils.format_dt(doc['nextTime'], 'R')})",
+            description=f"Next schedule for auto check inactive lovesick member will set to **{start_after} months** {discord.utils.format_dt(next_time, 'R')} (previously {discord.utils.format_dt(doc['nextTime'], 'R')})",
             color=discord.Colour.green(),
         )
         confirm = ConfirmEmbed(ctx.author.id, custom_embed)
@@ -1216,7 +1216,7 @@ class LoveSick(commands.Cog):
             return await ctx.send("You are not allowed to use this command >:(")
         if not ctx.author.guild_permissions.manage_roles and self.bot.owner.id != ctx.author.id:  # type: ignore
             return await ctx.send("Manage role required")
-        if not self._inactives_member_string:
+        if not self._inactives_member_data:
             return await ctx.reply("Not yet")
         custom_embed = discord.Embed(
             title="Execute auto remove member role",
@@ -1233,8 +1233,8 @@ class LoveSick(commands.Cog):
         if lxv_role is None:
             return await ctx.reply("Lxv member role missing")
         msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
-        for member_id in self._inactives_member_id:
-            member = ctx.guild.get_member(member_id)  # type: ignore
+        for data in self._inactives_member_data:
+            member = ctx.guild.get_member(data["id"])  # type: ignore
             if member is None:
                 continue
             await member.remove_roles(lxv_role, reason="Inactive member with less than 1000 owos")
@@ -1246,7 +1246,7 @@ class LoveSick(commands.Cog):
             return await ctx.send("You are not allowed to use this command >:(")
         if not ctx.author.guild_permissions.manage_roles and self.bot.owner.id != ctx.author.id:  # type: ignore
             return await ctx.send("Manage role required")
-        if not self._inactives_member_string:
+        if not self._inactives_member_data:
             return await ctx.reply("Not yet")
         custom_embed = discord.Embed(
             title="Undo remove member role",
@@ -1263,12 +1263,25 @@ class LoveSick(commands.Cog):
         if lxv_role is None:
             return await ctx.reply("Lxv member role missing")
         msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
-        for member_id in self._inactives_member_id:
-            member = ctx.guild.get_member(member_id)  # type: ignore
+        for data in self._inactives_member_data:
+            member = ctx.guild.get_member(data["id"])
             if member is None:
                 continue
             await member.add_roles(lxv_role, reason="Undo execute remove role")
         await msg.edit(content="Undo done!")
 
+    @auto_member.command()
+    async def forcecheck(self, ctx: commands.Context):
+        """
+        Force check by given interval [WIP]
+        """
+        # TODO: Implement force check using UI
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        doc = await self.LXV_COLLECTION.find_one({"_id": "autoMember"})
+        if not doc:
+            return await ctx.reply("No schedule running")
+
+        await ctx.reply("WIP")
 async def setup(bot: SewentyBot):
     await bot.add_cog(LoveSick(bot))
