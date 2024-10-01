@@ -11,6 +11,7 @@ import discord
 from discord.ext import commands, tasks
 import pytz
 
+import utils
 from utils.cache import MessageCache
 from utils.paginators import EmbedSource, SimplePages
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
@@ -216,21 +217,26 @@ class LoveSick(commands.Cog):
 
     @tasks.loop()
     async def auto_remove_member(self):
-        next_check = await self.LXV_COLLECTION.find_one({"_id": "autoMember"})
+        auto_member_settings = await self.LXV_COLLECTION.find_one({"_id": "autoMember"})
         guild = self.bot.get_guild(self.GUILD_ID)
         ch = guild.get_channel(789154199186702408)  # type: ignore
-        if not next_check or "nextTime" not in next_check or "repeatEvery" not in next_check or "disabled" not in next_check:
+        if not auto_member_settings or "nextTime" not in auto_member_settings or "repeatEvery" not in auto_member_settings or "disabled" not in auto_member_settings:
             logger.warning("No schedule or invalid setting found. Stopping task")
             return self.auto_remove_member.stop()
-        if next_check["disabled"]:
+        if auto_member_settings["disabled"]:
             logger.info("Disabled schedule")
             return self.auto_remove_member.stop()
+        
+        next_date = auto_member_settings["nextTime"].astimezone(pytz.timezone("US/Pacific"))
+        interval_months = auto_member_settings["repeatEvery"]
+
+        # TODO: Maybe reminder for every member 3 days before check
 
         # Set reminder 1 day before execute
-        await discord.utils.sleep_until(next_check["nextTime"] - datetime.timedelta(days=1))
+        await discord.utils.sleep_until(next_date - datetime.timedelta(days=1))
         await ch.send("**Auto Remove Member**: 1 day left before check!")  # type: ignore
         # Continue sleep
-        await discord.utils.sleep_until(next_check["nextTime"])
+        await discord.utils.sleep_until(next_date)
 
         # Execute here
         msg = await ch.send("Loading <a:discordloading:792012369168957450>")  # type: ignore
@@ -244,14 +250,16 @@ class LoveSick(commands.Cog):
 
         # Get current running date id to substract later
         # NOTE: all owos only collected up until X day where X is interval of this schedule
-        date_before = datetime.datetime(2000, 1, 1).replace(
+        base_date = datetime.datetime(2000, 1, 1).replace(
             hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
         )
-        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
-        date_id = (date_now - date_before).days - next_check["repeatEvery"] 
+        date_before = utils.add_months(next_date, -interval_months, 1)
+
+        date_now_id = (next_date - base_date).days
+        date_before_id = (date_before - base_date).days
 
         # Query to match all the id user that in lxv member id, then collect until x day before, then sum all of them
-        query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_id}}]}}
+        query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_before_id, "$lte": date_now_id}}]}}
         grouping = {"$group": {"_id": "$_id.user", "counts": {"$sum": "$owoCount"}}}
 
         # NOTE: Notice hardcode requirement owo
@@ -267,8 +275,11 @@ class LoveSick(commands.Cog):
         await msg.edit(
             content="Checking member done. Please check list by using `s!lxv automember memberinfo`. If you are sure to remove their roles, execute by using `s!lxv automember execute`"
         )
+        # TODO: Backup inactives member
+
+        # Update next time
         self._last_inactive_check = discord.utils.snowflake_time(msg.id)
-        next_time = discord.utils.snowflake_time(msg.id) + datetime.timedelta(days=next_check["repeatEvery"])
+        next_time = utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1)
         await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time}})
 
     @auto_remove_member.before_loop
@@ -1076,10 +1087,10 @@ class LoveSick(commands.Cog):
         await menu.start(ctx)
 
     @auto_member.command(name="startschedule", aliases=["ss"])
-    async def start_shedule(self, ctx: commands.Context, repeat_time: int = 60, start_time: Optional[int] = None):
+    async def start_shedule(self, ctx: commands.Context, repeat_time: int = 2, start_time: Optional[int] = None):
         """
         Start / Restart schedule for auto member removal.
-        Set repeat_time for repeat schedule in days. Default to 60 days (2 months)
+        Set repeat_time for repeat schedule in months. Default 2 months
         Set start_time for starting first schedule in days. Default repeat time. Set 0 to immediately execute first schedule
         """
         if not self.mod_only(ctx):
@@ -1091,8 +1102,8 @@ class LoveSick(commands.Cog):
         if start_time < 0:
             return await ctx.send("Invalid start time")
 
-        current_time = discord.utils.snowflake_time(ctx.message.id)
-        next_time = current_time + datetime.timedelta(days=start_time)
+        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
+        next_time = utils.add_months(current_time, start_time, 1)
         custom_embed = discord.Embed(
             title="Start schedule",
             description=f"Schedule for auto check inactive lovesick member will be set to **every {repeat_time} day(s)** starting **{start_time} day(s) from now** {discord.utils.format_dt(next_time, 'R')}.\n"
@@ -1153,8 +1164,8 @@ class LoveSick(commands.Cog):
         if not doc:
             return await ctx.reply("No schedule running")
         if restart:
-            current_time = discord.utils.snowflake_time(ctx.message.id)
-            next_time = current_time + datetime.timedelta(days=doc["repeatEvery"])
+            current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
+            next_time = utils.add_months(current_time, doc["repeatEvery"], 1)
             await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time, "disabled": False}})
         else:
             await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"disabled": False}})
@@ -1167,9 +1178,9 @@ class LoveSick(commands.Cog):
         return await ctx.reply("Restarting schedule" if restart else "Resuming schedule")
 
     @auto_member.command(name="settimer", aliases=["st"])
-    async def set_timer(self, ctx: commands.Context, start_after: int = 5):
+    async def set_timer(self, ctx: commands.Context, start_after: int = 2):
         """
-        Set the timer for next schedule in days
+        Set the timer for next schedule in months
         Set to 0 to immediately execute
         """
         if not self.mod_only(ctx):
@@ -1179,8 +1190,8 @@ class LoveSick(commands.Cog):
             return await ctx.reply("No schedule running")
         if start_after < 0:
             return await ctx.reply("Invalid day")
-        current_time = discord.utils.snowflake_time(ctx.message.id)
-        next_time = current_time + datetime.timedelta(days=start_after)
+        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
+        next_time = utils.add_months(current_time, start_after, 1)
         custom_embed = discord.Embed(
             title="Set Timer",
             description=f"Next schedule for auto check inactive lovesick member will set to **{start_after} days** {discord.utils.format_dt(next_time, 'R')} (previously {discord.utils.format_dt(doc['nextTime'], 'R')})",
@@ -1254,36 +1265,6 @@ class LoveSick(commands.Cog):
                 continue
             await member.add_roles(lxv_role, reason="Undo execute remove role")
         await msg.edit(content="Undo done!")
-
-    @auto_member.command(name="mockcheck", aliases=["mc"])
-    async def mock_check(self, ctx: commands.Context, days: int):
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        if not ctx.author.guild_permissions.manage_roles and self.bot.owner.id != ctx.author.id:  # type: ignore
-            return await ctx.send("Manage role required")
-
-        date_before = datetime.datetime(2000, 1, 1).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
-        )
-        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
-        date_id = (date_now - date_before).days - days
-        lxv_role: discord.Role = ctx.guild.get_role(self.lxv_member_id)  # type: ignore
-        lxv_members_id = [x.id for x in lxv_role.members]
-
-        query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_id}}]}}
-        grouping = {"$group": {"_id": "$_id.user", "counts": {"$sum": "$owoCount"}}}
-
-        raw = {x: 0 for x in lxv_members_id}
-        async for row in self.LXV_STAT_COLLECTION.aggregate([query, grouping]):
-            if row["counts"] >= 1000:
-                raw.pop(row["_id"])
-            else:
-                raw[row["_id"]] = row["counts"]
-        results = [f"{mem.name} [{mem.id}]: **{raw[mem.id]}**" for mem in lxv_role.members if mem.id in raw]
-
-        menu = SimplePages(EmbedSource(results, 15, f"Inactive members"))
-        await menu.start(ctx)
-
 
 async def setup(bot: SewentyBot):
     await bot.add_cog(LoveSick(bot))
