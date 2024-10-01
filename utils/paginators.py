@@ -84,3 +84,15 @@ class EmbedSource(menus.ListPageSource):
         if self.format_caller is not None:
             embed.description = self.format_caller(page)
         return embed
+
+class DataEmbedSource(EmbedSource):
+    def format_page(self, menu: menus.Menu, page):
+        offset = menu.current_page * self.per_page
+        embed = discord.Embed(color=discord.Colour.random())
+        if self.title is not None:
+            embed.title = self.title
+        if self.format_caller is not None:
+            embed.description = '\n'.join(self.format_caller(i, v) for i, v in enumerate(page, start=offset))
+        else:
+            embed.description = '\n'.join(f"{i+1}. {v}" for i, v in enumerate(page, start=offset))
+        return embed
