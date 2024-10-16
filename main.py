@@ -631,7 +631,6 @@ def main():
             if len(arr) < 3:
                 return
             latest = arr[2]  # Abuse dynamic type
-            print(latest)
             if (
                 (
                     "CRITICAL HIT" in latest
