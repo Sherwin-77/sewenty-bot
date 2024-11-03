@@ -83,10 +83,10 @@ class SewentyBot(commands.Bot):
     owner: discord.User
     session: aiohttp.ClientSession
     pool: Optional[asyncpg.Pool]
-    DB: motor.motor_asyncio.AsyncIOMotorDatabase
-    CP_DB: motor.motor_asyncio.AsyncIOMotorDatabase
-    LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase
-    GAME_COLLECTION: motor.motor_asyncio.AsyncIOMotorCollection
+    DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
+    CP_DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
+    LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
+    GAME_COLLECTION: motor.motor_asyncio.AsyncIOMotorCollection  # type: ignore
 
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train", "kingdom collect", "kingdom attack"}
 
