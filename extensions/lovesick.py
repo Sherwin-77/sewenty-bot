@@ -162,6 +162,8 @@ class LoveSick(commands.Cog):
         self.owo_drop_event_settings = {}
         self._inactives_member_data = []
         self._last_inactive_check: Optional[datetime.datetime] = None
+        self._next_inactive_check: Optional[datetime.datetime] = None
+        self._inactive_interval_months = 0;
         self._drop_cd = set()
         self.item_render = {
             "Grinch gift": "<a:gift1:1186669830074531840>",
@@ -234,6 +236,8 @@ class LoveSick(commands.Cog):
         
         next_date = auto_member_settings["nextTime"].astimezone(pytz.timezone("US/Pacific"))
         interval_months = auto_member_settings["repeatEvery"]
+        self._next_inactive_check = next_date
+        self._inactive_interval_months = interval_months
 
         # TODO: Maybe reminder for every member 3 days before check
 
@@ -677,6 +681,108 @@ class LoveSick(commands.Cog):
     @commands.group(invoke_without_command=True, name="lxv")
     async def lxv_group(self, ctx: commands.Context):
         return await ctx.reply("?")
+    
+    @lxv_group.command(aliases=["owostats", "s"])
+    async def owostat(self, ctx, member: discord.Member = None):  # type: ignore
+        """
+        Show owo stat (with *very new* haki db)
+        """
+        if member is None:
+            member = ctx.author
+
+        base_date =  datetime.datetime(2000, 1, 1).replace(
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
+        )    
+        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
+        today_id = (date_now - base_date).days
+        yesterday_id = ((date_now - datetime.timedelta(days=1)) - base_date).days
+        this_week_id = (date_now.replace(day=1) - base_date).days
+        last_week_id = ((date_now - datetime.timedelta(weeks=1)).replace(day=1) - base_date).days
+        this_month_id = (date_now.replace(day=1) - base_date).days
+        last_month_id = (utils.date.add_months(date_now, -1).replace(day=1) - base_date).days
+        this_year_id = (date_now.replace(month=1, day=1) - base_date).days
+        last_year_id = (utils.date.add_months(date_now, -12).replace(month=1, day=1) - base_date).days
+
+        query = {"$match": {"$and": [{"_id.user": member.id}, {"_id.dayId": {"$gte": 0}}]}}
+        grouped_query = { 
+            "$group": { 
+                "_id": "$_id.user",
+                "total": { "$sum": "$owoCount" },
+                "today": { 
+                    "$sum": { "$cond": [{ "$eq": ["$_id.dayId", today_id] }, "$owoCount", 0] }
+                },
+                "yesterday": { 
+                    "$sum": { "$cond": [{ "$eq": ["$_id.dayId", yesterday_id] }, "$owoCount", 0] }
+                },
+                "this_week": { 
+                    "$sum": { "$cond": [{ "$gte": ["$_id.dayId", this_week_id] }, "$owoCount", 0] }
+                },
+                "last_week": { 
+                    "$sum": { "$cond": [{ "$and": [{ "$gte": ["$_id.dayId", last_week_id] }, { "$lt": ["$_id.dayId", this_week_id] }] }, "$owoCount", 0] }
+                },
+                "this_month": { 
+                    "$sum": { "$cond": [{ "$gte": ["$_id.dayId", this_month_id] }, "$owoCount", 0] }
+                },
+                "last_month": { 
+                    "$sum": { "$cond": [{ "$and": [{ "$gte": ["$_id.dayId", last_month_id] }, { "$lt": ["$_id.dayId", this_month_id] }] }, "$owoCount", 0] }
+                },
+                "this_year": { 
+                    "$sum": { "$cond": [{ "$gte": ["$_id.dayId", this_year_id] }, "$owoCount", 0] }
+                },
+                "last_year": { 
+                    "$sum": { "$cond": [{ "$and": [{ "$gte": ["$_id.dayId", last_year_id] }, { "$lt": ["$_id.dayId", this_year_id] }] }, "$owoCount", 0] }
+                }
+            }
+        }
+
+        if self._next_inactive_check is not None and self._next_inactive_check > date_now and member.get_role(self.lxv_member_id) is not None:
+            start_check_id = (utils.date.add_months(self._next_inactive_check, -self._inactive_interval_months).replace(day=1) - base_date).days
+            grouped_query["$group"]["lxv"] = {
+                "$sum": { "$cond": [{ "$gte": ["$_id.dayId", start_check_id] }, "$owoCount", 0] }
+            }
+
+        result = self.LXV_STAT_COLLECTION.aggregate([query, grouped_query])
+        total = today = yesterday = this_week = last_week = this_month = last_month = this_year = last_year = 0
+        lxv_req = -1;
+        async for x in result:
+            total = x["total"]
+            today = x["today"]
+            yesterday = x["yesterday"]
+            this_week = x["this_week"]
+            last_week = x["last_week"]
+            this_month = x["this_month"]
+            last_month = x["last_month"]
+            this_year = x["this_year"]
+            last_year = x["last_year"]
+            if "lxv" in x:
+                lxv_req = max(1000 - x["lxv"], 0)
+
+        custom_embed = discord.Embed(color=discord.Colour.random())
+        custom_embed.add_field(
+            name="What is stat",
+            value=f"Total: **{total}**\n"
+            f"Today: **{today}**\n"
+            f"Yesterday: **{yesterday}**\n",
+            inline=False,
+        )
+        custom_embed.add_field(
+            name="Not so accurate stat",
+            value=f"This week: **{this_week}**\n"
+            f"Last week: **{last_week}**\n"
+            f"This month: **{this_month}**\n"
+            f"Last month: **{last_month}**\n"
+            f"This year: **{this_year}**\n"
+            f"Last year: **{last_year}**\n",
+            inline=False,
+        )
+        if lxv_req >= 0 and self._next_inactive_check is not None and self._next_inactive_check > date_now:
+            custom_embed.add_field(
+                name="Required LXV stat",
+                value=f"**{lxv_req}** owos before check {discord.utils.format_dt(self._next_inactive_check, 'R')}\n" if lxv_req > 0 else f"You have reached requirement <a:kittyhyper:720191352259870750>. Next check {discord.utils.format_dt(self._next_inactive_check, 'R')}",
+                inline=False,
+            )
+        custom_embed.set_author(name=member.name, icon_url=member.avatar)
+        await ctx.send(embed=custom_embed)
 
     @lxv_group.group(invoke_without_command=True, aliases=["ev"], name="event")
     async def event_group(self, ctx: commands.Context):
@@ -1077,7 +1183,6 @@ class LoveSick(commands.Cog):
         )
         await ctx.send(embed=custom_embed)
 
-
     @auto_member.command(name="memberinfo", aliases=["mi"])
     async def member_info(self, ctx: commands.Context):
         if not self.mod_only(ctx):
@@ -1264,7 +1369,7 @@ class LoveSick(commands.Cog):
             return await ctx.reply("Lxv member role missing")
         msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
         for data in self._inactives_member_data:
-            member = ctx.guild.get_member(data["id"])
+            member = ctx.guild.get_member(data["id"]) # type: ignore
             if member is None:
                 continue
             await member.add_roles(lxv_role, reason="Undo execute remove role")
