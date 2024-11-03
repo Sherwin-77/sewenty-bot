@@ -6,7 +6,6 @@ import pytz
 
 import asyncio
 import calendar
-from datetime import datetime
 import datetime as dt
 from io import BytesIO
 import random
@@ -668,75 +667,6 @@ class OwO(commands.Cog):
                 # await message.reply("<a:gift3:1184120760374149201>")
             await asyncio.sleep(setting["cooldown"])
             self._drop_cd.remove(str(message.author.id))
-
-    @commands.command(aliases=["owostats", "statowo", " statsowo", "ostat"])
-    async def owostat(self, ctx, users: discord.User = None):  # type: ignore
-        """
-        Show owo stat (with *very new* haki db)
-        """
-        if not users:
-            users = ctx.author
-        col = self.bot.LXV_DB["owo-stats"]
-        query = {"$match": {"$and": [{"_id.user": ctx.author.id}, {"_id.dayId": {"$gte": 0}}]}}
-        date_before = datetime(2000, 1, 1).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
-        )
-        date_now = datetime.now(dt.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
-        date_id = (date_now - date_before).days
-        result = col.aggregate([query])
-        total = 0
-        first = -1
-        last = 0
-        last_year, this_year, last_month, this_month, last_week, this_week = 0, 0, 0, 0, 0, 0
-        yesterday = 0
-        today = 0
-        async for row in result:
-            day_id = row["_id"]["dayId"]
-            owo_count = 0
-            if "owoCount" in row:
-                owo_count = row["owoCount"]
-            if first < 0:
-                first = owo_count
-            if day_id == date_id - 1:
-                yesterday = owo_count
-            if day_id == date_id:
-                today = owo_count
-            if date_id - (365 * 2) <= day_id <= date_id - 365:
-                last_year += owo_count
-            if day_id > date_id - 365:
-                this_year += owo_count
-            if date_id - (30 * 2) <= day_id <= date_id - 30:
-                last_month += owo_count
-            if day_id > date_id - 30:
-                this_month += owo_count
-            if date_id - (7 * 2) <= day_id <= date_id - 7:
-                last_week += owo_count
-            if day_id > date_id - 7:
-                this_week += owo_count
-            last = owo_count
-            total += owo_count
-
-        custom_embed = discord.Embed(color=discord.Colour.random())
-        custom_embed.add_field(
-            name="What is stat",
-            value=f"Total: {total}\n"
-            f"Today: {today}\n"
-            f"Yesterday: {yesterday}\n"
-            f"First day: {first}\n"
-            f"Last day: {last}",
-            inline=False,
-        )
-        custom_embed.add_field(
-            name="Not so accurate stat",
-            value=f"This week: {this_week}\n"
-            f"This month: {this_month}\n"
-            f"This year: {this_year}\n"
-            f"Last week: {last_week}\n"
-            f"Last month: {last_month}\n"
-            f"Last year: {last_year}\n",
-        )
-        custom_embed.set_author(name=users.name, icon_url=users.avatar)
-        await ctx.send(embed=custom_embed)
 
     @commands.command(help='Wanna search for cp?')
     async def cp(self, ctx, name):
