@@ -809,7 +809,7 @@ class LoveSick(commands.Cog):
             embed=custom_embed,
         )
 
-    @event_group.command(name="focus", aliases=["f"])
+    @event_group.command(name="focus", aliases=["f"])  # type: ignore
     async def focus_pet(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
