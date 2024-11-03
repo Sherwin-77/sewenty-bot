@@ -212,7 +212,7 @@ class Action(commands.GroupCog, group_name="action"):
             "&permissions=412384349248&scope=bot%20applications.commands",
             color=discord.Colour.random(),
         )
-        custom_embed.set_footer(text=f"Thats {counts} bites now!")
+        custom_embed.set_footer(text=f"That's {counts} bites now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()
@@ -232,7 +232,7 @@ class Action(commands.GroupCog, group_name="action"):
             "&permissions=412384349248&scope=bot%20applications.commands",
             color=discord.Colour.random(),
         )
-        custom_embed.set_footer(text=f"Thats {counts} cuddles now!")
+        custom_embed.set_footer(text=f"That's {counts} cuddles now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()
