@@ -184,7 +184,7 @@ class LoveSick(commands.Cog):
                 logger.warning("No setting for lovesick found. Skipping setting check")
             return -1
 
-        self.message_cache = MessageCache()
+        self.message_cache = MessageCache(50)
         self.mod_cache = set()
 
         # Note that id always stored in str due to big number
