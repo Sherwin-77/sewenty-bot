@@ -11,7 +11,7 @@ import discord
 from discord.ext import commands, tasks
 import pytz
 
-import utils
+import utils.date
 from utils.cache import MessageCache
 from utils.paginators import DataEmbedSource, SimplePages
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
@@ -263,10 +263,10 @@ class LoveSick(commands.Cog):
         base_date = datetime.datetime(2000, 1, 1).replace(
             hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
         )
-        date_before = utils.reset_tz(utils.add_months(next_date, -interval_months, 1), tz)
+        date_before = utils.date.reset_tz(utils.date.add_months(next_date, -interval_months, 1), tz)
 
-        date_now_id = (next_date - base_date).days
-        date_before_id = (date_before - base_date).days
+        date_now_id = utils.date.absolute_day_diff(next_date, base_date)
+        date_before_id = utils.date.absolute_day_diff(date_before, base_date)
 
         # Query to match all the id user that in lxv member id, then collect until x day before, then sum all of them
         query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_before_id, "$lte": date_now_id}}]}}
@@ -292,7 +292,7 @@ class LoveSick(commands.Cog):
             await self.LXV_COLLECTION.insert_one({"_id": "autoMemberCheck", "data": self._inactives_member_data, "lastCheck": self._last_inactive_check})
 
         # Update next time
-        next_time = utils.reset_tz(utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1), tz)
+        next_time = utils.date.reset_tz(utils.date.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1), tz)
         await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time}})
 
     @auto_remove_member.before_loop
@@ -696,14 +696,14 @@ class LoveSick(commands.Cog):
             hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
         )
         date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
-        today_id = (date_now - base_date).days
-        yesterday_id = ((date_now - datetime.timedelta(days=1)) - base_date).days
-        this_week_id = (date_now.replace(day=1) - base_date).days
-        last_week_id = ((date_now - datetime.timedelta(weeks=1)).replace(day=1) - base_date).days
-        this_month_id = (date_now.replace(day=1) - base_date).days
-        last_month_id = (utils.date.add_months(date_now, -1).replace(day=1) - base_date).days
-        this_year_id = (date_now.replace(month=1, day=1) - base_date).days
-        last_year_id = (utils.date.add_months(date_now, -12).replace(month=1, day=1) - base_date).days
+        today_id = utils.date.absolute_day_diff(date_now, base_date)
+        yesterday_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now - datetime.timedelta(days=1), tz), base_date)
+        this_week_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now - datetime.timedelta(days=date_now.weekday()+1), tz), base_date)
+        last_week_id = utils.date.absolute_day_diff(utils.date.reset_tz((date_now - datetime.timedelta(weeks=1, days=date_now.weekday()+1)), tz), base_date)
+        this_month_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now.replace(day=1), tz), base_date)
+        last_month_id = utils.date.absolute_day_diff(utils.date.reset_tz(utils.date.add_months(date_now, -1, 1), tz), base_date)
+        this_year_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now.replace(month=1, day=1), tz), base_date)
+        last_year_id = utils.date.absolute_day_diff(utils.date.reset_tz((date_now - datetime.timedelta(days=365)).replace(month=1, day=1), tz), base_date)
 
         query = {"$match": {"$and": [{"_id.user": member.id}, {"_id.dayId": {"$gte": 0}}]}}
         grouped_query = { 
@@ -738,7 +738,7 @@ class LoveSick(commands.Cog):
         }
 
         if self._next_inactive_check is not None and self._next_inactive_check > date_now and member.get_role(self.lxv_member_id) is not None:
-            start_check_id = (utils.date.add_months(self._next_inactive_check, -self._inactive_interval_months).replace(day=1) - base_date).days
+            start_check_id = utils.date.absolute_day_diff(utils.date.add_months(self._next_inactive_check, -self._inactive_interval_months, 1), base_date)
             grouped_query["$group"]["lxv"] = {
                 "$sum": { "$cond": [{ "$gte": ["$_id.dayId", start_check_id] }, "$owoCount", 0] }
             }
@@ -1215,7 +1215,7 @@ class LoveSick(commands.Cog):
 
         tz = pytz.timezone("US/Pacific")
         current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
-        next_time = utils.start_of_day(utils.add_months(current_time, start_time, 1))
+        next_time = utils.start_of_day(utils.date.add_months(current_time, start_time, 1))
         custom_embed = discord.Embed(
             title="Start schedule",
             description=f"Schedule for auto check inactive lovesick member will be set to **every {repeat_time} month(s)** starting **{start_time} month(s) from now** {discord.utils.format_dt(next_time, 'R')}.\n"
@@ -1278,7 +1278,7 @@ class LoveSick(commands.Cog):
             return await ctx.reply("No schedule running")
         if restart:
             current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
-            next_time = utils.reset_tz(utils.add_months(current_time, doc["repeatEvery"], 1), tz)
+            next_time = utils.date.reset_tz(utils.date.add_months(current_time, doc["repeatEvery"], 1), tz)
             await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time, "disabled": False}})
         else:
             await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"disabled": False}})
@@ -1305,7 +1305,7 @@ class LoveSick(commands.Cog):
         if start_after < 0:
             return await ctx.reply("Invalid month")
         current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
-        next_time = utils.reset_tz(utils.add_months(current_time, start_after, 1), tz)
+        next_time = utils.date.reset_tz(utils.date.add_months(current_time, start_after, 1), tz)
         custom_embed = discord.Embed(
             title="Set Timer",
             description=f"Next schedule for auto check inactive lovesick member will set to **{start_after} months** {discord.utils.format_dt(next_time, 'R')} (previously {discord.utils.format_dt(doc['nextTime'], 'R')})",
