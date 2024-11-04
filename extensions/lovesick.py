@@ -233,8 +233,9 @@ class LoveSick(commands.Cog):
         if auto_member_settings["disabled"]:
             logger.info("Disabled schedule")
             return self.auto_remove_member.stop()
-        
-        next_date = auto_member_settings["nextTime"].astimezone(pytz.timezone("US/Pacific"))
+
+        tz = pytz.timezone("US/Pacific")
+        next_date = utils.date.reset_tz(auto_member_settings["nextTime"], tz)
         interval_months = auto_member_settings["repeatEvery"]
         self._next_inactive_check = next_date
         self._inactive_interval_months = interval_months
@@ -260,9 +261,9 @@ class LoveSick(commands.Cog):
         # Get current running date id to substract later
         # NOTE: all owos only collected up until X day where X is interval of this schedule
         base_date = datetime.datetime(2000, 1, 1).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
         )
-        date_before = utils.start_of_day(utils.add_months(next_date, -interval_months, 1))
+        date_before = utils.reset_tz(utils.add_months(next_date, -interval_months, 1), tz)
 
         date_now_id = (next_date - base_date).days
         date_before_id = (date_before - base_date).days
@@ -291,7 +292,7 @@ class LoveSick(commands.Cog):
             await self.LXV_COLLECTION.insert_one({"_id": "autoMemberCheck", "data": self._inactives_member_data, "lastCheck": self._last_inactive_check})
 
         # Update next time
-        next_time = utils.start_of_day(utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1))
+        next_time = utils.reset_tz(utils.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1), tz)
         await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time}})
 
     @auto_remove_member.before_loop
@@ -690,10 +691,11 @@ class LoveSick(commands.Cog):
         if member is None:
             member = ctx.author
 
+        tz = pytz.timezone("US/Pacific")
         base_date =  datetime.datetime(2000, 1, 1).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=pytz.timezone("US/Pacific")
-        )    
-        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(pytz.timezone("US/Pacific"))
+            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
+        )
+        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
         today_id = (date_now - base_date).days
         yesterday_id = ((date_now - datetime.timedelta(days=1)) - base_date).days
         this_week_id = (date_now.replace(day=1) - base_date).days
@@ -1211,7 +1213,8 @@ class LoveSick(commands.Cog):
         if start_time < 0:
             return await ctx.send("Invalid start time")
 
-        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
+        tz = pytz.timezone("US/Pacific")
+        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
         next_time = utils.start_of_day(utils.add_months(current_time, start_time, 1))
         custom_embed = discord.Embed(
             title="Start schedule",
@@ -1270,11 +1273,12 @@ class LoveSick(commands.Cog):
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         doc = await self.LXV_COLLECTION.find_one({"_id": "autoMember"})
+        tz = pytz.timezone("US/Pacific")
         if not doc:
             return await ctx.reply("No schedule running")
         if restart:
-            current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
-            next_time = utils.start_of_day(utils.add_months(current_time, doc["repeatEvery"], 1))
+            current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
+            next_time = utils.reset_tz(utils.add_months(current_time, doc["repeatEvery"], 1), tz)
             await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"nextTime": next_time, "disabled": False}})
         else:
             await self.LXV_COLLECTION.update_one({"_id": "autoMember"}, {"$set": {"disabled": False}})
@@ -1295,12 +1299,13 @@ class LoveSick(commands.Cog):
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
         doc = await self.LXV_COLLECTION.find_one({"_id": "autoMember"})
+        tz = pytz.timezone("US/Pacific")
         if not doc:
             return await ctx.reply("No schedule running")
         if start_after < 0:
             return await ctx.reply("Invalid month")
-        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(pytz.timezone("US/Pacific"))
-        next_time = utils.start_of_day(utils.add_months(current_time, start_after, 1))
+        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
+        next_time = utils.reset_tz(utils.add_months(current_time, start_after, 1), tz)
         custom_embed = discord.Embed(
             title="Set Timer",
             description=f"Next schedule for auto check inactive lovesick member will set to **{start_after} months** {discord.utils.format_dt(next_time, 'R')} (previously {discord.utils.format_dt(doc['nextTime'], 'R')})",
