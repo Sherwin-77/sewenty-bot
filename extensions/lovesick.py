@@ -184,7 +184,7 @@ class LoveSick(commands.Cog):
                 logger.warning("No setting for lovesick found. Skipping setting check")
             return -1
 
-        self.message_cache = MessageCache()
+        self.message_cache = MessageCache(50)
         self.mod_cache = set()
 
         # Note that id always stored in str due to big number
@@ -811,7 +811,7 @@ class LoveSick(commands.Cog):
             embed=custom_embed,
         )
 
-    @event_group.command(name="focus", aliases=["f"])
+    @event_group.command(name="focus", aliases=["f"])  # type: ignore
     async def focus_pet(self, ctx, *pet):
         """
         Set focus pet. For multiple pet just separate by space
