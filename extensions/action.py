@@ -161,6 +161,26 @@ class Action(commands.GroupCog, group_name="action"):
         )
 
     @commands.command()
+    async def hug(self, ctx, *, user):
+        """Hug"""
+        target = await self.query_member(ctx, user)
+        if target is None:
+            return await ctx.send("User ded")
+        if target.id == ctx.author.id:
+            return await ctx.send("It's okay I'll hug you... ;-;")
+        
+        counts = await self.update_action(ctx, str(target.id), "hug")
+        custom_embed = discord.Embed(
+            title="You gave a hug!",
+            description=f"{ctx.author.mention} hugs {target.mention}",
+            url="https://discord.com/api/oauth2/authorize?client_id=719051490257272842"
+            "&permissions=412384349248&scope=bot%20applications.commands",
+            color=discord.Colour.random(),
+        )
+        custom_embed.set_footer(text=f"Thats {counts} hugs now!")
+        await ctx.send(embed=custom_embed)
+
+    @commands.command()
     async def pat(self, ctx, *, user):
         """Pat pat"""
         target = await self.query_member(ctx, user)
@@ -192,7 +212,7 @@ class Action(commands.GroupCog, group_name="action"):
             "&permissions=412384349248&scope=bot%20applications.commands",
             color=discord.Colour.random(),
         )
-        custom_embed.set_footer(text=f"Thats {counts} bites now!")
+        custom_embed.set_footer(text=f"That's {counts} bites now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()
@@ -212,7 +232,7 @@ class Action(commands.GroupCog, group_name="action"):
             "&permissions=412384349248&scope=bot%20applications.commands",
             color=discord.Colour.random(),
         )
-        custom_embed.set_footer(text=f"Thats {counts} cuddles now!")
+        custom_embed.set_footer(text=f"That's {counts} cuddles now!")
         await ctx.send(embed=custom_embed)
 
     @commands.command()

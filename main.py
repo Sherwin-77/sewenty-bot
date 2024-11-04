@@ -164,7 +164,7 @@ class SewentyBot(commands.Bot):
             logger.error(f"Error connecting psql: {e}")
 
         cluster = motor.motor_asyncio.AsyncIOMotorClient(mango_url, tz_aware=True)
-        cluster1 = motor.motor_asyncio.AsyncIOMotorClient(cp_url)
+        cluster1 = motor.motor_asyncio.AsyncIOMotorClient(cp_url, tz_aware=True)
         app = await self.application_info()
         logger.info("Aiohttp session and database connected")
 
