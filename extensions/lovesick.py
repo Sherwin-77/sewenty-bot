@@ -380,6 +380,8 @@ class LoveSick(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
+        if message.guild is None or message.guild.id != self.GUILD_ID:
+            return
         if message.author.bot:
             return
         if self.bot.TEST_MODE:
@@ -416,12 +418,7 @@ class LoveSick(commands.Cog):
                     # await message.reply("<a:gift3:1184120760374149201>")
             await asyncio.sleep(setting["cooldown"])
             self._drop_cd.remove(str(message.author.id))
-        if (
-            message.guild is not None
-            and message.guild.id == self.GUILD_ID
-            and message.mentions
-            and not self.mod_only(message)
-        ):
+        if (message.mentions and not self.mod_only(message)):
             for x in set(message.mentions):  # type: ignore
                 x: discord.Member
                 if self.is_mod(x):
