@@ -173,6 +173,7 @@ class LoveSick(commands.Cog):
             "Santa gift": "<a:gift5:1186669895665066064>",
         }
         self.gift_names = ["Grinch gift", "Wreath gift", "Angel gift", "Rudolph gift", "Santa gift"]
+        self.randgen = random.SystemRandom()
 
     async def get_setting(self, unload_on_error=True):
         setting = await self.LXV_COLLECTION.find_one({"_id": "setting"})
@@ -392,11 +393,10 @@ class LoveSick(commands.Cog):
             if str(message.author.id) in self._drop_cd:
                 return
             self._drop_cd.add(str(message.author.id))
-            chance = random.random()
+            chance = self.randgen.random()
             for i in range(5, 0, -1):
-                if chance < setting[f"chance{i}"] / 100 or (
-                    self.bot.TEST_MODE and self.is_mod(message.author) and random.random() < (setting[f"chance{i}"] + 5 + (5 - i) * 5) / 100  # type: ignore
-                ):
+                if chance < setting[f"chance{i}"] / 100:
+                    logger.info("Current Chance: %s%", chance * 100)
                     custom_embed = discord.Embed(
                         title=f"{self.item_render[self.gift_names[i-1]]} GIFTS {self.item_render[self.gift_names[i-1]]}",
                         description=f"{message.author.mention} got a **{self.gift_names[i-1]}**!",
