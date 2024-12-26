@@ -693,7 +693,7 @@ class LoveSick(commands.Cog):
             hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
         )
         date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
-        today_id = utils.date.absolute_day_diff(date_now, base_date)
+        today_id = utils.date.absolute_day_diff(utils.date.start_of_day(date_now), base_date)
         yesterday_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now - datetime.timedelta(days=1), tz), base_date)
         this_week_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now - datetime.timedelta(days=date_now.weekday()+1), tz), base_date)
         last_week_id = utils.date.absolute_day_diff(utils.date.reset_tz((date_now - datetime.timedelta(weeks=1, days=date_now.weekday()+1)), tz), base_date)
