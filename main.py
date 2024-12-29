@@ -106,7 +106,7 @@ class SewentyBot(commands.Bot):
             activity=discord.Game(name="s!help"),
         )
 
-        self.TEST_MODE = getenv("ENVIRONMENT", "PRODUCTION") == "DEV"
+        self.TEST_MODE = getenv("ENV", "PRODUCTION") == "DEV"
         self.help_command = NewHelpCommand()
         self._BotBase__cogs = commands.core._CaseInsensitiveDict()  # protected member warning be like
         self.launch_timestamp = time_ns() // 1000000000
@@ -529,7 +529,7 @@ def main():
             f"{round(bot.latency * 1000)} ms\n"
             f"DB Ping: {t} ms\n"
             f"Running in **"
-            f"{'normal' if not bot.TEST_MODE else 'Test'}** mode ",
+            f"{'Production' if not bot.TEST_MODE else 'Dev'}** mode ",
             color=discord.Colour.random(),
         )
         custom_embed.add_field(name="Memory", value='\n'.join(memory_detail))
