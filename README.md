@@ -7,5 +7,6 @@
 ---
 How to run:
 - No you don't
+- If you insist, you can run part of the extensions command. Refer `.env.example` for filling env
 
 This repository is for example if you want to start code in discord.py
