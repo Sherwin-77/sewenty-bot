@@ -1254,11 +1254,12 @@ class LoveSick(commands.Cog):
         doc = await self._get_auto_member_setting()
         if not doc or "nextTime" not in doc or "repeatEvery" not in doc or "isEnabled" not in doc:
             return await ctx.reply("No setting found")
-        display_date = discord.utils.format_dt(self.last_inactive_check, 'R') if self.last_inactive_check else "Not yet"
+        display_date = discord.utils.format_dt(doc["lastTime"], "R") if doc["lastTime"] else "None"
+        next_display_date = discord.utils.format_dt(doc["nextTime"], "R") if doc["nextTime"] else "None"
         custom_embed = discord.Embed(
             title="Not so informative auto check member role",
             description=f"Last check: {display_date}\n"
-            f"Next schedule: {discord.utils.format_dt(doc['nextTime'], 'R') if doc['nextTime'] else 'None'}\n"
+            f"Next schedule: {next_display_date}\n"
             f"Repeat schedule every: **{doc['repeatEvery']} months**\n"
             f"Running: **{self.auto_remove_member.is_running()}**\n"
             f"Enabled: **{doc['isEnabled']}**\n"
