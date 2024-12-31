@@ -143,18 +143,21 @@ class ConfirmEdit(BaseView):
 # ---------------------------------------------------------------------------- #
 
 class LXVSetting(TypedDict):
-    modIds: List[int]
-    lxvMemberId: int
-    donationChannelId: int
-    eventLinkChannelId: int
-    lxvLinkChannelId: int
+    modIds: List[str]
+    lxvMemberId: str
+    donationChannelId: str
+    eventLinkChannelId: str
+    lxvLinkChannelId: str
 
 class LXVSettingSet(TypedDict, total=False):
-    modIds: List[int]
-    lxvMemberId: int
-    donationChannelId: int
-    eventLinkChannelId: int
-    lxvLinkChannelId: int
+    modIds: List[str]
+    lxvMemberId: str
+    donationChannelId: str
+    eventLinkChannelId: str
+    lxvLinkChannelId: str
+
+# ---------------------------------------------------------------------------- #
+
 
 # ---------------------------------------------------------------------------- #
 
