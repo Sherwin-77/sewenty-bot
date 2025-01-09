@@ -373,7 +373,7 @@ class LoveSick(commands.Cog):
 
         # Update next time
         next_time = utils.date.reset_tz(utils.date.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1), tz)
-        await self._upsert_auto_member_setting({"nextTime": next_time})
+        await self._upsert_auto_member_setting({"nextTime": next_time, "lastTime": discord.utils.snowflake_time(msg.id)})
 
     @auto_remove_member.before_loop
     async def member_check_connected(self):
