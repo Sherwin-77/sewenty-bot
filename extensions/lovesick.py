@@ -433,13 +433,13 @@ class LoveSick(commands.Cog):
     def pet_query(self) -> dict:
         return {"_id": f"pet|{'|'.join(self.pet_event_focus)}"}
 
-    def is_mod(self, member: discord.Member) -> bool:
+    def is_mod(self, member: discord.Member, include_bot_owner: bool = True) -> bool:
         if member.bot:
             return False
         if member.id in self.mod_cache:
             return True
         allowed = False
-        if self.bot.owner.id == member.id or member.guild_permissions.administrator:
+        if (include_bot_owner and self.bot.owner.id == member.id) or member.guild_permissions.administrator:
             allowed = True
             self.mod_cache.add(member.id)
         else:
@@ -450,8 +450,8 @@ class LoveSick(commands.Cog):
                     break
         return allowed
 
-    def mod_only(self, ctx) -> bool:
-        return self.is_mod(ctx.author)
+    def mod_only(self, ctx, include_bot_owner: bool = True) -> bool:
+        return self.is_mod(ctx.author, include_bot_owner)
 
     async def _get_lxv_setting(self) -> Optional[LXVSetting]:
         res = await self.lxv_collection.find_one({"_id": "setting"})
@@ -600,7 +600,7 @@ class LoveSick(commands.Cog):
 
             sender = causers[0]
             receiver = causers[1]
-            if not self.is_mod(receiver):  # type: ignore
+            if not self.is_mod(receiver, False):  # type: ignore
                 return
             
             raw_amount = old_desc.split("```fix\n")[-1].strip("\n```").split(" ")[0]
