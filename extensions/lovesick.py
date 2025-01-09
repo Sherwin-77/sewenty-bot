@@ -2,13 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+from os import getenv
 import random
-from typing import TYPE_CHECKING, List, Optional, Set, TypedDict, Union
+import re
+from typing import TYPE_CHECKING, List, Optional, Set, Tuple, TypedDict, Union
 
 import logging
 
 import discord
 from discord.ext import commands, tasks
+import gspread
+import gspread.utils
 import pytz
 
 import utils.date
@@ -158,6 +162,17 @@ class LXVSettingSet(TypedDict, total=False):
 
 # ---------------------------------------------------------------------------- #
 
+class RoleAssignment(TypedDict):
+    roleId: str
+    amount: int
+
+class DonationSetting(TypedDict):
+    isEnabled: bool
+    roleAssignments: List[RoleAssignment]
+
+class DonationSettingSet(TypedDict, total=False):
+    isEnabled: bool
+    roleAssignments: List[RoleAssignment]
 
 # ---------------------------------------------------------------------------- #
 
@@ -211,6 +226,7 @@ class OwODropEventSettingSet(TypedDict, total=False):
 
 class LoveSick(commands.Cog):
     GUILD_ID = 714152739252338749
+    OWO_ID = 408785106942164992
 
     def __init__(self, bot: SewentyBot):
         self.bot: SewentyBot = bot
@@ -222,6 +238,12 @@ class LoveSick(commands.Cog):
         # ------------------------------ General Setting ----------------------------- #
         self.mod_ids = set()
         self.lxv_member_id = 0
+
+        # ------------------------------- LXV Donation ------------------------------- #
+        self.donation_channel_id = 0
+        self.donation_spreadsheet_id = getenv("LXV_DONATION_SPREADSHEET_ID")
+        self.donation_is_enabled = False
+        self.donation_role_assignments: List[RoleAssignment] = []
 
         # ------------------------------- LXV Event Pet ------------------------------ #
         self.lxv_link_channel_id = 0
@@ -256,7 +278,8 @@ class LoveSick(commands.Cog):
     async def get_setting(self, unload_on_error=True):
         setting = await self._get_lxv_setting()
         pet_event_setting = await self._get_pet_event_setting()
-        if not setting or not pet_event_setting:
+        donation_setting = await self._get_donation_setting()
+        if not setting or not pet_event_setting or not donation_setting:
             if unload_on_error:
                 logger.error("No setting for lovesick found. Unloading cog...")
                 await self.bot.remove_cog("extensions.lovesick")
@@ -265,6 +288,7 @@ class LoveSick(commands.Cog):
             return -1
 
         self.message_cache = MessageCache(50)
+        self.donation_cache = MessageCache(10)
         self.mod_cache = set()
 
         # Note that id always stored in str due to big number
@@ -272,6 +296,9 @@ class LoveSick(commands.Cog):
         self.lxv_member_id = int(setting["lxvMemberId"])
         self.lxv_link_channel_id = int(setting["lxvLinkChannelId"])
         self.event_link_channel_id = int(setting["eventLinkChannelId"])
+        self.donation_channel_id = int(setting["donationChannelId"])
+        self.donation_is_enabled = donation_setting["isEnabled"]
+        self.donation_role_assignments = donation_setting["roleAssignments"]
         self.pet_event_is_lxv_only = pet_event_setting["isLxvOnly"]
         self.pet_event_required_role_ids = pet_event_setting["requiredRoleIds"]
         self.pet_event_is_enabled = pet_event_setting["isEnabled"]
@@ -431,6 +458,12 @@ class LoveSick(commands.Cog):
         if res is None:
             return None
         return res
+    
+    async def _get_donation_setting(self) -> Optional[DonationSetting]:
+        res = await self.lxv_collection.find_one({"_id": "donation"})
+        if res is None:
+            return None
+        return res
 
     async def _get_pet_event_setting(self) -> Optional[PetEventSetting]:
         res = await self.lxv_collection.find_one({"_id": "petEvent"})
@@ -453,6 +486,9 @@ class LoveSick(commands.Cog):
     async def _upsert_lxv_setting(self, setting: LXVSettingSet):
         await self.lxv_collection.update_one({"_id": "setting"}, {"$set": setting}, upsert=True)
 
+    async def _upsert_donation_setting(self, setting: DonationSettingSet):
+        await self.lxv_collection.update_one({"_id": "donation"}, {"$set": setting}, upsert=True)
+
     async def _upsert_pet_event_setting(self, setting: PetEventSettingSet):
         await self.lxv_collection.update_one({"_id": "petEvent"}, {"$set": setting}, upsert=True)
 
@@ -466,9 +502,21 @@ class LoveSick(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.guild is None or message.guild.id != self.GUILD_ID:
             return
-        if message.author.bot:
-            return
         if self.bot.TEST_MODE:
+            return
+        if message.author.id == self.OWO_ID:
+            if message.channel.id != self.donation_channel_id:
+                return 
+            if not message.embeds:
+                return
+            name = message.embeds[0].author.name
+            description = message.embeds[0].description
+            if name is None or description is None:
+                return
+            
+            if "you are about to give cowoncy to" in name.lower() and "to confirm this transaction" in description.lower():
+                await self.donation_cache.add_message(message, f"donation-{message.id}")
+        if message.author.bot:
             return
         if "owo" in message.content.lower() or "uwu" in message.content.lower():
             setting = self.owo_drop_event_settings
@@ -509,6 +557,106 @@ class LoveSick(commands.Cog):
                     await self.message_cache.add_message(message, f"ping-{message.id}")
                     break
 
+    @commands.Cog.listener()
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
+        if payload.guild_id != self.GUILD_ID:
+            return
+        if self.bot.TEST_MODE:
+            return
+        
+        old_msg = await self.donation_cache.remove_message(f"donation-{payload.message_id}")
+        if old_msg is None:
+            return
+        
+        old_desc = old_msg.embeds[0].description if old_msg.embeds else None
+        if old_desc is None:
+            return
+        
+        try:    
+            new_msg = await old_msg.channel.fetch_message(payload.message_id)
+            if new_msg.edited_at is None:
+                await self.donation_cache.add_message(new_msg, f"donation-{new_msg.id}")
+                return
+            
+            guild = new_msg.guild
+            if guild is None:
+                return
+
+            if not new_msg.content and not new_msg.embeds:
+                return
+            if new_msg.content.lower().endswith("declined the transaction"):
+                if self.bot.TEST_MODE:
+                    await new_msg.channel.send("Declined");
+                return
+
+            content = new_msg.content or new_msg.embeds[0].description
+            if content is None:
+                return
+
+            raw_mentions = [int(x) for x in re.findall(r'<@!?([0-9]{15,20})>', content)]
+            causers = [await self.bot.get_or_fetch_member(guild, x) for x in raw_mentions]
+            if len(causers) < 2:
+                return
+
+            sender = causers[0]
+            receiver = causers[1]
+            if not self.is_mod(receiver):  # type: ignore
+                return
+            
+            raw_amount = old_desc.split("```fix\n")[-1].strip("\n```").split(" ")[0]
+            amount = int(raw_amount.strip().replace(",", ""))
+
+            # Try regex match amount on new_msg
+            if not re.search(rf"\b{raw_amount}\b", content):
+                raise ValueError(f"Unable to match amount {raw_amount} from message: `{content}`")
+            if amount <= 0:
+                raise ValueError(f"Unable to get amount from message: `{content}`")
+                      
+        except Exception as e:
+            logger.error("Failed to detect donation", exc_info=True)
+            await self.bot.send_owner(f"Failed to detect donation: \n```py\n{e}```\n{new_msg.jump_url}")
+            await new_msg.add_reaction("<:sadpanda:1248670870226862234>")
+            return
+        
+        channel: discord.TextChannel = guild.get_channel(765818685922213948)  # type: ignore
+
+        try:
+            if self.donation_spreadsheet_id is None:
+                raise ValueError("Donation spreadsheet id is not set")
+            agc = await self.bot.gspread_client.authorize()
+            ss = await agc.open_by_key(self.donation_spreadsheet_id)
+
+            try:
+                changelog = await ss.worksheet("Changelog")
+            except Exception:
+                changelog = None
+
+            sheet = await ss.get_sheet1()
+            # Search on second column for specified user id
+            user_cell = await sheet.find(str(sender.id), in_column=2)
+            if user_cell is None:
+                last_row = len(await sheet.col_values(1))
+                await sheet.insert_row([sender.name, str(sender.id), str(amount)], last_row+1, gspread.utils.ValueInputOption.user_entered, True)
+            else:
+                amount_cell = await sheet.cell(user_cell.row, user_cell.col+1)
+                amount = int(amount_cell.value.replace(",", "") if amount_cell.value is not None else 0) + amount
+                await sheet.update_cell(amount_cell.row, amount_cell.col, amount)
+
+            if changelog is not None:
+                last_row = len(await changelog.col_values(1))
+                await changelog.insert_row([sender.name, receiver.name, str(amount), "Auto Detected", new_msg.jump_url], last_row+1, gspread.utils.ValueInputOption.user_entered, True)
+
+        except Exception as e:
+            logger.error("Failed to set donation spreadsheet", exc_info=True)
+            await self.bot.send_owner(f"Failed to set donation spreadsheet: \n```py\n{e}```\n{new_msg.jump_url}")
+            await new_msg.add_reaction("<:sadpanda:1248670870226862234>")
+            return
+
+        await new_msg.add_reaction("<:smolaris:1155797791268937788>")
+        await channel.send(f"Detected: {sender.name} -> {receiver.name} ({amount})\n{new_msg.jump_url}")
+
+        # TODO: Auto assign roles
+    
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
         if payload.guild_id != self.GUILD_ID:
@@ -603,7 +751,7 @@ class LoveSick(commands.Cog):
                 message = await channel.fetch_message(payload.message_id)
 
                 # Check if its from owo
-                if message.author.id != 408785106942164992:
+                if message.author.id != self.OWO_ID:
                     self._pet_event_ignored_messages.add(payload.message_id)
                     self._pet_event_ignored_users.remove(payload.user_id)
                     return
@@ -758,7 +906,6 @@ class LoveSick(commands.Cog):
             finally:
                 if payload.user_id in self._pet_event_ignored_users:
                     self._pet_event_ignored_users.remove(payload.user_id)
-            
 
     @commands.group(invoke_without_command=True, name="lxv")
     async def lxv_group(self, ctx: commands.Context):
@@ -866,6 +1013,55 @@ class LoveSick(commands.Cog):
             )
         custom_embed.set_author(name=member.name, icon_url=member.avatar)
         await ctx.send(embed=custom_embed)
+
+    @lxv_group.group(invoke_without_command=True, aliases=["dn"], name="donation")
+    async def donation_group(self, ctx: commands.Context):
+        roles = [f"**{x['amount']}** - <@&{x['roleId']}>" for x in self.donation_role_assignments]
+        custom_embed = discord.Embed(
+            title="Donation Setting",
+            description="Role set:\n" + "\n".join(roles),
+            color=discord.Colour.random(),
+        )
+
+        await ctx.send(embed=custom_embed)
+
+    @donation_group.command(name="toggle", aliases=['d', 'e', "enable", "disable"])
+    async def donation_toggle(self, ctx: commands.Context):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+
+        self.donation_is_enabled = not self.donation_is_enabled
+
+        await self._upsert_donation_setting({"isEnabled": self.donation_is_enabled})
+        await ctx.send(f"Successfully {'enabled' if self.donation_is_enabled else 'disabled'} donation")
+    
+    @donation_group.command(name="setrole", aliases=["role"])
+    async def donation_set_role(self, ctx: commands.Context, role: discord.Role, amount: int):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+
+        role_idx = None
+        for idx, x in enumerate(self.donation_role_assignments):
+            if x["roleId"] == str(role.id):
+                role_idx = idx
+                break
+
+        if role_idx is None:
+            if amount >= 0:
+                self.donation_role_assignments.append({"roleId": str(role.id), "amount": amount})
+            else:
+                await ctx.send("Invalid remove role")
+                return
+        else:
+            if amount < 0:
+                self.donation_role_assignments.pop(role_idx)
+                await ctx.send(f"Successfully removed role **{role.name}**", allowed_mentions=discord.AllowedMentions.none())
+            else:
+                self.donation_role_assignments[role_idx]["amount"] = amount
+                await ctx.send(f"Role **{role.name}** already set with amount {self.donation_role_assignments[role_idx]['amount']}. Overwriting amount...", allowed_mentions=discord.AllowedMentions.none())
+
+        await self._upsert_donation_setting({"roleAssignments": self.donation_role_assignments})
+        await ctx.send(f"Successfully set role **{role.name}** with amount {amount}", allowed_mentions=discord.AllowedMentions.none())
 
     @lxv_group.group(invoke_without_command=True, aliases=["ev"], name="event")
     async def event_group(self, ctx: commands.Context):

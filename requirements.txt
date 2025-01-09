@@ -4,6 +4,7 @@ discord.py~=2.3.0
 discord-ext-menus @ git+https://github.com/Rapptz/discord-ext-menus@fbb8803779373357e274e1540b368365fd9d8074
 dnspython~=2.1.0
 googletrans~=4.0.0rc1
+gspread_asyncio~=2.0.0
 jishaku~=2.5.1
 motor~=3.2.0
 psutil~=5.9.1

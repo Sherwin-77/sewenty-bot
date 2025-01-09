@@ -19,6 +19,8 @@ import aiohttp
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
+from google.oauth2.service_account import Credentials
+import gspread_asyncio
 import motor.motor_asyncio
 import psutil
 from psutil._common import bytes2human
@@ -29,6 +31,19 @@ from utils.paginators import SimplePages, EmbedSource
 __version__ = "2.3.0"
 
 load_dotenv()  # in case we use .env in future
+
+
+def get_service_account_creds():
+    creds = Credentials.from_service_account_file("service_accounts/sewentysewen.json")
+    scoped = creds.with_scopes(
+        [
+            "https://spreadsheets.google.com/feeds",
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+    )
+    return scoped
+
 
 logging.config.dictConfig(
     {
@@ -83,6 +98,7 @@ class SewentyBot(commands.Bot):
     owner: discord.User
     session: aiohttp.ClientSession
     pool: Optional[asyncpg.Pool]
+    gspread_client: gspread_asyncio.AsyncioGspreadClientManager
     DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
     CP_DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
     LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
@@ -105,6 +121,7 @@ class SewentyBot(commands.Bot):
             status=discord.Status.idle,
             activity=discord.Game(name="s!help"),
         )
+        self.gspread_client = gspread_asyncio.AsyncioGspreadClientManager(get_service_account_creds)
 
         self.TEST_MODE = getenv("ENV", "PRODUCTION") == "DEV"
         self.help_command = NewHelpCommand()
@@ -233,6 +250,18 @@ class SewentyBot(commands.Bot):
 
     async def main(self) -> None:
         await self.start(self.TOKEN)  # type: ignore
+    
+    async def get_or_fetch_user(self, user_id: int) -> discord.User:
+        user = self.get_user(user_id)
+        if user is None:
+            user = await self.fetch_user(user_id)
+        return user
+    
+    async def get_or_fetch_member(self, guild: discord.Guild, member_id: int) -> discord.Member:
+        member = guild.get_member(member_id)
+        if member is None:
+            member = await guild.fetch_member(member_id)
+        return member
 
     async def send_owner(self, message=None, **kwargs) -> None:
         channel = await self.owner.create_dm()
