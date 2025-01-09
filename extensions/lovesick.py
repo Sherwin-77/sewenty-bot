@@ -605,6 +605,7 @@ class LoveSick(commands.Cog):
             
             raw_amount = old_desc.split("```fix\n")[-1].strip("\n```").split(" ")[0]
             amount = int(raw_amount.strip().replace(",", ""))
+            original_amount = amount
 
             # Try regex match amount on new_msg
             if not re.search(rf"\b{raw_amount}\b", content):
@@ -653,7 +654,14 @@ class LoveSick(commands.Cog):
             return
 
         await new_msg.add_reaction("<:smolaris:1155797791268937788>")
-        await channel.send(f"Detected: {sender.name} -> {receiver.name} ({amount})\n{new_msg.jump_url}")
+        custom_embed = discord.Embed(
+            title="Donation Log",
+            url=new_msg.jump_url,
+            description=f"{sender.mention} -> {receiver.mention} (+{original_amount})\nCurrent Donation: {amount}\n{new_msg.jump_url}",
+            color=discord.Colour.blue(),
+        )
+        custom_embed.add_field(name="Jump", value=f"[Go to message]({new_msg.jump_url})\n[Go to donation spreadsheet]({sheet.url})", inline=False)
+        await channel.send(embed=custom_embed)
 
         # TODO: Auto assign roles
     
