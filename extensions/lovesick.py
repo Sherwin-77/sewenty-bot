@@ -657,7 +657,7 @@ class LoveSick(commands.Cog):
         custom_embed = discord.Embed(
             title="Donation Log",
             url=new_msg.jump_url,
-            description=f"{sender.mention} -> {receiver.mention} (+{original_amount})\nCurrent Donation: {amount}",
+            description=f"{sender.mention} -> {receiver.mention} (+{original_amount})\nCurrent Donation: **{amount}**",
             color=discord.Colour.blue(),
         )
         custom_embed.add_field(name="Jump", value=f"[Go to message]({new_msg.jump_url})\n[Go to donation spreadsheet]({sheet.url})", inline=False)
