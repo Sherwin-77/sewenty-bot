@@ -645,7 +645,7 @@ class LoveSick(commands.Cog):
 
             if changelog is not None:
                 last_row = len(await changelog.col_values(1))
-                await changelog.insert_row([sender.name, receiver.name, str(amount), "Auto Detected", new_msg.jump_url], last_row+1, gspread.utils.ValueInputOption.user_entered, True)
+                await changelog.insert_row([sender.name, str(sender.id), str(original_amount), "Auto Detected", new_msg.jump_url], last_row+1, gspread.utils.ValueInputOption.user_entered, True)
 
         except Exception as e:
             logger.error("Failed to set donation spreadsheet", exc_info=True)
