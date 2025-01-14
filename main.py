@@ -107,6 +107,7 @@ class SewentyBot(commands.Bot):
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train", "kingdom collect", "kingdom attack"}
 
     TOKEN = getenv("DISCORD_TOKEN")
+    LOADING_EMOJI = "<a:discordloading:792012369168957450>"
 
     # Test db
     # MANGO_URL = f"mongodb+srv://{EMAILS}:{PASSWORDS}@cluster0.kvwdz.mongodb.net/test"

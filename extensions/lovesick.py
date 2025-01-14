@@ -8,12 +8,14 @@ import re
 from typing import TYPE_CHECKING, List, Optional, Set, Tuple, TypedDict, Union
 
 import logging
+import urllib.parse
 
 import discord
 from discord.ext import commands, tasks
 import gspread
 import gspread.utils
 import pytz
+import urllib
 
 import utils.date
 from utils.cache import MessageCache
@@ -1032,6 +1034,60 @@ class LoveSick(commands.Cog):
         )
 
         await ctx.send(embed=custom_embed)
+    
+    @donation_group.command(name="stat", aliases=["s"])
+    async def donation_stat(self, ctx: commands.Context, member: discord.Member = None):  # type: ignore
+        if member is None:
+            member = ctx.author
+
+        if member.id != ctx.author.id and not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        
+        if self.donation_spreadsheet_id is None:
+            raise ValueError("Donation spreadsheet id is not set")
+        
+        msg = await ctx.send(f"Loading... {self.bot.LOADING_EMOJI}")
+        agc = await self.bot.gspread_client.authorize()
+    
+        ss = await agc.open_by_key(self.donation_spreadsheet_id)
+
+        sheet = await ss.get_sheet1()
+        amount = 0
+        # Search on second column for specified user id
+        user_cell = await sheet.find(str(member.id), in_column=2)
+        if user_cell is not None:
+            amount_cell = await sheet.cell(user_cell.row, user_cell.col+1)
+            amount = amount_cell.value or 0
+
+        changelog = await ss.worksheet("Changelog")
+        logs = []
+        # As of current, gspread does not support query
+        # See: https://stackoverflow.com/questions/67088187/query-a-google-spread-sheet-with-google-query-language-in-gspread
+
+        # If there is no implementation yet, implement it yourself --somebody
+        token = agc.gc.http_client.auth.token
+        query = f"SELECT C WHERE B = '{member.id}' LIMIT 10"
+        url = f"https://docs.google.com/spreadsheets/d/{ss.id}/gviz/tq?gid={changelog.id}&tqx=out:csv&tq={urllib.parse.quote(query)}"
+        async with self.bot.session.get(url, headers={"Authorization": f"Bearer {token}"}) as response:
+            res = await response.text()
+            rows = res.split("\n")
+            for row in reversed(rows[1:]):
+                logs.append("Donated " + row.replace('"', ""))
+
+        custom_embed = discord.Embed(
+            title="Donation Stat",
+            description=f"Amount: **{amount}**",
+            color=discord.Colour.random(),
+        )
+        if len(logs) > 0:
+            custom_embed.add_field(
+                name="Changelog",
+                value="```diff\n- " + "\n- ".join(logs) + "\n```",
+                inline=False,
+            )
+
+        await msg.edit(content=None, embed=custom_embed)
+
 
     @donation_group.command(name="toggle", aliases=['d', 'e', "enable", "disable"])
     async def donation_toggle(self, ctx: commands.Context):
