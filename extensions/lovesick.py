@@ -197,12 +197,14 @@ class AutoMemberSetting(TypedDict):
     nextTime: Optional[datetime.datetime]
     lastTime: Optional[datetime.datetime]
     repeatEvery: int
+    inactiveRoleId: str
 
 class AutoMemberSettingSet(TypedDict, total=False):
     isEnabled: bool
     nextTime: datetime.datetime
     lastTime: datetime.datetime
     repeatEvery: int
+    inactiveRoleId: str
 
 # ---------------------------------------------------------------------------- #
 
@@ -260,12 +262,15 @@ class LoveSick(commands.Cog):
         self._pet_event_ignored_messages: Set[int] = set()
         self._pet_event_verified_messages: Set[int] = set()
 
+        # ------------------------------- Auto Member ------------------------------- #
         self.inactive_members_data = []
         self.last_inactive_check: Optional[datetime.datetime] = None
         self.next_inactive_check: Optional[datetime.datetime] = None
         self.inactive_interval_months = 0;
-        self._drop_cd = set()
+        self.inactive_role_id: Optional[int] = None
 
+        # ------------------------------- OwO Drop Event ---------------------------- #
+        self._drop_cd = set()
         self.owo_drop_event_settings: Optional[OwODropEventSetting] = None
         self.owo_drop_event_render = {
             "Grinch gift": "<a:gift1:1186669830074531840>",
@@ -345,6 +350,11 @@ class LoveSick(commands.Cog):
         if auto_member_settings["nextTime"] is None:
             logger.warning("No next time found. Stopping task")
             return self.auto_remove_member.stop()
+        
+        if auto_member_settings["inactiveRoleId"] is None:
+            logger.warning("No inactive role id found. No role will assigned when execute command")
+        else:
+            self.inactive_role_id = int(auto_member_settings["inactiveRoleId"])
 
         tz = pytz.timezone("US/Pacific")
         next_date = utils.date.reset_tz(auto_member_settings["nextTime"], tz)
@@ -1088,7 +1098,6 @@ class LoveSick(commands.Cog):
 
         await msg.edit(content=None, embed=custom_embed)
 
-
     @donation_group.command(name="toggle", aliases=['d', 'e', "enable", "disable"])
     async def donation_toggle(self, ctx: commands.Context):
         if not self.mod_only(ctx):
@@ -1099,7 +1108,7 @@ class LoveSick(commands.Cog):
         await self._upsert_donation_setting({"isEnabled": self.donation_is_enabled})
         await ctx.send(f"Successfully {'enabled' if self.donation_is_enabled else 'disabled'} donation")
     
-    @donation_group.command(name="setrole", aliases=["role"])
+    @donation_group.command(name="setrole", aliases=["role", 'r'])
     async def donation_set_role(self, ctx: commands.Context, role: discord.Role, amount: int):
         if not self.mod_only(ctx):
             return await ctx.send("You are not allowed to use this command >:(")
@@ -1543,6 +1552,16 @@ class LoveSick(commands.Cog):
         menu = SimplePages(DataEmbedSource(self.inactive_members_data, 15, f"Inactive members as of {display_date}", lambda idx, x: f"{x['name']} [{x['id']}] - **{x['count']}**"))
         await menu.start(ctx)
 
+
+    @auto_member.command(name="setrole", aliases=["sr"])
+    async def inactive_set_role(self, ctx: commands.Context, role: discord.Role):
+        if not self.mod_only(ctx):
+            return await ctx.send("You are not allowed to use this command >:(")
+        await self._upsert_auto_member_setting({"inactiveRoleId": str(role.id)})
+        if self.auto_remove_member.is_running():
+            self.auto_remove_member.restart()
+        await ctx.send(f"Successfully set inactive role to @{role.name}", allowed_mentions=discord.AllowedMentions.none()))
+
     @auto_member.command(name="startschedule", aliases=["ss"])
     async def start_shedule(self, ctx: commands.Context, repeat_time: int = 2, start_time: Optional[int] = None):
         """
@@ -1684,6 +1703,7 @@ class LoveSick(commands.Cog):
         if not confirm.value:
             return
         lxv_role = ctx.guild.get_role(self.lxv_member_id)  # type: ignore
+        inactive_role = None if self.inactive_role_id is None else ctx.guild.get_role(self.inactive_role_id)  # type: ignore
         if lxv_role is None:
             return await ctx.reply("Lxv member role missing")
         msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
@@ -1692,6 +1712,9 @@ class LoveSick(commands.Cog):
             if member is None:
                 continue
             await member.remove_roles(lxv_role, reason="Inactive member with less than 1000 owos")
+            if inactive_role is not None:
+                await member.add_roles(inactive_role, reason="Inactive role for member with less than 1000 owos")
+                await asyncio.sleep(0.1)
         await msg.edit(content="Remove done!")
 
     @auto_member.command()
@@ -1714,6 +1737,7 @@ class LoveSick(commands.Cog):
         if not confirm.value:
             return
         lxv_role = ctx.guild.get_role(self.lxv_member_id)  # type: ignore
+        inactive_role = None if self.inactive_role_id is None else ctx.guild.get_role(self.inactive_role_id)  # type: ignore
         if lxv_role is None:
             return await ctx.reply("Lxv member role missing")
         msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
@@ -1722,6 +1746,9 @@ class LoveSick(commands.Cog):
             if member is None:
                 continue
             await member.add_roles(lxv_role, reason="Undo execute remove role")
+            if inactive_role is not None:
+                await member.remove_roles(inactive_role, reason="Undo give inactive role")
+                await asyncio.sleep(0.1)
         await msg.edit(content="Undo done!")
 
     @auto_member.command()
