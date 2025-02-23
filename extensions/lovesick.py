@@ -901,7 +901,7 @@ class LoveSick(commands.Cog):
                     q = self.pet_query
                     q.update({
                         "participants": participants,
-                        "created_at": datetime.datetime.now(datetime.UTC)
+                        "created_at": discord.utils.utcnow(),
                     })
                     await self.lxv_pet_event_collection.insert_one(q)
                 else:
@@ -1387,7 +1387,7 @@ class LoveSick(commands.Cog):
             q = self.pet_query
             q.update({
                 "participants": participants,
-                "created_at": datetime.datetime.now(datetime.UTC)
+                "created_at": discord.utils.utcnow(),
             })
             await self.lxv_pet_event_collection.insert_one(q)
         else:
