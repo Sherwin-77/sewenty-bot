@@ -1560,7 +1560,7 @@ class LoveSick(commands.Cog):
         await self._upsert_auto_member_setting({"inactiveRoleId": str(role.id)})
         if self.auto_remove_member.is_running():
             self.auto_remove_member.restart()
-        await ctx.send(f"Successfully set inactive role to @{role.name}", allowed_mentions=discord.AllowedMentions.none()))
+        await ctx.send(f"Successfully set inactive role to @{role.name}", allowed_mentions=discord.AllowedMentions.none())
 
     @auto_member.command(name="startschedule", aliases=["ss"])
     async def start_shedule(self, ctx: commands.Context, repeat_time: int = 2, start_time: Optional[int] = None):
