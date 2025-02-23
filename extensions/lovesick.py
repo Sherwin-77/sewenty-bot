@@ -754,7 +754,7 @@ class LoveSick(commands.Cog):
             and payload.message_id not in self._pet_event_verified_messages
             and payload.message_id not in self._pet_event_ignored_messages
             and payload.user_id not in self._pet_event_ignored_users
-            and not self.pet_event_is_enabled
+            and self.pet_event_is_enabled
         ):
             self._pet_event_ignored_users.add(payload.user_id)
 
