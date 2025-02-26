@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 # Uncomment below for debug purpose
 formatter = logging.Formatter("[{asctime}] [{levelname:^7}] {name}: {message}", style='{')
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
-handler.setLevel(logging.DEBUG)
+handler.setLevel(logging.INFO)
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 
