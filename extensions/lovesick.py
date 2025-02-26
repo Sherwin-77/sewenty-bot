@@ -921,6 +921,10 @@ class LoveSick(commands.Cog):
                 await self.bot.send_error_to_owner(e, channel, None)
                 if isinstance(e, KeyError):
                     return
+
+                if message is None:
+                    logger.error("Unable to fetch message ID: %s", payload.message_id)
+                    return
                 
                 await message.reply("Something went wrong. Please try again later")
             finally:
