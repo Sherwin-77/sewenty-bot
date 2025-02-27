@@ -767,6 +767,7 @@ class LoveSick(commands.Cog):
                 self._pet_event_ignored_users.remove(payload.user_id)
                 return
             
+            message = None
             try:
                 message = await channel.fetch_message(payload.message_id)
 
