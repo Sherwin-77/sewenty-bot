@@ -237,7 +237,8 @@ class LoveSick(commands.Cog):
         self.lxv_collection = self.bot.DB["lovesick"]
         self.lxv_pet_event_collection = self.bot.DB["lovesick-pet-event"]
         self.lxv_inventory_collection = self.bot.DB["lovesick-inventory"]
-        self.lxv_stat_collection = self.bot.LXV_DB["owo-stats"]
+        # self.lxv_stat_collection = self.bot.LXV_DB["owo-stats"]
+        self.lxv_stat_collection = self.bot.DB["owo-stats"]
 
         # ------------------------------ General Setting ----------------------------- #
         self.mod_ids = set()
