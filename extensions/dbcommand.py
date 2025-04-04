@@ -2,11 +2,9 @@ from __future__ import annotations
 
 import discord
 from discord.ext import commands
-import pytz
 
 import asyncio
 import calendar
-import datetime as dt
 from io import BytesIO
 import random
 from traceback import format_exception
@@ -668,53 +666,53 @@ class OwO(commands.Cog):
             await asyncio.sleep(setting["cooldown"])
             self._drop_cd.remove(str(message.author.id))
 
-    @commands.command(help='Wanna search for cp?')
-    async def cp(self, ctx, name):
-        query = {"$or": [{"aliases": name}, {"_id": name}]}
-        cp_collection = self.bot.CP_DB["cp"]
-        cp = await cp_collection.find_one(query)
-        if cp is None:
-            await ctx.reply('No cp found :c', mention_author=False)
-            return
-        name = cp['_id']
-        hp = cp['hp']
-        str_stat = cp['str']
-        pr_stat = cp['pr']
-        wp_stat = cp['wp']
-        mag_stat = cp['mag']
-        mr_stat = cp['mr']
-        aliases = cp['aliases']
-        month = cp['creationInfo']['month']
-        year = cp['creationInfo']['year']
-        image_url = cp['imageLink']
-        rand_num = random.randint(0, 16777215)
-        emoji_hp, emoji_att, emoji_pr, emoji_wp, emoji_mag, emoji_mr = (
-            "<:hp:759752326973227029>",
-            "<:att:759752341678194708>",
-            "<:pr:759752354467414056>",
-            "<:wp:759752292713889833>",
-            "<:mag:759752304080715786>",
-            "<:mr:759752315904196618>",
-        )
-        custom_embed = discord.Embed(title=name, color=rand_num)
-        month = calendar.month_name[int(month)]
-        if aliases:
-            aliases = ', '.join(aliases)
-        else:
-            aliases = "None"
-        custom_embed.add_field(name="Aliases", value=aliases, inline=False)
-        custom_embed.add_field(
-            name="Stats",
-            value=f"{emoji_hp} `{hp}`  "
-            f"{emoji_att} `{str_stat}`  "
-            f"{emoji_pr} `{pr_stat}`\n"
-            f"{emoji_wp} `{wp_stat}`  "
-            f"{emoji_mag} `{mag_stat}`  "
-            f"'{emoji_mr} `{mr_stat}`')",
-        )
-        custom_embed.set_thumbnail(url=image_url)
-        custom_embed.set_footer(text=f"Created {month} {year}")
-        await ctx.send(embed=custom_embed)
+    # @commands.command(help='Wanna search for cp?')
+    # async def cp(self, ctx, name):
+    #     query = {"$or": [{"aliases": name}, {"_id": name}]}
+    #     cp_collection = self.bot.CP_DB["cp"]
+    #     cp = await cp_collection.find_one(query)
+    #     if cp is None:
+    #         await ctx.reply('No cp found :c', mention_author=False)
+    #         return
+    #     name = cp['_id']
+    #     hp = cp['hp']
+    #     str_stat = cp['str']
+    #     pr_stat = cp['pr']
+    #     wp_stat = cp['wp']
+    #     mag_stat = cp['mag']
+    #     mr_stat = cp['mr']
+    #     aliases = cp['aliases']
+    #     month = cp['creationInfo']['month']
+    #     year = cp['creationInfo']['year']
+    #     image_url = cp['imageLink']
+    #     rand_num = random.randint(0, 16777215)
+    #     emoji_hp, emoji_att, emoji_pr, emoji_wp, emoji_mag, emoji_mr = (
+    #         "<:hp:759752326973227029>",
+    #         "<:att:759752341678194708>",
+    #         "<:pr:759752354467414056>",
+    #         "<:wp:759752292713889833>",
+    #         "<:mag:759752304080715786>",
+    #         "<:mr:759752315904196618>",
+    #     )
+    #     custom_embed = discord.Embed(title=name, color=rand_num)
+    #     month = calendar.month_name[int(month)]
+    #     if aliases:
+    #         aliases = ', '.join(aliases)
+    #     else:
+    #         aliases = "None"
+    #     custom_embed.add_field(name="Aliases", value=aliases, inline=False)
+    #     custom_embed.add_field(
+    #         name="Stats",
+    #         value=f"{emoji_hp} `{hp}`  "
+    #         f"{emoji_att} `{str_stat}`  "
+    #         f"{emoji_pr} `{pr_stat}`\n"
+    #         f"{emoji_wp} `{wp_stat}`  "
+    #         f"{emoji_mag} `{mag_stat}`  "
+    #         f"'{emoji_mr} `{mr_stat}`')",
+    #     )
+    #     custom_embed.set_thumbnail(url=image_url)
+    #     custom_embed.set_footer(text=f"Created {month} {year}")
+    #     await ctx.send(embed=custom_embed)
 
     @commands.group(invoke_without_command=True, name="owodropevent", aliases=["ode"])
     async def owo_drop_event(self, ctx: commands.Context):

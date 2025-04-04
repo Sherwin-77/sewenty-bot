@@ -100,8 +100,6 @@ class SewentyBot(commands.Bot):
     pool: Optional[asyncpg.Pool]
     gspread_client: gspread_asyncio.AsyncioGspreadClientManager
     DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
-    CP_DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
-    LXV_DB: motor.motor_asyncio.AsyncIOMotorDatabase  # type: ignore
     GAME_COLLECTION: motor.motor_asyncio.AsyncIOMotorCollection  # type: ignore
 
     disabled_app_command = {"kingdom show", "kingdom upgrade", "kingdom train", "kingdom collect", "kingdom attack"}
@@ -159,11 +157,7 @@ class SewentyBot(commands.Bot):
         email = getenv("EMAIL")
         password = getenv("PASSWORD")
         db_name = getenv("DB_NAME")
-        cp_email = getenv("NEXT_EMAIL")
-        cp_password = getenv("NEXT_PASSWORD")
-        cp_name = getenv("CPDB_NAME")
         mango_url = f"mongodb+srv://{email}:{password}@{db_name}.mongodb.net/test"
-        cp_url = f"mongodb+srv://{cp_email}:{cp_password}@{cp_name}.mongodb.net/Hakibot"
         psql_user = getenv("PSQL_USER")
         psql_password = getenv("PSQL_PASSWORD")
         psql_host = getenv("PSQL_HOST")
@@ -182,15 +176,11 @@ class SewentyBot(commands.Bot):
             logger.error(f"Error connecting psql: {e}")
 
         cluster = motor.motor_asyncio.AsyncIOMotorClient(mango_url, tz_aware=True)
-        cluster1 = motor.motor_asyncio.AsyncIOMotorClient(cp_url, tz_aware=True)
-        app = await self.application_info()
         logger.info("Aiohttp session and database connected")
 
         # TODO: Change to use .env
         self.owner = self.get_user(436376194166816770) or await self.fetch_user(436376194166816770)
         self.DB = cluster["Data"]
-        self.CP_DB = cluster1["Hakibot"]
-        self.LXV_DB = cluster1["lxv"]
         self.GAME_COLLECTION = cluster["game"]["data"]
 
         for file in glob(r"extensions/*.py"):
