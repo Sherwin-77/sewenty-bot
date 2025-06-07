@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import asyncio
-import datetime
 from os import getenv
 import random
 import re
-from typing import TYPE_CHECKING, List, Optional, Set, Tuple, TypedDict, Union
+from typing import TYPE_CHECKING, List, Optional, Set, TypedDict, Union
 
 import logging
 import urllib.parse
@@ -14,12 +13,9 @@ import discord
 from discord.ext import commands, tasks
 import gspread
 import gspread.utils
-import pytz
 import urllib
 
-import utils.date
 from utils.cache import MessageCache
-from utils.paginators import DataEmbedSource, SimplePages
 from utils.view_util import Dropdown, ConfirmEmbed, BaseView
 
 if TYPE_CHECKING:
@@ -192,22 +188,6 @@ class PetEventSettingSet(TypedDict, total=False):
 
 # ---------------------------------------------------------------------------- #
 
-class AutoMemberSetting(TypedDict):
-    isEnabled: bool
-    nextTime: Optional[datetime.datetime]
-    lastTime: Optional[datetime.datetime]
-    repeatEvery: int
-    inactiveRoleId: str
-
-class AutoMemberSettingSet(TypedDict, total=False):
-    isEnabled: bool
-    nextTime: datetime.datetime
-    lastTime: datetime.datetime
-    repeatEvery: int
-    inactiveRoleId: str
-
-# ---------------------------------------------------------------------------- #
-
 class OwODropEventSetting(TypedDict):
     isEnabled: bool
     cooldown: float
@@ -237,8 +217,6 @@ class LoveSick(commands.Cog):
         self.lxv_collection = self.bot.DB["lovesick"]
         self.lxv_pet_event_collection = self.bot.DB["lovesick-pet-event"]
         self.lxv_inventory_collection = self.bot.DB["lovesick-inventory"]
-        # self.lxv_stat_collection = self.bot.LXV_DB["owo-stats"]
-        self.lxv_stat_collection = self.bot.DB["owo-stats"]
 
         # ------------------------------ General Setting ----------------------------- #
         self.mod_ids = set()
@@ -262,13 +240,6 @@ class LoveSick(commands.Cog):
         self._pet_event_ignored_users: Set[int] = set()
         self._pet_event_ignored_messages: Set[int] = set()
         self._pet_event_verified_messages: Set[int] = set()
-
-        # ------------------------------- Auto Member ------------------------------- #
-        self.inactive_members_data = []
-        self.last_inactive_check: Optional[datetime.datetime] = None
-        self.next_inactive_check: Optional[datetime.datetime] = None
-        self.inactive_interval_months = 0;
-        self.inactive_role_id: Optional[int] = None
 
         # ------------------------------- OwO Drop Event ---------------------------- #
         self._drop_cd = set()
@@ -322,106 +293,12 @@ class LoveSick(commands.Cog):
 
     async def cog_load(self) -> None:
         await self.get_setting()
-        self.auto_remove_member.start()
         self.ping_lxv_db.start()
         doc = await self._get_owo_drop_event_setting()
         self.owo_drop_event_settings = doc
 
     async def cog_unload(self) -> None:
         self.ping_lxv_db.cancel()
-        self.auto_remove_member.cancel()
-
-    @tasks.loop()
-    async def auto_remove_member(self):
-        auto_member_settings = await self._get_auto_member_setting()
-        previous_check = await self.lxv_collection.find_one({"_id": "autoMemberCheck"})
-        if previous_check is not None:
-            self.last_inactive_check = previous_check["lastCheck"]
-            self.inactive_members_data = previous_check["data"]
-            logger.info("Found previous check, setting last check time to %s", self.last_inactive_check)
-
-        guild = self.bot.get_guild(self.GUILD_ID)
-        ch = guild.get_channel(789154199186702408)  # type: ignore
-        if not auto_member_settings or "nextTime" not in auto_member_settings or "repeatEvery" not in auto_member_settings or "isEnabled" not in auto_member_settings:
-            logger.warning("No schedule or invalid setting found. Stopping task")
-            return self.auto_remove_member.stop()
-        if not auto_member_settings["isEnabled"]:
-            logger.info("Disabled schedule")
-            return self.auto_remove_member.stop()
-        if auto_member_settings["nextTime"] is None:
-            logger.warning("No next time found. Stopping task")
-            return self.auto_remove_member.stop()
-        
-        if auto_member_settings["inactiveRoleId"] is None:
-            logger.warning("No inactive role id found. No role will assigned when execute command")
-        else:
-            self.inactive_role_id = int(auto_member_settings["inactiveRoleId"])
-
-        tz = pytz.timezone("US/Pacific")
-        next_date = utils.date.reset_tz(auto_member_settings["nextTime"], tz)
-        interval_months = auto_member_settings["repeatEvery"]
-        self.next_inactive_check = next_date
-        self.inactive_interval_months = interval_months
-
-        # TODO: Maybe reminder for every member 3 days before check
-
-        # Set reminder 1 day before execute
-        await discord.utils.sleep_until(next_date - datetime.timedelta(days=1))
-        await ch.send("**Auto Remove Member**: 1 day left before check!")  # type: ignore
-        # Continue sleep
-        await discord.utils.sleep_until(next_date)
-
-        # Execute here
-        msg = await ch.send("Loading <a:discordloading:792012369168957450>")  # type: ignore
-        lxv_role = guild.get_role(self.lxv_member_id)  # type: ignore
-        if lxv_role is None:
-            await self.bot.send_owner(f"LXV Member id not found. Previously {self.lxv_member_id}")
-            logger.warning("No member role found. Stopping task")
-            return self.auto_remove_member.stop()
-        # Get all ids of lxv member
-        lxv_members_id = [x.id for x in lxv_role.members]
-
-        # Get current running date id to substract later
-        # NOTE: all owos only collected up until X day where X is interval of this schedule
-        base_date = datetime.datetime(2000, 1, 1).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
-        )
-        date_before = utils.date.reset_tz(utils.date.add_months(next_date, -interval_months, 1), tz)
-
-        date_now_id = utils.date.absolute_day_diff(next_date, base_date)
-        date_before_id = utils.date.absolute_day_diff(date_before, base_date)
-
-        # Query to match all the id user that in lxv member id, then collect until x day before, then sum all of them
-        query = {"$match": {"$and": [{"_id.user": {"$in": lxv_members_id}}, {"_id.dayId": {"$gte": date_before_id, "$lte": date_now_id}}]}}
-        grouping = {"$group": {"_id": "$_id.user", "counts": {"$sum": "$owoCount"}}}
-
-        # NOTE: Notice hardcode requirement owo
-        raw = {x: 0 for x in lxv_members_id}
-        async for row in self.lxv_stat_collection.aggregate([query, grouping]):
-            if row["counts"] >= 1000:
-                raw.pop(row["_id"])
-            else:
-                raw[row["_id"]] = row["counts"]
-        results = [{"id": mem.id, "name": mem.name, "count": raw[mem.id]} for mem in lxv_role.members if mem.id in raw]
-        self.inactive_members_data = results
-        self.last_inactive_check = discord.utils.snowflake_time(msg.id)
-        await msg.edit(
-            content="Checking member done. Please check list by using `s!lxv automember memberinfo`. If you are sure to remove their roles, execute by using `s!lxv automember execute`"
-        )
-        
-        if previous_check is not None:
-            await self.lxv_collection.update_one({"_id": "autoMemberCheck"}, {"$set": {"data": self.inactive_members_data, "lastCheck": self.last_inactive_check}})
-        else:
-            await self.lxv_collection.insert_one({"_id": "autoMemberCheck", "data": self.inactive_members_data, "lastCheck": self.last_inactive_check})
-
-        # Update next time
-        next_time = utils.date.reset_tz(utils.date.add_months(discord.utils.snowflake_time(msg.id), interval_months, 1), tz)
-        await self._upsert_auto_member_setting({"nextTime": next_time, "lastTime": discord.utils.snowflake_time(msg.id)})
-
-    @auto_remove_member.before_loop
-    async def member_check_connected(self):
-        logger.info("Auto Member: Waiting for bot...")
-        await self.bot.wait_until_ready()
 
     @tasks.loop(hours=12)
     async def ping_lxv_db(self):
@@ -433,7 +310,6 @@ class LoveSick(commands.Cog):
         await ch.send(  # type: ignore
             f"# Infographic\n"
             f"Pet Event Enabled: **{self.pet_event_is_enabled}**\n"
-            f"Auto Member Enabled: **{self.auto_remove_member.is_running()}**\n"
             f"OwO Drop Event Enabled: **{self.owo_drop_event_settings['isEnabled'] if self.owo_drop_event_settings else False}**\n"
         )
 
@@ -483,12 +359,6 @@ class LoveSick(commands.Cog):
         if res is None:
             return None
         return res
-    
-    async def _get_auto_member_setting(self) -> Optional[AutoMemberSetting]:
-        res = await self.lxv_collection.find_one({"_id": "autoMember"})
-        if res is None:
-            return None
-        return res
 
     async def _get_owo_drop_event_setting(self) -> Optional[OwODropEventSetting]:
         res = await self.lxv_collection.find_one({"_id": "OwODropEvent"})
@@ -504,9 +374,6 @@ class LoveSick(commands.Cog):
 
     async def _upsert_pet_event_setting(self, setting: PetEventSettingSet):
         await self.lxv_collection.update_one({"_id": "petEvent"}, {"$set": setting}, upsert=True)
-
-    async def _upsert_auto_member_setting(self, setting: AutoMemberSettingSet):
-        await self.lxv_collection.update_one({"_id": "autoMember"}, {"$set": setting}, upsert=True)
 
     async def _upsert_owo_drop_event_setting(self, setting: OwODropEventSettingSet):
         await self.lxv_collection.update_one({"_id": "OwODropEvent"}, {"$set": setting}, upsert=True)
@@ -585,6 +452,7 @@ class LoveSick(commands.Cog):
         if old_desc is None:
             return
         
+        new_msg = None
         try:    
             new_msg = await old_msg.channel.fetch_message(payload.message_id)
             if new_msg.edited_at is None:
@@ -628,8 +496,9 @@ class LoveSick(commands.Cog):
                       
         except Exception as e:
             logger.error("Failed to detect donation", exc_info=True)
-            await self.bot.send_owner(f"Failed to detect donation: \n```py\n{e}```\n{new_msg.jump_url}")
-            await new_msg.add_reaction("<:sadpanda:1248670870226862234>")
+            if new_msg is not None:
+                await self.bot.send_owner(f"Failed to detect donation: \n```py\n{e}```\n{new_msg.jump_url}")
+                await new_msg.add_reaction("<:sadpanda:1248670870226862234>")
             return
         
         channel: discord.TextChannel = guild.get_channel(765818685922213948)  # type: ignore
@@ -936,109 +805,6 @@ class LoveSick(commands.Cog):
     @commands.group(invoke_without_command=True, name="lxv")
     async def lxv_group(self, ctx: commands.Context):
         return await ctx.reply("?")
-    
-    @lxv_group.command(aliases=["owostats", "s"])
-    async def owostat(self, ctx, member: discord.Member = None):  # type: ignore
-        """
-        Show owo stat (with *very new* haki db)
-        """
-        if member is None:
-            member = ctx.author
-
-        tz = pytz.timezone("US/Pacific")
-        base_date =  datetime.datetime(2000, 1, 1).replace(
-            hour=0, minute=0, second=0, microsecond=0, tzinfo=tz
-        )
-        date_now = datetime.datetime.now(datetime.timezone.utc).astimezone(tz)
-        today_id = utils.date.absolute_day_diff(utils.date.start_of_day(date_now), base_date)
-        yesterday_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now - datetime.timedelta(days=1), tz), base_date)
-        this_week_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now - datetime.timedelta(days=date_now.weekday()+1), tz), base_date)
-        last_week_id = utils.date.absolute_day_diff(utils.date.reset_tz((date_now - datetime.timedelta(weeks=1, days=date_now.weekday()+1)), tz), base_date)
-        this_month_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now.replace(day=1), tz), base_date)
-        last_month_id = utils.date.absolute_day_diff(utils.date.reset_tz(utils.date.add_months(date_now, -1, 1), tz), base_date)
-        this_year_id = utils.date.absolute_day_diff(utils.date.reset_tz(date_now.replace(month=1, day=1), tz), base_date)
-        last_year_id = utils.date.absolute_day_diff(utils.date.reset_tz((date_now - datetime.timedelta(days=365)).replace(month=1, day=1), tz), base_date)
-
-        query = {"$match": {"$and": [{"_id.user": member.id}, {"_id.dayId": {"$gte": 0}}]}}
-        grouped_query = { 
-            "$group": { 
-                "_id": "$_id.user",
-                "total": { "$sum": "$owoCount" },
-                "today": { 
-                    "$sum": { "$cond": [{ "$eq": ["$_id.dayId", today_id] }, "$owoCount", 0] }
-                },
-                "yesterday": { 
-                    "$sum": { "$cond": [{ "$eq": ["$_id.dayId", yesterday_id] }, "$owoCount", 0] }
-                },
-                "this_week": { 
-                    "$sum": { "$cond": [{ "$gte": ["$_id.dayId", this_week_id] }, "$owoCount", 0] }
-                },
-                "last_week": { 
-                    "$sum": { "$cond": [{ "$and": [{ "$gte": ["$_id.dayId", last_week_id] }, { "$lt": ["$_id.dayId", this_week_id] }] }, "$owoCount", 0] }
-                },
-                "this_month": { 
-                    "$sum": { "$cond": [{ "$gte": ["$_id.dayId", this_month_id] }, "$owoCount", 0] }
-                },
-                "last_month": { 
-                    "$sum": { "$cond": [{ "$and": [{ "$gte": ["$_id.dayId", last_month_id] }, { "$lt": ["$_id.dayId", this_month_id] }] }, "$owoCount", 0] }
-                },
-                "this_year": { 
-                    "$sum": { "$cond": [{ "$gte": ["$_id.dayId", this_year_id] }, "$owoCount", 0] }
-                },
-                "last_year": { 
-                    "$sum": { "$cond": [{ "$and": [{ "$gte": ["$_id.dayId", last_year_id] }, { "$lt": ["$_id.dayId", this_year_id] }] }, "$owoCount", 0] }
-                }
-            }
-        }
-
-        if self.next_inactive_check is not None and self.next_inactive_check > date_now and member.get_role(self.lxv_member_id) is not None:
-            start_check_id = utils.date.absolute_day_diff(utils.date.add_months(self.next_inactive_check, -self.inactive_interval_months, 1), base_date)
-            grouped_query["$group"]["lxv"] = {
-                "$sum": { "$cond": [{ "$gte": ["$_id.dayId", start_check_id] }, "$owoCount", 0] }
-            }
-
-        result = self.lxv_stat_collection.aggregate([query, grouped_query])
-        total = today = yesterday = this_week = last_week = this_month = last_month = this_year = last_year = 0
-        lxv_req = -1;
-        async for x in result:
-            total = x["total"]
-            today = x["today"]
-            yesterday = x["yesterday"]
-            this_week = x["this_week"]
-            last_week = x["last_week"]
-            this_month = x["this_month"]
-            last_month = x["last_month"]
-            this_year = x["this_year"]
-            last_year = x["last_year"]
-            if "lxv" in x:
-                lxv_req = max(1000 - x["lxv"], 0)
-
-        custom_embed = discord.Embed(color=discord.Colour.random())
-        custom_embed.add_field(
-            name="What is stat",
-            value=f"Total: **{total}**\n"
-            f"Today: **{today}**\n"
-            f"Yesterday: **{yesterday}**\n",
-            inline=False,
-        )
-        custom_embed.add_field(
-            name="Not so accurate stat",
-            value=f"This week: **{this_week}**\n"
-            f"Last week: **{last_week}**\n"
-            f"This month: **{this_month}**\n"
-            f"Last month: **{last_month}**\n"
-            f"This year: **{this_year}**\n"
-            f"Last year: **{last_year}**\n",
-            inline=False,
-        )
-        if lxv_req >= 0 and self.next_inactive_check is not None and self.next_inactive_check > date_now:
-            custom_embed.add_field(
-                name="Required LXV stat",
-                value=f"**{lxv_req}** owos before check {discord.utils.format_dt(self.next_inactive_check, 'R')}\n" if lxv_req > 0 else f"You have reached requirement <a:kittyhyper:720191352259870750>. Next check {discord.utils.format_dt(self.next_inactive_check, 'R')}",
-                inline=False,
-            )
-        custom_embed.set_author(name=member.name, icon_url=member.avatar)
-        await ctx.send(embed=custom_embed)
 
     @lxv_group.group(invoke_without_command=True, aliases=["dn"], name="donation")
     async def donation_group(self, ctx: commands.Context):
@@ -1194,6 +960,7 @@ class LoveSick(commands.Cog):
         await confirm.wait()
         if not confirm.value:
             return
+
         self.pet_event_focus = res
         self.pet_event_is_enabled = False
         self._pet_event_verified_messages = set()
@@ -1223,7 +990,7 @@ class LoveSick(commands.Cog):
             self.pet_event_required_role_ids = res  # type: ignore
         await self._upsert_pet_event_setting({"requiredRoleIds": self.pet_event_required_role_ids})
 
-    @event_group.command(aliases=['d', 'e', "enable", "disable"])
+    @event_group.command(aliases=['d', 'e', "enable", "disable"])  # type: ignore
     async def toggle(self, ctx):
         """
         Toggle enable or disable event counting
@@ -1235,7 +1002,7 @@ class LoveSick(commands.Cog):
         await self._upsert_pet_event_setting({"isEnabled": self.pet_event_is_enabled})
         await ctx.send("Set to " + ("**enabled**" if self.pet_event_is_enabled else "**disabled**"))
 
-    @event_group.command(aliases=["lxv"])
+    @event_group.command(aliases=['lxv'])  # type: ignore
     async def lxvonly(self, ctx):
         """
         Toggle enable or disable lxv event only
@@ -1525,250 +1292,5 @@ class LoveSick(commands.Cog):
             self.owo_drop_event_settings = guild_setting
         await ctx.send(f"Successfully set **{setting}** to **{number if number is not None else state}**")
 
-    @lxv_group.group(name="automember", aliases=["am"], invoke_without_command=True)
-    async def auto_member(self, ctx: commands.Context):
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        doc = await self._get_auto_member_setting()
-        if not doc or "nextTime" not in doc or "repeatEvery" not in doc or "isEnabled" not in doc:
-            return await ctx.reply("No setting found")
-        display_date = discord.utils.format_dt(doc["lastTime"], "R") if doc["lastTime"] else "None"
-        next_display_date = discord.utils.format_dt(doc["nextTime"], "R") if doc["nextTime"] else "None"
-        custom_embed = discord.Embed(
-            title="Not so informative auto check member role",
-            description=f"Last check: {display_date}\n"
-            f"Next schedule: {next_display_date}\n"
-            f"Repeat schedule every: **{doc['repeatEvery']} months**\n"
-            f"Running: **{self.auto_remove_member.is_running()}**\n"
-            f"Enabled: **{doc['isEnabled']}**\n"
-            f"||For more info, please check by running command `s!help lovesick automember`||",
-            color=discord.Colour.random(),
-        )
-        await ctx.send(embed=custom_embed)
-
-    @auto_member.command(name="memberinfo", aliases=["mi"])
-    async def member_info(self, ctx: commands.Context):
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        if not self.inactive_members_data:
-            if not self.last_inactive_check:
-                return await ctx.reply("Not yet")
-            return await ctx.reply("No inactive member")
-        display_date = discord.utils.format_dt(self.last_inactive_check) if self.last_inactive_check else ''
-        menu = SimplePages(DataEmbedSource(self.inactive_members_data, 15, f"Inactive members as of {display_date}", lambda idx, x: f"{x['name']} [{x['id']}] - **{x['count']}**"))
-        await menu.start(ctx)
-
-
-    @auto_member.command(name="setrole", aliases=["sr"])
-    async def inactive_set_role(self, ctx: commands.Context, role: discord.Role):
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        await self._upsert_auto_member_setting({"inactiveRoleId": str(role.id)})
-        if self.auto_remove_member.is_running():
-            self.auto_remove_member.restart()
-        await ctx.send(f"Successfully set inactive role to @{role.name}", allowed_mentions=discord.AllowedMentions.none())
-
-    @auto_member.command(name="startschedule", aliases=["ss"])
-    async def start_shedule(self, ctx: commands.Context, repeat_time: int = 2, start_time: Optional[int] = None):
-        """
-        Start / Restart schedule for auto member removal.
-        Set repeat_time for repeat schedule in months. Default 2 months
-        Set start_time for starting first schedule in days. Default repeat time. Set 0 to immediately execute first schedule
-        """
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        if repeat_time < 1:
-            return await ctx.send("Invalid time. Must be greater than 0 days")
-        if start_time is None:
-            start_time = repeat_time
-        if start_time < 0:
-            return await ctx.send("Invalid start time")
-
-        tz = pytz.timezone("US/Pacific")
-        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
-        next_time = utils.start_of_day(utils.date.add_months(current_time, start_time, 1))
-        custom_embed = discord.Embed(
-            title="Start schedule",
-            description=f"Schedule for auto check inactive lovesick member will be set to **every {repeat_time} month(s)** starting **{start_time} month(s) from now** {discord.utils.format_dt(next_time, 'R')}.\n"
-            f"This also enable the schedule (if previously disabled). Are you sure?",
-            color=discord.Colour.green(),
-        )
-        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
-        await confirm.send(ctx)
-        await confirm.wait()
-        if not confirm.value:
-            return
-
-        await self._upsert_auto_member_setting({
-            "isEnabled": True,
-            "repeatEvery": repeat_time,
-            "nextTime": next_time,
-        })
-
-        if self.auto_remove_member.is_running():
-            self.auto_remove_member.restart()
-        else:
-            self.auto_remove_member.start()
-
-    @auto_member.command(name="cancelschedule", aliases=["cs"])
-    async def cancel_shedule(self, ctx: commands.Context):
-        """
-        Cancel schedule duh
-        """
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        setting = await self._get_auto_member_setting()
-        if setting is None:
-            return await ctx.reply("No schedule running")
-        custom_embed = discord.Embed(
-            title="Cancel schedule",
-            description=f"Are you sure???",
-            color=discord.Colour.red(),
-        )
-        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
-        await confirm.send(ctx)
-        await confirm.wait()
-        if not confirm.value:
-            return
-        await self._upsert_auto_member_setting({"isEnabled": False})
-        if self.auto_remove_member.is_running():
-            self.auto_remove_member.cancel()
-
-    @auto_member.command(name="rebootchedule", aliases=["rs"])
-    async def reboot_schedule(self, ctx: commands.Context, restart=True):
-        """
-        Restart / Resume schedule
-        """
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        doc = await self._get_auto_member_setting()
-        tz = pytz.timezone("US/Pacific")
-        if not doc:
-            return await ctx.reply("No schedule running")
-        if restart:
-            current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
-            next_time = utils.date.reset_tz(utils.date.add_months(current_time, doc["repeatEvery"], 1), tz)
-            await self._upsert_auto_member_setting({"nextTime": next_time, "isEnabled": True})
-        else:
-            await self._upsert_auto_member_setting({"isEnabled": True})
-
-        if self.auto_remove_member.is_running():
-            self.auto_remove_member.restart()
-        else:
-            self.auto_remove_member.start()
-
-        return await ctx.reply("Restarting schedule" if restart else "Resuming schedule")
-
-    @auto_member.command(name="settimer", aliases=["st"])
-    async def set_timer(self, ctx: commands.Context, start_after: int = 2):
-        """
-        Set the timer for next schedule in months
-        Set to 0 to immediately execute
-        """
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        doc = await self._get_auto_member_setting()
-        tz = pytz.timezone("US/Pacific")
-        if not doc:
-            return await ctx.reply("No schedule running")
-        if start_after < 0:
-            return await ctx.reply("Invalid month")
-        current_time = discord.utils.snowflake_time(ctx.message.id).astimezone(tz)
-        next_time = utils.date.reset_tz(utils.date.add_months(current_time, start_after, 1), tz)
-        custom_embed = discord.Embed(
-            title="Set Timer",
-            description=f"Next schedule for auto check inactive lovesick member will set to **{start_after} months** {discord.utils.format_dt(next_time, 'R')} (previously {discord.utils.format_dt(doc['nextTime'], 'R') if doc['nextTime'] else 'None'})\n",
-            color=discord.Colour.green(),
-        )
-        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
-        await confirm.send(ctx)
-        await confirm.wait()
-        if not confirm.value:
-            return
-        await self._upsert_auto_member_setting({"nextTime": next_time})
-        if self.auto_remove_member.is_running():
-            self.auto_remove_member.restart()
-
-    @auto_member.command()
-    async def execute(self, ctx: commands.Context):
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        if not ctx.author.guild_permissions.manage_roles and self.bot.owner.id != ctx.author.id:  # type: ignore
-            return await ctx.send("Manage role required")
-        if not self.inactive_members_data:
-            return await ctx.reply("Not yet")
-        custom_embed = discord.Embed(
-            title="Execute auto remove member role",
-            description=f"This will remove role from member in previous checked list (you can see the list from command `s!lxv automember memberinfo`)\n"
-            f"**This action is irreversible!**. Are you sure?",
-            color=discord.Colour.red(),
-        )
-        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
-        await confirm.send(ctx)
-        await confirm.wait()
-        if not confirm.value:
-            return
-        lxv_role = ctx.guild.get_role(self.lxv_member_id)  # type: ignore
-        inactive_role = None if self.inactive_role_id is None else ctx.guild.get_role(self.inactive_role_id)  # type: ignore
-        if lxv_role is None:
-            return await ctx.reply("Lxv member role missing")
-        msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
-        for data in self.inactive_members_data:
-            member = ctx.guild.get_member(data["id"])  # type: ignore
-            if member is None:
-                continue
-            await member.remove_roles(lxv_role, reason="Inactive member with less than 1000 owos")
-            if inactive_role is not None:
-                await member.add_roles(inactive_role, reason="Inactive role for member with less than 1000 owos")
-                await asyncio.sleep(0.1)
-        await msg.edit(content="Remove done!")
-
-    @auto_member.command()
-    async def undo(self, ctx: commands.Context):
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        if not ctx.author.guild_permissions.manage_roles and self.bot.owner.id != ctx.author.id:  # type: ignore
-            return await ctx.send("Manage role required")
-        if not self.inactive_members_data:
-            return await ctx.reply("Not yet")
-        custom_embed = discord.Embed(
-            title="Undo remove member role",
-            description=f"This will give role in member in previous checked list (you can see the list from command `s!lxv automember memberinfo`)\n"
-            f"**This action is irreversible!**. Are you sure?",
-            color=discord.Colour.red(),
-        )
-        confirm = ConfirmEmbed(ctx.author.id, custom_embed)
-        await confirm.send(ctx)
-        await confirm.wait()
-        if not confirm.value:
-            return
-        lxv_role = ctx.guild.get_role(self.lxv_member_id)  # type: ignore
-        inactive_role = None if self.inactive_role_id is None else ctx.guild.get_role(self.inactive_role_id)  # type: ignore
-        if lxv_role is None:
-            return await ctx.reply("Lxv member role missing")
-        msg = await ctx.send("Loading <a:discordloading:792012369168957450>")
-        for data in self.inactive_members_data:
-            member = ctx.guild.get_member(data["id"]) # type: ignore
-            if member is None:
-                continue
-            await member.add_roles(lxv_role, reason="Undo execute remove role")
-            if inactive_role is not None:
-                await member.remove_roles(inactive_role, reason="Undo give inactive role")
-                await asyncio.sleep(0.1)
-        await msg.edit(content="Undo done!")
-
-    @auto_member.command()
-    async def forcecheck(self, ctx: commands.Context):
-        """
-        Force check by given interval [WIP]
-        """
-        # TODO: Implement force check using UI
-        if not self.mod_only(ctx):
-            return await ctx.send("You are not allowed to use this command >:(")
-        doc = await self._get_auto_member_setting()
-        if not doc:
-            return await ctx.reply("No schedule running")
-
-        await ctx.reply("WIP")
 async def setup(bot: SewentyBot):
     await bot.add_cog(LoveSick(bot))
